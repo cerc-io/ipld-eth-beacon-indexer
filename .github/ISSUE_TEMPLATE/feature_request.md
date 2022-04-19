@@ -1,20 +1,30 @@
 ---
 name: Feature request
 about: Suggest an idea for this project
-title: ''
-labels: ''
-assignees: ''
-
+title: ""
+labels: ""
+assignees: ""
 ---
 
-**Is your feature request related to a problem? Please describe.**
-A clear and concise description of what the problem is. Ex. I'm always frustrated when [...]
+- [Request](#request)
+  - [Potentialy Solution](#potentialy-solution)
+  - [Alternative Solutions](#alternative-solutions)
+- [Additional Context](#additional-context)
 
-**Describe the solution you'd like**
-A clear and concise description of what you want to happen.
+<small><i><a href='http://ecotrust-canada.github.io/markdown-toc/'>Table of contents generated with markdown-toc</a></i></small>
 
-**Describe alternatives you've considered**
-A clear and concise description of any alternative solutions or features you've considered.
+# Request
 
-**Additional context**
-Add any other context or screenshots about the feature request here.
+**Explain what you want and why. If this feature is related to a problem please highlight it here.**
+
+## Potentialy Solution
+
+**Provide any details for a potential solution.**
+
+## Alternative Solutions
+
+**Provide any alternative solutions.**
+
+# Additional Context
+
+**Provide Additional Context.**
