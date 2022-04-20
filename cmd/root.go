@@ -92,6 +92,7 @@ func logFile() {
 	}
 }
 
+// Format the logger
 func logFormat() {
 	logFormat := viper.GetString("log.format")
 

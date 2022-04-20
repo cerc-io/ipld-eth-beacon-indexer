@@ -36,6 +36,8 @@ a := 1 + 2
 log.Info("1 + 2 successfully Added, outcome is: ", a)
 ```
 
+- `loghelper.LogError(err)` is a pretty wrapper to output errors.
+
 ## Boot
 
 The boot package in `internal` is utilized to start the application. Everything in the boot process must complete successfully for the application to start. If it does not, the application will not start.
