@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	pgConfig, _ = MakeConfig(DefaultConfig)
+	pgConfig, _ = makeConfig(DefaultConfig)
 	ctx         = context.Background()
 )
 
@@ -79,11 +79,20 @@ func TestPostgresPGX(t *testing.T) {
 	})
 
 	t.Run("throws error when can't connect to the database", func(t *testing.T) {
-		_, err := NewPGXDriver(ctx, Config{})
+		_, err := NewPostgresDB(Config{}, "PGX")
 		if err == nil {
 			t.Fatal("Expected an error")
 		}
 
 		expectContainsSubstring(t, err.Error(), sql.DbConnectionFailedMsg)
+	})
+	t.Run("Connect to the database", func(t *testing.T) {
+		driver, err := NewPostgresDB(DefaultConfig, "pgx")
+		defer driver.Close()
+
+		if err != nil {
+			t.Fatal("Error creating the postgres driver")
+		}
+
 	})
 }

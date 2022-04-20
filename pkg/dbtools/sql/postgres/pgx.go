@@ -11,16 +11,16 @@ import (
 	"github.com/vulcanize/ipld-ethcl-indexer/pkg/dbtools/sql"
 )
 
-// PGXDriver driver, implements sql.Driver
-type PGXDriver struct {
+// pgxDriver driver, implements sql.Driver
+type pgxDriver struct {
 	ctx  context.Context
 	pool *pgxpool.Pool
 }
 
-// NewPGXDriver returns a new pgx driver.
+// newPGXDriver returns a new pgx driver.
 // It initializes the connection pool.
-func NewPGXDriver(ctx context.Context, config Config) (*PGXDriver, error) {
-	pgConf, err := MakeConfig(config)
+func newPGXDriver(ctx context.Context, config Config) (*pgxDriver, error) {
+	pgConf, err := makeConfig(config)
 	if err != nil {
 		return nil, err
 	}
@@ -28,12 +28,12 @@ func NewPGXDriver(ctx context.Context, config Config) (*PGXDriver, error) {
 	if err != nil {
 		return nil, sql.ErrDBConnectionFailed(err)
 	}
-	pg := &PGXDriver{ctx: ctx, pool: dbPool}
+	pg := &pgxDriver{ctx: ctx, pool: dbPool}
 	return pg, nil
 }
 
-// MakeConfig creates a pgxpool.Config from the provided Config
-func MakeConfig(config Config) (*pgxpool.Config, error) {
+// makeConfig creates a pgxpool.Config from the provided Config
+func makeConfig(config Config) (*pgxpool.Config, error) {
 	conf, err := pgxpool.ParseConfig("")
 	if err != nil {
 		return nil, err
@@ -65,28 +65,28 @@ func MakeConfig(config Config) (*pgxpool.Config, error) {
 }
 
 // QueryRow satisfies sql.Database
-func (pgx *PGXDriver) QueryRow(ctx context.Context, sql string, args ...interface{}) sql.ScannableRow {
+func (pgx *pgxDriver) QueryRow(ctx context.Context, sql string, args ...interface{}) sql.ScannableRow {
 	return pgx.pool.QueryRow(ctx, sql, args...)
 }
 
 // Exec satisfies sql.Database
-func (pgx *PGXDriver) Exec(ctx context.Context, sql string, args ...interface{}) (sql.Result, error) {
+func (pgx *pgxDriver) Exec(ctx context.Context, sql string, args ...interface{}) (sql.Result, error) {
 	res, err := pgx.pool.Exec(ctx, sql, args...)
 	return resultWrapper{ct: res}, err
 }
 
 // Select satisfies sql.Database
-func (pgx *PGXDriver) Select(ctx context.Context, dest interface{}, query string, args ...interface{}) error {
+func (pgx *pgxDriver) Select(ctx context.Context, dest interface{}, query string, args ...interface{}) error {
 	return pgxscan.Select(ctx, pgx.pool, dest, query, args...)
 }
 
 // Get satisfies sql.Database
-func (pgx *PGXDriver) Get(ctx context.Context, dest interface{}, query string, args ...interface{}) error {
+func (pgx *pgxDriver) Get(ctx context.Context, dest interface{}, query string, args ...interface{}) error {
 	return pgxscan.Get(ctx, pgx.pool, dest, query, args...)
 }
 
 // Begin satisfies sql.Database
-func (pgx *PGXDriver) Begin(ctx context.Context) (sql.Tx, error) {
+func (pgx *pgxDriver) Begin(ctx context.Context) (sql.Tx, error) {
 	tx, err := pgx.pool.Begin(ctx)
 	if err != nil {
 		return nil, err
@@ -94,19 +94,19 @@ func (pgx *PGXDriver) Begin(ctx context.Context) (sql.Tx, error) {
 	return pgxTxWrapper{tx: tx}, nil
 }
 
-func (pgx *PGXDriver) Stats() sql.Stats {
+func (pgx *pgxDriver) Stats() sql.Stats {
 	stats := pgx.pool.Stat()
 	return pgxStatsWrapper{stats: stats}
 }
 
 // Close satisfies sql.Database/io.Closer
-func (pgx *PGXDriver) Close() error {
+func (pgx *pgxDriver) Close() error {
 	pgx.pool.Close()
 	return nil
 }
 
 // Context satisfies sql.Database
-func (pgx *PGXDriver) Context() context.Context {
+func (pgx *pgxDriver) Context() context.Context {
 	return pgx.ctx
 }
 
