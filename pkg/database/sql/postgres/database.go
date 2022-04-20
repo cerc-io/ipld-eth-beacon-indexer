@@ -38,7 +38,7 @@ func createDriver(c Config) (*pgxDriver, error) {
 		log.Info("Successfully created a driver for PGX")
 		return driver, nil
 	default:
-		log.Fatal("Couldnt find a driver to create for: ", c.Driver)
+		log.Error("Couldnt find a driver to create for: ", c.Driver)
 		return nil, fmt.Errorf("Can't find a driver to create")
 	}
 

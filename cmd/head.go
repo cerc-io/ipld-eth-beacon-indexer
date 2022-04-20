@@ -5,12 +5,9 @@ Copyright © 2022 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
-	"fmt"
-
-	log "github.com/sirupsen/logrus"
-
 	"github.com/spf13/cobra"
 	"github.com/vulcanize/ipld-ethcl-indexer/internal/boot"
+	"github.com/vulcanize/ipld-ethcl-indexer/pkg/loghelper"
 )
 
 // headCmd represents the head command
@@ -19,15 +16,14 @@ var headCmd = &cobra.Command{
 	Short: "Capture only the blocks and state at head.",
 	Long:  `Capture only the blocks and state at head.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("head called")
 		startHeadTracking()
 	},
 }
 
 func startHeadTracking() {
-	_, err := boot.BootApplication(dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver)
+	_, err := boot.BootApplication(dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver, bcAddress, bcPort)
 	if err != nil {
-		log.Fatal("Unable to Start application with error: ", err)
+		loghelper.LogError(err).Error("Unable to Start application")
 	}
 }
 

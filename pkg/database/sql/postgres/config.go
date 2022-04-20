@@ -22,6 +22,7 @@ var DefaultConfig = Config{
 	DatabaseName: "vulcanize_testing",
 	Username:     "vdbm",
 	Password:     "password",
+	Driver:       "PGX",
 }
 
 // ResolveDriverType resolves a DriverType from a provided string

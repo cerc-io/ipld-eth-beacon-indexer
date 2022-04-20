@@ -6,31 +6,32 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"os"
 
+	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
 var (
-	cfgFile        string
-	dbUsername     string
-	dbPassword     string
-	dbName         string
-	dbAddress      string
-	dbDriver       string
-	dbPort         int
-	lhAddress      string
-	lhPort         uint16
-	logWithCommand log.Entry
+	cfgFile    string
+	dbUsername string
+	dbPassword string
+	dbName     string
+	dbAddress  string
+	dbDriver   string
+	dbPort     int
+	bcAddress  string
+	bcPort     int
 )
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "ipld-ethcl-indexer",
-	Short: "This application will keep track of all BeaconState's and SginedBeaconBlock's on the Beacon Chain.",
-	Long: `This is an application that will capture the BeaconState's and SginedBeaconBlock's on the Beacon Chain.
+	Short: "This application will keep track of all BeaconState's and SignedBeaconBlock's on the Beacon Chain.",
+	Long: `This is an application that will capture the BeaconState's and SignedBeaconBlock's on the Beacon Chain.
 It can either do this will keeping track of head, or backfilling historic data.`,
 	PersistentPreRun: initFuncs,
 	// Uncomment the following line if your bare application
@@ -49,23 +50,10 @@ func Execute() {
 
 // Prerun for Cobra
 func initFuncs(cmd *cobra.Command, args []string) {
-	viper.BindEnv("log.file", "LOGRUS_FILE")
-	logfile := viper.GetString("log.file")
-	if logfile != "" {
-		file, err := os.OpenFile(logfile,
-			os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-		if err == nil {
-			log.Infof("Directing output to %s", logfile)
-			log.SetOutput(file)
-		} else {
-			log.SetOutput(os.Stdout)
-			log.Info("Failed to log to file, using default stdout")
-		}
-	} else {
-		log.SetOutput(os.Stdout)
-	}
+	logFormat()
+	logFile()
 	if err := logLevel(); err != nil {
-		log.Fatal("Could not set log level: ", err)
+		log.WithField("err", err).Error("Could not set log level")
 	}
 }
 
@@ -84,6 +72,35 @@ func logLevel() error {
 	return nil
 }
 
+// Create a log file
+func logFile() {
+	viper.BindEnv("log.file", "LOGRUS_FILE")
+	logfile := viper.GetString("log.file")
+	if logfile != "" {
+		file, err := os.OpenFile(logfile,
+			os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+		if err == nil {
+			log.Infof("Directing output to %s", logfile)
+			mw := io.MultiWriter(os.Stdout, file)
+			logrus.SetOutput(mw)
+		} else {
+			log.SetOutput(os.Stdout)
+			log.Info("Failed to log to file, using default stdout")
+		}
+	} else {
+		log.SetOutput(os.Stdout)
+	}
+}
+
+func logFormat() {
+	logFormat := viper.GetString("log.format")
+
+	if logFormat == "json" {
+		log.SetFormatter(&log.JSONFormatter{})
+
+	}
+}
+
 func init() {
 	cobra.OnInitialize(initConfig)
 
@@ -93,8 +110,9 @@ func init() {
 
 	// Optional Flags
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.ipld-ethcl-indexer.yaml)")
-	rootCmd.PersistentFlags().String("log-level", log.InfoLevel.String(), "log level (trace, debug, info, warn, error, fatal, panic)")
-	rootCmd.PersistentFlags().String("log-file", "ipld-ethcl-indexer.log", "file path for logging")
+	rootCmd.PersistentFlags().String("log.level", log.InfoLevel.String(), "log level (trace, debug, info, warn, error, fatal, panic)")
+	rootCmd.PersistentFlags().String("log.file", "ipld-ethcl-indexer.log", "file path for logging")
+	rootCmd.PersistentFlags().String("log.format", "json", "json or text")
 
 	// Required Flags
 
@@ -112,16 +130,17 @@ func init() {
 	rootCmd.MarkPersistentFlagRequired("db.name")
 	rootCmd.MarkPersistentFlagRequired("db.driver")
 
-	//// Lighthouse Specific
-	rootCmd.PersistentFlags().StringVarP(&lhAddress, "lh.address", "l", "", "Address to connect to lighthouse node (required if username is set)")
-	rootCmd.PersistentFlags().Uint16VarP(&lhPort, "lh.port", "r", 0, "Port to connect to lighthouse node (required if username is set)")
-	rootCmd.MarkPersistentFlagRequired("lh.address")
-	rootCmd.MarkPersistentFlagRequired("lh.port")
+	//// Beacon Client Specific
+	rootCmd.PersistentFlags().StringVarP(&bcAddress, "bc.address", "l", "", "Address to connect to beacon node (required if username is set)")
+	rootCmd.PersistentFlags().IntVarP(&bcPort, "bc.port", "r", 0, "Port to connect to beacon node (required if username is set)")
+	rootCmd.MarkPersistentFlagRequired("bc.address")
+	rootCmd.MarkPersistentFlagRequired("bc.port")
 
 	// Bind Flags with Viper
 	// Optional
-	viper.BindPFlag("log.level", rootCmd.PersistentFlags().Lookup("log-level"))
-	viper.BindPFlag("log.file", rootCmd.PersistentFlags().Lookup("log-file"))
+	viper.BindPFlag("log.level", rootCmd.PersistentFlags().Lookup("log.level"))
+	viper.BindPFlag("log.file", rootCmd.PersistentFlags().Lookup("log.file"))
+	viper.BindPFlag("log.format", rootCmd.PersistentFlags().Lookup("log.format"))
 
 	//// DB Flags
 	viper.BindPFlag("db.username", rootCmd.PersistentFlags().Lookup("db.username"))
@@ -132,8 +151,8 @@ func init() {
 	viper.BindPFlag("db.driver", rootCmd.PersistentFlags().Lookup("db.driver"))
 
 	// LH specific
-	viper.BindPFlag("lh.address", rootCmd.PersistentFlags().Lookup("lh.address"))
-	viper.BindPFlag("lh.port", rootCmd.PersistentFlags().Lookup("lh.port"))
+	viper.BindPFlag("bc.address", rootCmd.PersistentFlags().Lookup("bc.address"))
+	viper.BindPFlag("bc.port", rootCmd.PersistentFlags().Lookup("bc.port"))
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.

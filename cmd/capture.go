@@ -14,7 +14,7 @@ var captureCmd = &cobra.Command{
 	Short: "Capture the SignedBeaconBlocks and BeaconStates from the Beacon Chain",
 	Long: `Capture SignedBeaconBlocks and BeaconStates from the Beacon Chain.
 	These blocks and states will be captured in
-	Postgres. They require a lighthouse client to be connected. You can run this to
+	Postgres. They require a beacon client to be connected. You can run this to
 	capture blocks and states at head or historic blocks.`,
 }
 

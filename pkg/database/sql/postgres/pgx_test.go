@@ -79,7 +79,9 @@ func TestPostgresPGX(t *testing.T) {
 	})
 
 	t.Run("throws error when can't connect to the database", func(t *testing.T) {
-		_, err := NewPostgresDB(Config{}, "PGX")
+		_, err := NewPostgresDB(Config{
+			Driver: "PGX",
+		})
 		if err == nil {
 			t.Fatal("Expected an error")
 		}
@@ -87,7 +89,7 @@ func TestPostgresPGX(t *testing.T) {
 		expectContainsSubstring(t, err.Error(), sql.DbConnectionFailedMsg)
 	})
 	t.Run("Connect to the database", func(t *testing.T) {
-		driver, err := NewPostgresDB(DefaultConfig, "pgx")
+		driver, err := NewPostgresDB(DefaultConfig)
 		defer driver.Close()
 
 		if err != nil {
