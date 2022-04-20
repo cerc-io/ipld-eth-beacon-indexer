@@ -7,7 +7,10 @@ package cmd
 import (
 	"fmt"
 
+	log "github.com/sirupsen/logrus"
+
 	"github.com/spf13/cobra"
+	"github.com/vulcanize/ipld-ethcl-indexer/internal/boot"
 )
 
 // headCmd represents the head command
@@ -17,7 +20,15 @@ var headCmd = &cobra.Command{
 	Long:  `Capture only the blocks and state at head.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("head called")
+		startHeadTracking()
 	},
+}
+
+func startHeadTracking() {
+	_, err := boot.BootApplication(dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver)
+	if err != nil {
+		log.Fatal("Unable to Start application with error: ", err)
+	}
 }
 
 func init() {

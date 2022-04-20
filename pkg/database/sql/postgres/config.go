@@ -53,10 +53,6 @@ type Config struct {
 	MaxConnLifetime time.Duration
 	ConnTimeout     time.Duration
 
-	// node info params
-	ID         string
-	ClientName string
-
 	// driver type
 	Driver DriverType
 }
