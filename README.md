@@ -2,6 +2,19 @@
 
 This application will capture all the `BeaconState`'s and `SignedBeaconBlock`'s from the consensus chain on Ethereum.
 
+# Running the Application
+
+To run the application, utilize the following command, and update the values as needed.
+
+```
+go run main.go capture head --db.address localhost \
+  --db.password password \
+  --db.port 8077 \
+  --db.username username \
+  --lh.address localhost \
+  --lh.port 5052
+```
+
 # Contribution
 
 If you want to contribute please make sure you do the following:
@@ -9,6 +22,7 @@ If you want to contribute please make sure you do the following:
 - Create a Github issue before starting your work.
 - Follow the branching structure.
 - Delete your branch once it has been merged.
+  - Do not delete the `develop` branch. We can add branch protection once we make the branch public.
 
 ## Branching Structure
 

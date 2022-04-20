@@ -5,24 +5,17 @@ Copyright © 2022 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 )
 
 // captureCmd represents the capture command
 var captureCmd = &cobra.Command{
 	Use:   "capture",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("capture called")
-	},
+	Short: "Capture the SignedBeaconBlocks and BeaconStates from the Beacon Chain",
+	Long: `Capture SignedBeaconBlocks and BeaconStates from the Beacon Chain.
+	These blocks and states will be captured in
+	Postgres. They require a lighthouse client to be connected. You can run this to
+	capture blocks and states at head or historic blocks.`,
 }
 
 func init() {
