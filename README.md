@@ -1,3 +1,13 @@
+- [ipld-ethcl-indexer](#ipld-ethcl-indexer)
+- [Running the Application](#running-the-application)
+- [Development Patterns](#development-patterns)
+  - [Logging](#logging)
+  - [Testing](#testing)
+- [Contribution](#contribution)
+  - [Branching Structure](#branching-structure)
+
+<small><i><a href='http://ecotrust-canada.github.io/markdown-toc/'>Table of contents generated with markdown-toc</a></i></small>
+
 # ipld-ethcl-indexer
 
 This application will capture all the `BeaconState`'s and `SignedBeaconBlock`'s from the consensus chain on Ethereum. This application is going to connect to the lighthouse client, but hypothetically speaking, it should be interchangeable with any eth2 beacon node.
