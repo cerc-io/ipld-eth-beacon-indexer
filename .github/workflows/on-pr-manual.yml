@@ -47,9 +47,10 @@ jobs:
       - name: Run docker compose
         run: |
           docker-compose  \
-          -f "$GITHUB_WORKSPACE/foundry-test/docker/local/docker-compose-db.yml"
-          -f "$GITHUB_WORKSPACE/foundry-test/docker/latest/docker-compose-lighthouse.yml"
-          -d up --build
+          -f "$GITHUB_WORKSPACE/foundry-test/docker/local/docker-compose-db.yml" \
+          -f "$GITHUB_WORKSPACE/foundry-test/docker/latest/docker-compose-lighthouse.yml" \
+          --env-file ./config.sh \
+          up -d --build
 
       - name: Wait and run tests
         run: |
