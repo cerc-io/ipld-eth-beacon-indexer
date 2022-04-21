@@ -1,0 +1,55 @@
+name: Test Application Manually
+
+on:
+  workflow_dispatch:
+    inputs:
+      foundry-test-ref:
+        description: "The branch, commit or sha from foundry-test to checkout"
+        required: false
+        default: "main"
+      ipld-eth-db-ref:
+        description: "The branch, commit or sha from ipld-eth-db to checkout"
+        required: false
+        default: "main"
+
+jobs:
+  build:
+    name: Run docker build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Run docker build
+        run: make docker-build
+  test:
+    name: Run unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.inputs.foundry-test-ref }}
+          path: "./foundry-test/"
+
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.inputs.foundry-test-ref }}
+          path: "/tmp/foundry-test/"
+
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.inputs.ipld-eth-db-ref }}
+          path: "/tmp/ipld-eth-db-ref/"
+
+      - name: Run docker compose
+        run: |
+          docker-compose -e vulcanize_ipld_ethcl_indexer="$(pwd)/ipld-ethcl/indexer" \
+          -e vulcanize_ipld_eth_db=/tmp/ipld-eth-db-ref/
+          -f "/tmp/foundry-test/docker/local/docker-compose-db.yml"
+          -f "/tmp/foundry-test/docker/latest/docker-compose-lighthouse.yml"
+          -d up --build
+
+      - name: Wait and run tests
+        run: |
+          sleep 20
+          make test
