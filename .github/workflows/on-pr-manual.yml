@@ -71,13 +71,6 @@ jobs:
           go install github.com/onsi/ginkgo/v2/ginkgo@latest
           which ginkgo
 
-      - name: Run the tests
-        run: |
-          cd ipld-ethcl-indexer
-          go vet ./...
-          go fmt ./...
-          $(which ginkgo) -r
-
       - name: Run the tests using Make
         run: |
           cd ipld-ethcl-indexer
