@@ -63,8 +63,7 @@ jobs:
 
       - name: Install packages
         run: |
-          go install -mod=mod github.com/onsi/ginkgo/v2/ginkgo
-          go get github.com/onsi/gomega/...
+          go install github.com/onsi/ginkgo/v2/ginkgo@latest
 
       - name: Run the tests
         run: |
