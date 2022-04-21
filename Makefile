@@ -14,7 +14,7 @@ installtools: | $(GINKGO)
 	echo "Installing tools"
 
 .PHONY: test
-test: | $(GINKGO)
+test:
 	go vet ./...
 	go fmt ./...
 	$(GINKGO) -r
