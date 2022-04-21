@@ -32,11 +32,13 @@ jobs:
         with:
           ref: ${{ github.event.inputs.foundry-test-ref }}
           path: "$GITHUB_WORKSPACE/foundry-test/"
+          repository: vulcanize/foundry-test
           fetch-depth: 0
 
       - uses: actions/checkout@v3
         with:
           ref: ${{ github.event.inputs.ipld-eth-db-ref }}
+          repository: vulcanize/ipld-eth-db
           path: "$GITHUB_WORKSPACE/ipld-eth-db/"
           fetch-depth: 0
 
