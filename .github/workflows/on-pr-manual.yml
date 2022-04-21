@@ -23,7 +23,12 @@ jobs:
   test:
     name: Run unit tests
     runs-on: ubuntu-latest
+    env:
+      GOPATH: /tmp/go
     steps:
+      - name: Create GOPATH
+        run: mkdir -p /tmp/go
+
       - uses: actions/checkout@v2
         with:
           path: "./ipld-ethcl-indexer"
