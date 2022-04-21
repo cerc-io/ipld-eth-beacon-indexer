@@ -66,10 +66,9 @@ jobs:
           go install github.com/onsi/ginkgo/v2/ginkgo@latest
 
       - name: Run the tests
+        env:
+          GOPATH: ${{ runner.workspace }}
         run: |
-          echo $GOBIN
-          ls $GOBIN
-          export GOPATH=$HOME/go
           cd ipld-ethcl-indexer
           make test
 
