@@ -67,5 +67,6 @@ jobs:
 
       - name: Run the tests
         run: |
+          export PATH=$PATH:$(go env GOPATH)/bin
           cd ipld-ethcl-indexer
           make test
