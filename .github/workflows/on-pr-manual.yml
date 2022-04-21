@@ -73,9 +73,6 @@ jobs:
       - name: Run the tests
         run: |
           cd ipld-ethcl-indexer
-          ls go/
-          go vet ./...
-          go fmt ./...
-          ./go/bin/ginko -r
+          make test
 
 #          export GOPATH=$(echo $GOBIN | rev | cut -d "/" -f 2- | rev)
