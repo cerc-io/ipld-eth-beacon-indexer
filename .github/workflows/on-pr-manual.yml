@@ -78,4 +78,7 @@ jobs:
           go fmt ./...
           $(which ginkgo) -r
 
-#          export GOPATH=$(echo $GOBIN | rev | cut -d "/" -f 2- | rev)
+      - name: Run the tests using Make
+        run: |
+          cd ipld-ethcl-indexer
+          make test

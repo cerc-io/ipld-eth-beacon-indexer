@@ -1,4 +1,3 @@
-GOPATH = $(go env GOPATH)
 BIN = $(GOPATH)/bin
 BASE = $(GOPATH)/src/$(PACKAGE)
 PKGS = go list ./... | grep -v "^vendor/"
