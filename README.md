@@ -2,6 +2,8 @@
 
 This application will capture all the `BeaconState`'s and `SignedBeaconBlock`'s from the consensus chain on Ethereum. This application is going to connect to the lighthouse client, but hypothetically speaking, it should be interchangeable with any eth2 beacon node.
 
+To learn more about the applications individual components, please read the [application components](/application_component.md).
+
 # Running the Application
 
 To run the application, utilize the following command, and update the values as needed.
@@ -38,9 +40,13 @@ log.Info("1 + 2 successfully Added, outcome is: ", a)
 
 - `loghelper.LogError(err)` is a pretty wrapper to output errors.
 
-## Boot
+## Testing
 
-The boot package in `internal` is utilized to start the application. Everything in the boot process must complete successfully for the application to start. If it does not, the application will not start.
+This project utilizes `ginkgo` for testing. A few notes on testing:
+
+- All tests within this code base will test **public methods only**.
+- All test packages are named `{base_package}_test`. This ensures we only test the public methods.
+- If there is a need to test a private method, please include why in the testing file.
 
 # Contribution
 

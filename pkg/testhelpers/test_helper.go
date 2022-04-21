@@ -1,15 +1,16 @@
 package testhelpers
 
 import (
+	"fmt"
 	"reflect"
-	"testing"
 )
 
 // ExpectEqual asserts the provided interfaces are deep equal
-func ExpectEqual(t *testing.T, got interface{}, want interface{}) {
+func IsEqual(got interface{}, want interface{}) (bool, error) {
 	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("Expected: %v\nActual: %v", want, got)
+		return false, fmt.Errorf("Expected: %v\nActual: %v", want, got)
 	}
+	return true, nil
 }
 
 // ListContainsString used to check if a list of strings contains a particular string
