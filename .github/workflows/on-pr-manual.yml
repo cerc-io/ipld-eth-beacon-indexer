@@ -59,4 +59,5 @@ jobs:
       - name: Wait and run tests
         run: |
           sleep 20
+          cd ipld-ethcl-indexer
           make test
