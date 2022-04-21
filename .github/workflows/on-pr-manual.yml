@@ -67,9 +67,10 @@ jobs:
 
       - name: Run the tests
         env:
-          GOPATH: ${{ runner.workspace }}
         run: |
           cd ipld-ethcl-indexer
+          export GOPATH=./go
+          echo $GOPATH
           make test
 
 #          export GOPATH=$(echo $GOBIN | rev | cut -d "/" -f 2- | rev)
