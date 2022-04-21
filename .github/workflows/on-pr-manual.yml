@@ -65,5 +65,6 @@ jobs:
         run: |
           sleep 20
           cd ipld-ethcl-indexer
-          go mod download
+          go install -mod=mod github.com/onsi/ginkgo/v2/ginkgo
+          go get github.com/onsi/gomega/...
           make test

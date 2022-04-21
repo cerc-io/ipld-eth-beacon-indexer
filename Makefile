@@ -6,7 +6,7 @@ PKGS = go list ./... | grep -v "^vendor/"
 ## Testing library
 GINKGO = $(BIN)/ginkgo
 $(BIN)/ginkgo:
-	go get -u github.com/onsi/ginkgo/ginkgo
+	go install github.com/onsi/ginkgo/ginkgo
 
 
 .PHONY: installtools
