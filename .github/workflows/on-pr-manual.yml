@@ -66,11 +66,11 @@ jobs:
           go install github.com/onsi/ginkgo/v2/ginkgo@latest
 
       - name: Run the tests
-        env:
         run: |
           cd ipld-ethcl-indexer
-          export GOPATH=./go
-          echo $GOPATH
-          make test
+          ls go/
+          go vet ./...
+          go fmt ./...
+          ./go/bin/ginko -r
 
 #          export GOPATH=$(echo $GOBIN | rev | cut -d "/" -f 2- | rev)
