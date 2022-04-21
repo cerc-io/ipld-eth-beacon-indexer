@@ -38,10 +38,15 @@ jobs:
           ref: ${{ github.event.inputs.ipld-eth-db-ref }}
           path: "$GITHUB_WORKSPACE/ipld-eth-db/"
 
+      - name: Create config file
+        run: |
+          echo vulcanize_ipld_eth_db=$GITHUB_WORKSPACE/ipld-eth-db/ > ./config.sh
+          echo vulcanize_ipld_ethcl_indexer=$GITHUB_WORKSPACE/ipld-ethcl-indexer >> ./config.sh
+          cat ./config.sh
+
       - name: Run docker compose
         run: |
-          docker-compose -e vulcanize_ipld_ethcl_indexer="$GITHUB_WORKSPACE/ipld-ethcl-indexer" \
-          -e vulcanize_ipld_eth_db=$GITHUB_WORKSPACE/ipld-eth-db/
+          docker-compose  \
           -f "$GITHUB_WORKSPACE/foundry-test/docker/local/docker-compose-db.yml"
           -f "$GITHUB_WORKSPACE/foundry-test/docker/latest/docker-compose-lighthouse.yml"
           -d up --build
