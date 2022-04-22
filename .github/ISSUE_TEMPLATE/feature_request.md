@@ -7,7 +7,7 @@ assignees: ""
 ---
 
 - [Request](#request)
-  - [Potentialy Solution](#potentialy-solution)
+  - [Potential Solution](#potential-solution)
   - [Alternative Solutions](#alternative-solutions)
 - [Additional Context](#additional-context)
 
@@ -17,7 +17,7 @@ assignees: ""
 
 **Explain what you want and why. If this feature is related to a problem please highlight it here.**
 
-## Potentialy Solution
+## Potential Solution
 
 **Provide any details for a potential solution.**
 
