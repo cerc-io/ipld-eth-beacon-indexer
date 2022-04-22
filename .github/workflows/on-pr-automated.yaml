@@ -134,3 +134,4 @@ jobs:
           go-version: ">=1.17.0"
       - uses: actions/checkout@v3
       - name: golangci-lint
+        uses: golangci/golangci-lint-action@v3
