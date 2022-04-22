@@ -125,3 +125,12 @@ jobs:
         run: |
           cd ipld-ethcl-indexer
           make integration-test-ci
+
+  golangci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-go@v3
+        with:
+          go-version: ">=1.17.0"
+      - uses: actions/checkout@v3
+      - name: golangci-lint

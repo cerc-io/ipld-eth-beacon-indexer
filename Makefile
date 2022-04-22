@@ -28,7 +28,7 @@ integration-test-ci:
 	--randomize-all --randomize-suites \
 	--fail-on-pending --keep-going \
 	--cover --coverprofile=cover.profile \
-	--race --trace --json-report=report.json --timeout=TIMEOUT
+	--race --trace --json-report=report.json
 
 .PHONY: unit-test-ci
 unit-test-ci:
@@ -39,7 +39,7 @@ unit-test-ci:
 	--randomize-all --randomize-suites \
 	--fail-on-pending --keep-going \
 	--cover --coverprofile=cover.profile \
-	--race --trace --json-report=report.json --timeout=TIMEOUT
+	--race --trace --json-report=report.json
 
 
 .PHONY: build
