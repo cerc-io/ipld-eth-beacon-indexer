@@ -42,7 +42,9 @@ func Execute() {
 // Prerun for Cobra
 func initFuncs(cmd *cobra.Command, args []string) {
 	logFormat()
-	logFile()
+	if err := logFile(); err != nil {
+		log.WithField("err", err).Error("Could not set log file")
+	}
 	if err := logLevel(); err != nil {
 		log.WithField("err", err).Error("Could not set log level")
 	}
@@ -50,7 +52,10 @@ func initFuncs(cmd *cobra.Command, args []string) {
 
 // Set the log level for the application
 func logLevel() error {
-	viper.BindEnv("log.level", "LOGRUS_LEVEL")
+	err := viper.BindEnv("log.level", "LOGRUS_LEVEL")
+	if err != nil {
+		return err
+	}
 	lvl, err := log.ParseLevel(viper.GetString("log.level"))
 	if err != nil {
 		return err
@@ -64,8 +69,11 @@ func logLevel() error {
 }
 
 // Create a log file
-func logFile() {
-	viper.BindEnv("log.file", "LOGRUS_FILE")
+func logFile() error {
+	err := viper.BindEnv("log.file", "LOGRUS_FILE")
+	if err != nil {
+		return err
+	}
 	logfile := viper.GetString("log.file")
 	if logfile != "" {
 		file, err := os.OpenFile(logfile,
@@ -85,6 +93,7 @@ func logFile() {
 	} else {
 		log.SetOutput(os.Stdout)
 	}
+	return nil
 }
 
 // Format the logger
@@ -113,10 +122,14 @@ func init() {
 
 	// Bind Flags with Viper
 	// Optional
-	viper.BindPFlag("log.level", rootCmd.PersistentFlags().Lookup("log.level"))
-	viper.BindPFlag("log.file", rootCmd.PersistentFlags().Lookup("log.file"))
-	viper.BindPFlag("log.output", rootCmd.PersistentFlags().Lookup("log.output"))
-	viper.BindPFlag("log.format", rootCmd.PersistentFlags().Lookup("log.format"))
+	err := viper.BindPFlag("log.level", rootCmd.PersistentFlags().Lookup("log.level"))
+	exitErr(err)
+	err = viper.BindPFlag("log.file", rootCmd.PersistentFlags().Lookup("log.file"))
+	exitErr(err)
+	err = viper.BindPFlag("log.output", rootCmd.PersistentFlags().Lookup("log.output"))
+	exitErr(err)
+	err = viper.BindPFlag("log.format", rootCmd.PersistentFlags().Lookup("log.format"))
+	exitErr(err)
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
