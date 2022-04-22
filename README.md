@@ -57,6 +57,9 @@ This project utilizes `ginkgo` for testing. A few notes on testing:
 - All tests within this code base will test **public methods only**.
 - All test packages are named `{base_package}_test`. This ensures we only test the public methods.
 - If there is a need to test a private method, please include why in the testing file.
+- Unit tests must contain the `Label("unit")`.
+- Unit tests should not rely on any running service. If a running service is needed. Utilize an integration test.
+- Integration tests must contain the `Label("integration")`.
 
 # Contribution
 

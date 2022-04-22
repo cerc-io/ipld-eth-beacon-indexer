@@ -9,22 +9,13 @@ import (
 	"io"
 	"os"
 
-	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
 var (
-	cfgFile    string
-	dbUsername string
-	dbPassword string
-	dbName     string
-	dbAddress  string
-	dbDriver   string
-	dbPort     int
-	bcAddress  string
-	bcPort     int
+	cfgFile string
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -51,7 +42,9 @@ func Execute() {
 // Prerun for Cobra
 func initFuncs(cmd *cobra.Command, args []string) {
 	logFormat()
-	logFile()
+	if err := logFile(); err != nil {
+		log.WithField("err", err).Error("Could not set log file")
+	}
 	if err := logLevel(); err != nil {
 		log.WithField("err", err).Error("Could not set log level")
 	}
@@ -59,7 +52,10 @@ func initFuncs(cmd *cobra.Command, args []string) {
 
 // Set the log level for the application
 func logLevel() error {
-	viper.BindEnv("log.level", "LOGRUS_LEVEL")
+	err := viper.BindEnv("log.level", "LOGRUS_LEVEL")
+	if err != nil {
+		return err
+	}
 	lvl, err := log.ParseLevel(viper.GetString("log.level"))
 	if err != nil {
 		return err
@@ -73,16 +69,23 @@ func logLevel() error {
 }
 
 // Create a log file
-func logFile() {
-	viper.BindEnv("log.file", "LOGRUS_FILE")
+func logFile() error {
+	err := viper.BindEnv("log.file", "LOGRUS_FILE")
+	if err != nil {
+		return err
+	}
 	logfile := viper.GetString("log.file")
 	if logfile != "" {
 		file, err := os.OpenFile(logfile,
 			os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 		if err == nil {
-			log.Infof("Directing output to %s", logfile)
-			mw := io.MultiWriter(os.Stdout, file)
-			logrus.SetOutput(mw)
+			if viper.GetBool("log.output") {
+				log.Infof("Directing output to %s", logfile)
+				mw := io.MultiWriter(os.Stdout, file)
+				log.SetOutput(mw)
+			} else {
+				log.SetOutput(file)
+			}
 		} else {
 			log.SetOutput(os.Stdout)
 			log.Info("Failed to log to file, using default stdout")
@@ -90,6 +93,7 @@ func logFile() {
 	} else {
 		log.SetOutput(os.Stdout)
 	}
+	return nil
 }
 
 // Format the logger
@@ -113,47 +117,19 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.ipld-ethcl-indexer.yaml)")
 	rootCmd.PersistentFlags().String("log.level", log.InfoLevel.String(), "log level (trace, debug, info, warn, error, fatal, panic)")
 	rootCmd.PersistentFlags().String("log.file", "ipld-ethcl-indexer.log", "file path for logging")
+	rootCmd.PersistentFlags().Bool("log.output", true, "Should we log to STDOUT")
 	rootCmd.PersistentFlags().String("log.format", "json", "json or text")
-
-	// Required Flags
-
-	//// DB Specific
-	rootCmd.PersistentFlags().StringVarP(&dbUsername, "db.username", "", "", "Database username (required)")
-	rootCmd.PersistentFlags().StringVarP(&dbPassword, "db.password", "", "", "Database Password (required)")
-	rootCmd.PersistentFlags().StringVarP(&dbAddress, "db.address", "", "", "Port to connect to DB(required)")
-	rootCmd.PersistentFlags().StringVarP(&dbName, "db.name", "n", "", "Database name connect to DB(required)")
-	rootCmd.PersistentFlags().StringVarP(&dbDriver, "db.driver", "", "", "Database Driver to connect to DB(required)")
-	rootCmd.PersistentFlags().IntVarP(&dbPort, "db.port", "", 0, "Port to connect to DB(required)")
-	rootCmd.MarkPersistentFlagRequired("db.username")
-	rootCmd.MarkPersistentFlagRequired("db.password")
-	rootCmd.MarkPersistentFlagRequired("db.address")
-	rootCmd.MarkPersistentFlagRequired("db.port")
-	rootCmd.MarkPersistentFlagRequired("db.name")
-	rootCmd.MarkPersistentFlagRequired("db.driver")
-
-	//// Beacon Client Specific
-	rootCmd.PersistentFlags().StringVarP(&bcAddress, "bc.address", "l", "", "Address to connect to beacon node (required if username is set)")
-	rootCmd.PersistentFlags().IntVarP(&bcPort, "bc.port", "r", 0, "Port to connect to beacon node (required if username is set)")
-	rootCmd.MarkPersistentFlagRequired("bc.address")
-	rootCmd.MarkPersistentFlagRequired("bc.port")
 
 	// Bind Flags with Viper
 	// Optional
-	viper.BindPFlag("log.level", rootCmd.PersistentFlags().Lookup("log.level"))
-	viper.BindPFlag("log.file", rootCmd.PersistentFlags().Lookup("log.file"))
-	viper.BindPFlag("log.format", rootCmd.PersistentFlags().Lookup("log.format"))
-
-	//// DB Flags
-	viper.BindPFlag("db.username", rootCmd.PersistentFlags().Lookup("db.username"))
-	viper.BindPFlag("db.password", rootCmd.PersistentFlags().Lookup("db.password"))
-	viper.BindPFlag("db.address", rootCmd.PersistentFlags().Lookup("db.address"))
-	viper.BindPFlag("db.port", rootCmd.PersistentFlags().Lookup("db.port"))
-	viper.BindPFlag("db.name", rootCmd.PersistentFlags().Lookup("db.name"))
-	viper.BindPFlag("db.driver", rootCmd.PersistentFlags().Lookup("db.driver"))
-
-	// LH specific
-	viper.BindPFlag("bc.address", rootCmd.PersistentFlags().Lookup("bc.address"))
-	viper.BindPFlag("bc.port", rootCmd.PersistentFlags().Lookup("bc.port"))
+	err := viper.BindPFlag("log.level", rootCmd.PersistentFlags().Lookup("log.level"))
+	exitErr(err)
+	err = viper.BindPFlag("log.file", rootCmd.PersistentFlags().Lookup("log.file"))
+	exitErr(err)
+	err = viper.BindPFlag("log.output", rootCmd.PersistentFlags().Lookup("log.output"))
+	exitErr(err)
+	err = viper.BindPFlag("log.format", rootCmd.PersistentFlags().Lookup("log.format"))
+	exitErr(err)
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.

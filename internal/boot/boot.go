@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/vulcanize/ipld-ethcl-indexer/pkg/database/sql/postgres"
@@ -12,6 +13,8 @@ import (
 
 var (
 	bcHealthEndpoint = "/eth/v1/node/health"
+	maxRetry         = 5  // Max times to try to connect to the DB or BC at boot.
+	retryInterval    = 30 // The time to wait between each try.
 )
 
 // This function will ensure that we can connect to the beacon client.
@@ -77,6 +80,8 @@ func SetupDb(dbHostname string, dbPort int, dbName string, dbUsername string, db
 // 2. Connect to the database.
 //
 func BootApplication(dbHostname string, dbPort int, dbName string, dbUsername string, dbPassword string, driverName string, bcAddress string, bcPort int) (*postgres.DB, error) {
+	log.Info("Booting the Application")
+
 	log.Debug("Checking beacon Client")
 	err := checkBeaconClient(bcAddress, bcPort)
 	if err != nil {
@@ -89,4 +94,21 @@ func BootApplication(dbHostname string, dbPort int, dbName string, dbUsername st
 		return nil, err
 	}
 	return DB, nil
+}
+
+// Add retry logic to ensure that we are give the Beacon Client and the DB time to start.
+func BootApplicationWithRetry(dbHostname string, dbPort int, dbName string, dbUsername string, dbPassword string, driverName string, bcAddress string, bcPort int) (*postgres.DB, error) {
+	var db *postgres.DB
+	var err error
+	for i := 0; i < maxRetry; i++ {
+		db, err = BootApplication(dbHostname, dbPort, dbName, dbUsername, dbPassword, driverName, bcAddress, bcPort)
+		if err != nil {
+			log.WithFields(log.Fields{
+				"retryNumber": i,
+			}).Warn("Unable to boot application. Going to try again")
+			time.Sleep(time.Duration(retryInterval) * time.Second)
+			continue
+		}
+	}
+	return db, err
 }
