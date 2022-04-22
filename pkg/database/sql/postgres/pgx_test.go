@@ -1,100 +1,89 @@
-package postgres
+package postgres_test
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"strings"
-	"testing"
 
-	"github.com/jackc/pgx/v4/pgxpool"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"github.com/vulcanize/ipld-ethcl-indexer/pkg/database/sql"
+	"github.com/vulcanize/ipld-ethcl-indexer/pkg/database/sql/postgres"
 	"github.com/vulcanize/ipld-ethcl-indexer/pkg/testhelpers"
 )
 
-var (
-	pgConfig, _ = makeConfig(DefaultConfig)
-	ctx         = context.Background()
-)
+var _ = Describe("Pgx", func() {
 
-func expectContainsSubstring(t *testing.T, full string, sub string) {
-	if !strings.Contains(full, sub) {
-		t.Fatalf("Expected \"%v\" to contain substring \"%v\"\n", full, sub)
-	}
-}
+	var (
+		ctx context.Context
+	)
 
-func TestPostgresPGX(t *testing.T) {
-	t.Run("connects to the sql", func(t *testing.T) {
-		dbPool, err := pgxpool.ConnectConfig(context.Background(), pgConfig)
-		if err != nil {
-			t.Fatalf("failed to connect to db with connection string: %s err: %v", pgConfig.ConnString(), err)
-		}
-		if dbPool == nil {
-			t.Fatal("DB pool is nil")
-		}
-		dbPool.Close()
+	BeforeEach(func() {
+		ctx = context.Background()
 	})
 
-	t.Run("serializes big.Int to db", func(t *testing.T) {
-		// postgres driver doesn't support go big.Int type
-		// various casts in golang uint64, int64, overflow for
-		// transaction value (in wei) even though
-		// postgres numeric can handle an arbitrary
-		// sized int, so use string representation of big.Int
-		// and cast on insert
+	Describe("Connecting to the DB", func() {
+		Context("But connection is unsucessful", func() {
+			It("throws error when can't connect to the database", func() {
+				_, err := postgres.NewPostgresDB(postgres.Config{
+					Driver: "PGX",
+				})
+				Expect(err).NotTo(BeNil())
 
-		dbPool, err := pgxpool.ConnectConfig(context.Background(), pgConfig)
-		if err != nil {
-			t.Fatalf("failed to connect to db with connection string: %s err: %v", pgConfig.ConnString(), err)
-		}
-		defer dbPool.Close()
+				present, err := doesContainsSubstring(err.Error(), sql.DbConnectionFailedMsg)
+				Expect(present).To(BeTrue())
+			})
+		})
+		Context("The connection is successful", func() {
+			It("Should create a DB object", func() {
+				db, err := postgres.NewPostgresDB(postgres.DefaultConfig)
+				defer db.Close()
+				Expect(err).To(BeNil())
+			})
+		})
+	})
+	Describe("Write to the DB", func() {
+		Context("Serialize big.Int to DB", func() {
+			It("Should serialize successfully", func() {
+				dbPool, err := postgres.NewPostgresDB(postgres.DefaultConfig)
+				Expect(err).To(BeNil())
+				defer dbPool.Close()
 
-		bi := new(big.Int)
-		bi.SetString("34940183920000000000", 10)
-		testhelpers.ExpectEqual(t, bi.String(), "34940183920000000000")
+				bi := new(big.Int)
+				bi.SetString("34940183920000000000", 10)
+				isEqual, err := testhelpers.IsEqual(bi.String(), "34940183920000000000")
+				Expect(isEqual).To(BeTrue())
 
-		defer dbPool.Exec(ctx, `DROP TABLE IF EXISTS example`)
-		_, err = dbPool.Exec(ctx, "CREATE TABLE example ( id INTEGER, data NUMERIC )")
-		if err != nil {
-			t.Fatal(err)
-		}
+				defer dbPool.Exec(ctx, `DROP TABLE IF EXISTS example`)
+				_, err = dbPool.Exec(ctx, "CREATE TABLE example ( id INTEGER, data NUMERIC )")
+				Expect(err).To(BeNil())
 
-		sqlStatement := `
+				sqlStatement := `
 			INSERT INTO example (id, data)
 			VALUES (1, cast($1 AS NUMERIC))`
-		_, err = dbPool.Exec(ctx, sqlStatement, bi.String())
-		if err != nil {
-			t.Fatal(err)
-		}
+				_, err = dbPool.Exec(ctx, sqlStatement, bi.String())
+				Expect(err).To(BeNil())
 
-		var data string
-		err = dbPool.QueryRow(ctx, `SELECT cast(data AS TEXT) FROM example WHERE id = 1`).Scan(&data)
-		if err != nil {
-			t.Fatal(err)
-		}
+				var data string
+				err = dbPool.QueryRow(ctx, `SELECT cast(data AS TEXT) FROM example WHERE id = 1`).Scan(&data)
+				Expect(err).To(BeNil())
 
-		testhelpers.ExpectEqual(t, data, bi.String())
-		actual := new(big.Int)
-		actual.SetString(data, 10)
-		testhelpers.ExpectEqual(t, actual, bi)
-	})
+				isEqual, err = testhelpers.IsEqual(data, bi.String())
+				Expect(isEqual).To(BeTrue())
+				actual := new(big.Int)
+				actual.SetString(data, 10)
 
-	t.Run("throws error when can't connect to the database", func(t *testing.T) {
-		_, err := NewPostgresDB(Config{
-			Driver: "PGX",
+				isEqual, err = testhelpers.IsEqual(actual, bi)
+				Expect(isEqual).To(BeTrue())
+			})
 		})
-		if err == nil {
-			t.Fatal("Expected an error")
-		}
-
-		expectContainsSubstring(t, err.Error(), sql.DbConnectionFailedMsg)
 	})
-	t.Run("Connect to the database", func(t *testing.T) {
-		driver, err := NewPostgresDB(DefaultConfig)
-		defer driver.Close()
+})
 
-		if err != nil {
-			t.Fatal("Error creating the postgres driver")
-		}
-
-	})
+func doesContainsSubstring(full string, sub string) (bool, error) {
+	if !strings.Contains(full, sub) {
+		return false, fmt.Errorf("Expected \"%v\" to contain substring \"%v\"\n", full, sub)
+	}
+	return true, nil
 }
