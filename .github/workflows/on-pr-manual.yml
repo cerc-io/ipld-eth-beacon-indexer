@@ -12,12 +12,12 @@ on:
         required: false
         default: "main"
   pull_request:
-    paths:
-      - "!**.md"
-      - ".gitignore"
-      - "!LICENSE"
-      - "!.github/workflows/**"
-      - ".github/workflows/on-pr-manual.yaml"
+#    paths:
+#      - "!**.md"
+#      - ".gitignore"
+#      - "!LICENSE"
+#      - "!.github/workflows/**"
+#      - ".github/workflows/on-pr-manual.yaml"
 
 jobs:
   build:
