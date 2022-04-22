@@ -31,7 +31,7 @@ integration-test-ci:
 	--race --trace --json-report=report.json --timeout=TIMEOUT
 
 .PHONY: unit-test-ci
-test:
+unit-test-ci:
 	go vet ./...
 	go fmt ./...
 	$(GINKGO) -r --label-filter unit \
