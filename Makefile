@@ -19,11 +19,28 @@ test:
 	go fmt ./...
 	$(GINKGO) -r
 
-#.PHONY: integrationtest
-#integrationtest: | $(GINKGO) $(GOOSE)
-#	go vet ./...
-#	go fmt ./...
-#	$(GINKGO) -r test/ -v
+.PHONY: integration-test-ci
+integration-test-ci:
+	go vet ./...
+	go fmt ./...
+	$(GINKGO) -r --label-filter integration \
+	--procs=4 --compilers=4 \
+	--randomize-all --randomize-suites \
+	--fail-on-pending --keep-going \
+	--cover --coverprofile=cover.profile \
+	--race --trace --json-report=report.json --timeout=TIMEOUT
+
+.PHONY: unit-test-ci
+test:
+	go vet ./...
+	go fmt ./...
+	$(GINKGO) -r --label-filter unit \
+	--procs=4 --compilers=4 \
+	--randomize-all --randomize-suites \
+	--fail-on-pending --keep-going \
+	--cover --coverprofile=cover.profile \
+	--race --trace --json-report=report.json --timeout=TIMEOUT
+
 
 .PHONY: build
 build:

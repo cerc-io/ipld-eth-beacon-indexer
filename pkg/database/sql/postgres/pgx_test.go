@@ -23,7 +23,7 @@ var _ = Describe("Pgx", func() {
 		ctx = context.Background()
 	})
 
-	Describe("Connecting to the DB", func() {
+	Describe("Connecting to the DB", Label("integration"), func() {
 		Context("But connection is unsucessful", func() {
 			It("throws error when can't connect to the database", func() {
 				_, err := postgres.NewPostgresDB(postgres.Config{
@@ -43,7 +43,7 @@ var _ = Describe("Pgx", func() {
 			})
 		})
 	})
-	Describe("Write to the DB", func() {
+	Describe("Write to the DB", Label("integration"), func() {
 		Context("Serialize big.Int to DB", func() {
 			It("Should serialize successfully", func() {
 				dbPool, err := postgres.NewPostgresDB(postgres.DefaultConfig)
