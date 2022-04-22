@@ -17,7 +17,7 @@ on:
       - ".gitignore"
       - "!LICENSE"
       - "!.github/workflows/**"
-      - ".github/workflows/on-pr-automated.yaml"
+      - ".github/workflows/on-pr-manual.yaml"
 
 jobs:
   build:
