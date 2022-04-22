@@ -20,8 +20,9 @@ var headCmd = &cobra.Command{
 	},
 }
 
+// Start the application to track at head.
 func startHeadTracking() {
-	_, err := boot.BootApplication(dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver, bcAddress, bcPort)
+	_, err := boot.BootApplicationWithRetry(dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver, bcAddress, bcPort)
 	if err != nil {
 		loghelper.LogError(err).Error("Unable to Start application")
 	}

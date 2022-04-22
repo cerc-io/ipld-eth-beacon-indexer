@@ -5,7 +5,21 @@ Copyright © 2022 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"os"
+
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+)
+
+var (
+	dbUsername string
+	dbPassword string
+	dbName     string
+	dbAddress  string
+	dbDriver   string
+	dbPort     int
+	bcAddress  string
+	bcPort     int
 )
 
 // captureCmd represents the capture command
@@ -21,13 +35,64 @@ var captureCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(captureCmd)
 
+	// Required Flags
+
+	//// DB Specific
+	captureCmd.PersistentFlags().StringVarP(&dbUsername, "db.username", "", "", "Database username (required)")
+	captureCmd.PersistentFlags().StringVarP(&dbPassword, "db.password", "", "", "Database Password (required)")
+	captureCmd.PersistentFlags().StringVarP(&dbAddress, "db.address", "", "", "Port to connect to DB(required)")
+	captureCmd.PersistentFlags().StringVarP(&dbName, "db.name", "n", "", "Database name connect to DB(required)")
+	captureCmd.PersistentFlags().StringVarP(&dbDriver, "db.driver", "", "", "Database Driver to connect to DB(required)")
+	captureCmd.PersistentFlags().IntVarP(&dbPort, "db.port", "", 0, "Port to connect to DB(required)")
+	err := captureCmd.MarkPersistentFlagRequired("db.username")
+	exitErr(err)
+	err = captureCmd.MarkPersistentFlagRequired("db.password")
+	exitErr(err)
+	err = captureCmd.MarkPersistentFlagRequired("db.address")
+	exitErr(err)
+	err = captureCmd.MarkPersistentFlagRequired("db.port")
+	exitErr(err)
+	err = captureCmd.MarkPersistentFlagRequired("db.name")
+	exitErr(err)
+	err = captureCmd.MarkPersistentFlagRequired("db.driver")
+	exitErr(err)
+
+	//// Beacon Client Specific
+	captureCmd.PersistentFlags().StringVarP(&bcAddress, "bc.address", "l", "", "Address to connect to beacon node (required if username is set)")
+	captureCmd.PersistentFlags().IntVarP(&bcPort, "bc.port", "r", 0, "Port to connect to beacon node (required if username is set)")
+	err = captureCmd.MarkPersistentFlagRequired("bc.address")
+	exitErr(err)
+	err = captureCmd.MarkPersistentFlagRequired("bc.port")
+	exitErr(err)
+
+	// Bind Flags with Viper
+	//// DB Flags
+	err = viper.BindPFlag("db.username", captureCmd.PersistentFlags().Lookup("db.username"))
+	exitErr(err)
+	err = viper.BindPFlag("db.password", captureCmd.PersistentFlags().Lookup("db.password"))
+	exitErr(err)
+	err = viper.BindPFlag("db.address", captureCmd.PersistentFlags().Lookup("db.address"))
+	exitErr(err)
+	err = viper.BindPFlag("db.port", captureCmd.PersistentFlags().Lookup("db.port"))
+	exitErr(err)
+	err = viper.BindPFlag("db.name", captureCmd.PersistentFlags().Lookup("db.name"))
+	exitErr(err)
+	err = viper.BindPFlag("db.driver", captureCmd.PersistentFlags().Lookup("db.driver"))
+	exitErr(err)
+
+	// LH specific
+	err = viper.BindPFlag("bc.address", captureCmd.PersistentFlags().Lookup("bc.address"))
+	exitErr(err)
+	err = viper.BindPFlag("bc.port", captureCmd.PersistentFlags().Lookup("bc.port"))
+	exitErr(err)
 	// Here you will define your flags and configuration settings.
 
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// captureCmd.PersistentFlags().String("foo", "", "A help for foo")
+}
 
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// captureCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+// Helper function to catch any errors.
+// We need to capture these errors for the linter.
+func exitErr(err error) {
+	if err != nil {
+		os.Exit(1)
+	}
 }
