@@ -7,14 +7,16 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/vulcanize/ipld-ethcl-indexer/pkg/database/sql"
 	"github.com/vulcanize/ipld-ethcl-indexer/pkg/database/sql/postgres"
 	"github.com/vulcanize/ipld-ethcl-indexer/pkg/loghelper"
 )
 
 var (
-	bcHealthEndpoint = "/eth/v1/node/health"
-	maxRetry         = 5  // Max times to try to connect to the DB or BC at boot.
-	retryInterval    = 30 // The time to wait between each try.
+	bcHealthEndpoint              = "/eth/v1/node/health"
+	maxRetry                      = 5  // Max times to try to connect to the DB or BC at boot.
+	retryInterval                 = 30 // The time to wait between each try.
+	DB               sql.Database = &postgres.DB{}
 )
 
 // This function will ensure that we can connect to the beacon client.
@@ -42,7 +44,7 @@ func checkBeaconClient(bcAddress string, bcPort int) error {
 }
 
 // A simple wrapper to create a DB object to use.
-func SetupDb(dbHostname string, dbPort int, dbName string, dbUsername string, dbPassword string, driverName string) (*postgres.DB, error) {
+func SetupPostgresDb(dbHostname string, dbPort int, dbName string, dbUsername string, dbPassword string, driverName string) (sql.Database, error) {
 	log.Debug("Resolving Driver Type")
 	DbDriver, err := postgres.ResolveDriverType(driverName)
 	if err != nil {
@@ -61,7 +63,7 @@ func SetupDb(dbHostname string, dbPort int, dbName string, dbUsername string, db
 		Password:     dbPassword,
 		Driver:       DbDriver,
 	}
-	DB, err := postgres.NewPostgresDB(postgresConfig)
+	DB, err = postgres.NewPostgresDB(postgresConfig)
 
 	if err != nil {
 		loghelper.LogError(err).Error("Unable to connect to the DB")
@@ -79,7 +81,7 @@ func SetupDb(dbHostname string, dbPort int, dbName string, dbUsername string, db
 //
 // 2. Connect to the database.
 //
-func BootApplication(dbHostname string, dbPort int, dbName string, dbUsername string, dbPassword string, driverName string, bcAddress string, bcPort int) (*postgres.DB, error) {
+func BootApplication(dbHostname string, dbPort int, dbName string, dbUsername string, dbPassword string, driverName string, bcAddress string, bcPort int) (sql.Database, error) {
 	log.Info("Booting the Application")
 
 	log.Debug("Checking beacon Client")
@@ -89,7 +91,7 @@ func BootApplication(dbHostname string, dbPort int, dbName string, dbUsername st
 	}
 
 	log.Debug("Setting up DB connection")
-	DB, err := SetupDb(dbHostname, dbPort, dbName, dbUsername, dbPassword, driverName)
+	DB, err := SetupPostgresDb(dbHostname, dbPort, dbName, dbUsername, dbPassword, driverName)
 	if err != nil {
 		return nil, err
 	}
@@ -97,11 +99,10 @@ func BootApplication(dbHostname string, dbPort int, dbName string, dbUsername st
 }
 
 // Add retry logic to ensure that we are give the Beacon Client and the DB time to start.
-func BootApplicationWithRetry(dbHostname string, dbPort int, dbName string, dbUsername string, dbPassword string, driverName string, bcAddress string, bcPort int) (*postgres.DB, error) {
-	var db *postgres.DB
+func BootApplicationWithRetry(dbHostname string, dbPort int, dbName string, dbUsername string, dbPassword string, driverName string, bcAddress string, bcPort int) (sql.Database, error) {
 	var err error
 	for i := 0; i < maxRetry; i++ {
-		db, err = BootApplication(dbHostname, dbPort, dbName, dbUsername, dbPassword, driverName, bcAddress, bcPort)
+		DB, err = BootApplication(dbHostname, dbPort, dbName, dbUsername, dbPassword, driverName, bcAddress, bcPort)
 		if err != nil {
 			log.WithFields(log.Fields{
 				"retryNumber": i,
@@ -110,5 +111,5 @@ func BootApplicationWithRetry(dbHostname string, dbPort int, dbName string, dbUs
 			continue
 		}
 	}
-	return db, err
+	return DB, err
 }
