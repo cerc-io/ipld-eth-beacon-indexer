@@ -14,10 +14,11 @@ on:
   pull_request:
     paths:
       - "!**.md"
-      - ".gitignore"
+      - "!.gitignore"
       - "!LICENSE"
       - "!.github/workflows/**"
       - ".github/workflows/on-pr.yml"
+      - "**"
 
 jobs:
   build:
