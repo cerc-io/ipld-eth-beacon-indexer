@@ -1,4 +1,4 @@
-package healthcheck_test
+package beaconclient_test
 
 import (
 	"testing"

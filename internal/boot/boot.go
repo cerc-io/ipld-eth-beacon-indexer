@@ -4,16 +4,17 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/vulcanize/ipld-ethcl-indexer/pkg/beaconclient/healthcheck"
+	"github.com/vulcanize/ipld-ethcl-indexer/pkg/beaconclient"
 	"github.com/vulcanize/ipld-ethcl-indexer/pkg/database/sql"
 	"github.com/vulcanize/ipld-ethcl-indexer/pkg/database/sql/postgres"
 	"github.com/vulcanize/ipld-ethcl-indexer/pkg/loghelper"
 )
 
 var (
-	maxRetry                   = 5  // Max times to try to connect to the DB or BC at boot.
-	retryInterval              = 30 // The time to wait between each try.
-	DB            sql.Database = &postgres.DB{}
+	maxRetry                                 = 5  // Max times to try to connect to the DB or BC at boot.
+	retryInterval                            = 30 // The time to wait between each try.
+	DB            sql.Database               = &postgres.DB{}
+	BC            *beaconclient.BeaconClient = &beaconclient.BeaconClient{}
 )
 
 // A simple wrapper to create a DB object to use.
@@ -57,8 +58,12 @@ func SetupPostgresDb(dbHostname string, dbPort int, dbName string, dbUsername st
 func BootApplication(dbHostname string, dbPort int, dbName string, dbUsername string, dbPassword string, driverName string, bcAddress string, bcPort int) (sql.Database, error) {
 	log.Info("Booting the Application")
 
-	log.Debug("Checking beacon Client")
-	err := healthcheck.CheckBeaconClient(bcAddress, bcPort)
+	log.Debug("Creating the Beacon Client")
+	BC.Address = bcAddress
+	BC.Port = bcPort
+	log.Debug("Checking Beacon Client")
+
+	err := BC.CheckBeaconClient()
 	if err != nil {
 		return nil, err
 	}
