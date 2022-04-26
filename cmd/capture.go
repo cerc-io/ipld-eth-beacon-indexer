@@ -6,20 +6,22 @@ package cmd
 
 import (
 	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
 var (
-	dbUsername string
-	dbPassword string
-	dbName     string
-	dbAddress  string
-	dbDriver   string
-	dbPort     int
-	bcAddress  string
-	bcPort     int
+	dbUsername             string
+	dbPassword             string
+	dbName                 string
+	dbAddress              string
+	dbDriver               string
+	dbPort                 int
+	bcAddress              string
+	bcPort                 int
+	maxWaitSecondsShutdown time.Duration = time.Duration(5) * time.Second
 )
 
 // captureCmd represents the capture command

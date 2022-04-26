@@ -1,6 +1,7 @@
 package boot
 
 import (
+	"context"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -55,39 +56,38 @@ func SetupPostgresDb(dbHostname string, dbPort int, dbName string, dbUsername st
 //
 // 2. Connect to the database.
 //
-func BootApplication(dbHostname string, dbPort int, dbName string, dbUsername string, dbPassword string, driverName string, bcAddress string, bcPort int) (sql.Database, error) {
+func BootApplication(ctx context.Context, dbHostname string, dbPort int, dbName string, dbUsername string, dbPassword string, driverName string, bcAddress string, bcPort int) (*beaconclient.BeaconClient, sql.Database, error) {
 	log.Info("Booting the Application")
 
 	log.Debug("Creating the Beacon Client")
-	BC.Address = bcAddress
-	BC.Port = bcPort
-	log.Debug("Checking Beacon Client")
+	BC = beaconclient.CreateBeaconClient(ctx, bcAddress, bcPort)
 
+	log.Debug("Checking Beacon Client")
 	err := BC.CheckBeaconClient()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	log.Debug("Setting up DB connection")
 	DB, err := SetupPostgresDb(dbHostname, dbPort, dbName, dbUsername, dbPassword, driverName)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return DB, nil
+	return BC, DB, nil
 }
 
 // Add retry logic to ensure that we are give the Beacon Client and the DB time to start.
-func BootApplicationWithRetry(dbHostname string, dbPort int, dbName string, dbUsername string, dbPassword string, driverName string, bcAddress string, bcPort int) (sql.Database, error) {
+func BootApplicationWithRetry(ctx context.Context, dbHostname string, dbPort int, dbName string, dbUsername string, dbPassword string, driverName string, bcAddress string, bcPort int) (*beaconclient.BeaconClient, sql.Database, error) {
 	var err error
 	for i := 0; i < maxRetry; i++ {
-		DB, err = BootApplication(dbHostname, dbPort, dbName, dbUsername, dbPassword, driverName, bcAddress, bcPort)
+		BC, DB, err = BootApplication(ctx, dbHostname, dbPort, dbName, dbUsername, dbPassword, driverName, bcAddress, bcPort)
 		if err != nil {
 			log.WithFields(log.Fields{
 				"retryNumber": i,
 			}).Warn("Unable to boot application. Going to try again")
 			time.Sleep(time.Duration(retryInterval) * time.Second)
-			continue
 		}
+		break
 	}
-	return DB, err
+	return BC, DB, err
 }

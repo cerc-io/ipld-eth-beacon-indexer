@@ -9,17 +9,13 @@ import (
 	"github.com/vulcanize/ipld-ethcl-indexer/pkg/loghelper"
 )
 
-var (
-	bcHealthEndpoint = "/eth/v1/node/health"
-)
-
 // This function will ensure that we can connect to the beacon client.
 // Keep in mind, the beacon client will allow you to connect to it but it might
 // Not allow you to make http requests. This is part of its built in logic, and you will have
 // to follow their provided guidelines. https://lighthouse-book.sigmaprime.io/api-bn.html#security
-func (bc *BeaconClient) CheckBeaconClient() error {
+func (bc BeaconClient) CheckBeaconClient() error {
 	log.Debug("Attempting to connect to the beacon client")
-	bcEndpoint := "http://" + bc.Address + ":" + strconv.Itoa(bc.Port) + bcHealthEndpoint
+	bcEndpoint := "http://" + bc.ServerAddress + ":" + strconv.Itoa(bc.ServerPort) + bcHealthEndpoint
 	resp, err := http.Get(bcEndpoint)
 	if err != nil {
 		loghelper.LogError(err).Error("Unable to get bc endpoint: ", bcEndpoint)
