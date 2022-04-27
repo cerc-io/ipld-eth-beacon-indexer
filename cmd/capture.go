@@ -21,6 +21,7 @@ var (
 	dbPort                 int
 	bcAddress              string
 	bcPort                 int
+	bcConnectionProtocol   string
 	maxWaitSecondsShutdown time.Duration = time.Duration(5) * time.Second
 )
 
@@ -62,6 +63,7 @@ func init() {
 	//// Beacon Client Specific
 	captureCmd.PersistentFlags().StringVarP(&bcAddress, "bc.address", "l", "", "Address to connect to beacon node (required if username is set)")
 	captureCmd.PersistentFlags().IntVarP(&bcPort, "bc.port", "r", 0, "Port to connect to beacon node (required if username is set)")
+	captureCmd.PersistentFlags().StringVarP(&bcConnectionProtocol, "bc.connectionProtocol", "", "http", "protocol for connecting to the beacon node.")
 	err = captureCmd.MarkPersistentFlagRequired("bc.address")
 	exitErr(err)
 	err = captureCmd.MarkPersistentFlagRequired("bc.port")
@@ -86,6 +88,8 @@ func init() {
 	err = viper.BindPFlag("bc.address", captureCmd.PersistentFlags().Lookup("bc.address"))
 	exitErr(err)
 	err = viper.BindPFlag("bc.port", captureCmd.PersistentFlags().Lookup("bc.port"))
+	exitErr(err)
+	err = viper.BindPFlag("bc.connectionProtocol", captureCmd.PersistentFlags().Lookup("bc.connectionProtocol"))
 	exitErr(err)
 	// Here you will define your flags and configuration settings.
 

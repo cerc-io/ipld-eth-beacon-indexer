@@ -10,8 +10,8 @@ import (
 
 var _ = Describe("Healthcheck", func() {
 	var (
-		BC    = beaconclient.CreateBeaconClient(context.Background(), "localhost", 5052)
-		errBc = beaconclient.CreateBeaconClient(context.Background(), "blah-blah", 1010)
+		BC    = beaconclient.CreateBeaconClient(context.Background(), "http", "localhost", 5052)
+		errBc = beaconclient.CreateBeaconClient(context.Background(), "http", "blah-blah", 1010)
 	)
 	Describe("Connecting to the lighthouse client", Label("integration"), func() {
 		Context("When the client is running", func() {

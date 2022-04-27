@@ -56,11 +56,11 @@ func SetupPostgresDb(dbHostname string, dbPort int, dbName string, dbUsername st
 //
 // 2. Connect to the database.
 //
-func BootApplication(ctx context.Context, dbHostname string, dbPort int, dbName string, dbUsername string, dbPassword string, driverName string, bcAddress string, bcPort int) (*beaconclient.BeaconClient, sql.Database, error) {
+func BootApplication(ctx context.Context, dbHostname string, dbPort int, dbName string, dbUsername string, dbPassword string, driverName string, bcAddress string, bcPort int, bcConnectionProtocol string) (*beaconclient.BeaconClient, sql.Database, error) {
 	log.Info("Booting the Application")
 
 	log.Debug("Creating the Beacon Client")
-	BC = beaconclient.CreateBeaconClient(ctx, bcAddress, bcPort)
+	BC = beaconclient.CreateBeaconClient(ctx, bcConnectionProtocol, bcAddress, bcPort)
 
 	log.Debug("Checking Beacon Client")
 	err := BC.CheckBeaconClient()
@@ -77,10 +77,10 @@ func BootApplication(ctx context.Context, dbHostname string, dbPort int, dbName 
 }
 
 // Add retry logic to ensure that we are give the Beacon Client and the DB time to start.
-func BootApplicationWithRetry(ctx context.Context, dbHostname string, dbPort int, dbName string, dbUsername string, dbPassword string, driverName string, bcAddress string, bcPort int) (*beaconclient.BeaconClient, sql.Database, error) {
+func BootApplicationWithRetry(ctx context.Context, dbHostname string, dbPort int, dbName string, dbUsername string, dbPassword string, driverName string, bcAddress string, bcPort int, bcConnectionProtocol string) (*beaconclient.BeaconClient, sql.Database, error) {
 	var err error
 	for i := 0; i < maxRetry; i++ {
-		BC, DB, err = BootApplication(ctx, dbHostname, dbPort, dbName, dbUsername, dbPassword, driverName, bcAddress, bcPort)
+		BC, DB, err = BootApplication(ctx, dbHostname, dbPort, dbName, dbUsername, dbPassword, driverName, bcAddress, bcPort, bcConnectionProtocol)
 		if err != nil {
 			log.WithFields(log.Fields{
 				"retryNumber": i,

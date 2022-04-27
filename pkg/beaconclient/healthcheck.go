@@ -3,7 +3,6 @@ package beaconclient
 import (
 	"fmt"
 	"net/http"
-	"strconv"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/vulcanize/ipld-ethcl-indexer/pkg/loghelper"
@@ -15,7 +14,7 @@ import (
 // to follow their provided guidelines. https://lighthouse-book.sigmaprime.io/api-bn.html#security
 func (bc BeaconClient) CheckBeaconClient() error {
 	log.Debug("Attempting to connect to the beacon client")
-	bcEndpoint := "http://" + bc.ServerAddress + ":" + strconv.Itoa(bc.ServerPort) + bcHealthEndpoint
+	bcEndpoint := bc.ServerEndpoint + bcHealthEndpoint
 	resp, err := http.Get(bcEndpoint)
 	if err != nil {
 		loghelper.LogError(err).Error("Unable to get bc endpoint: ", bcEndpoint)

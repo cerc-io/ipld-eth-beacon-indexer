@@ -13,14 +13,14 @@ var (
 	bcHeadTopicEndpoint      = "/eth/v1/events?topics=head"                 // Endpoint used to subscribe to the head of the chain
 	bcReorgTopicEndpoint     = "/eth/v1/events?topics=chain_reorg"          // Endpoint used to subscribe to the head of the chain
 	bcFinalizedTopicEndpoint = "/eth/v1/events?topics=finalized_checkpoint" // Endpoint used to subscribe to the head of the chain
-	connectionProtocol       = "http"
+	bcBlockQueryEndpoint     = "/eth/v2/beacon/blocks/"                     // Endpoint to query individual Blocks
+	bcStateQueryEndpoint     = "/eth/v2/debug/beacon/states/"               // Endpoint to query individual States
 )
 
 // A struct that capture the Beacon Server that the Beacon Client will be interacting with and querying.
 type BeaconClient struct {
 	Context                     context.Context                 // A context generic context with multiple uses.
-	ServerAddress               string                          // Address of the Beacon Server
-	ServerPort                  int                             // Port of the Beacon Server
+	ServerEndpoint              string                          // What is the endpoint of the beacon server.
 	PerformHeadTracking         bool                            // Should we track head?
 	PerformHistoricalProcessing bool                            // Should we perform historical processing?
 	HeadTracking                *SseEvents[Head]                // Track the head block
@@ -30,7 +30,7 @@ type BeaconClient struct {
 
 // A struct to keep track of relevant the head event topic.
 type SseEvents[P ProcessedEvents] struct {
-	Url        string          // The url for the subscription. Primarily used for logging
+	Endpoint   string          // The endpoint for the subscription. Primarily used for logging
 	MessagesCh chan *sse.Event // Contains all the messages from the SSE Channel
 	ErrorCh    chan *SseError  // Contains any errors while SSE streaming occurred
 	ProcessCh  chan *P         // Used to capture processed data in its proper struct.
@@ -44,30 +44,30 @@ type SseError struct {
 }
 
 // A Function to create the BeaconClient.
-func CreateBeaconClient(ctx context.Context, bcAddress string, bcPort int) *BeaconClient {
+func CreateBeaconClient(ctx context.Context, connectionProtocol string, bcAddress string, bcPort int) *BeaconClient {
+	endpoint := fmt.Sprintf("%s://%s:%d", connectionProtocol, bcAddress, bcPort)
 	log.Info("Creating the BeaconClient")
 	return &BeaconClient{
 		Context:              ctx,
-		ServerAddress:        bcAddress,
-		ServerPort:           bcPort,
-		HeadTracking:         createSseEvent[Head](connectionProtocol, bcAddress, bcPort, bcHeadTopicEndpoint),
-		ReOrgTracking:        createSseEvent[ChainReorg](connectionProtocol, bcAddress, bcPort, bcReorgTopicEndpoint),
-		FinalizationTracking: createSseEvent[FinalizedCheckpoint](connectionProtocol, bcAddress, bcPort, bcFinalizedTopicEndpoint),
+		ServerEndpoint:       endpoint,
+		HeadTracking:         createSseEvent[Head](endpoint, bcHeadTopicEndpoint),
+		ReOrgTracking:        createSseEvent[ChainReorg](endpoint, bcReorgTopicEndpoint),
+		FinalizationTracking: createSseEvent[FinalizedCheckpoint](endpoint, bcFinalizedTopicEndpoint),
 	}
 }
 
 // Create all the channels to handle a SSE events
-func createSseEvent[P ProcessedEvents](connectionProtocol, bcAddress string, bcPort int, endpoint string) *SseEvents[P] {
-	url := fmt.Sprintf("%s://%s:%d%s", connectionProtocol, bcAddress, bcPort, endpoint)
+func createSseEvent[P ProcessedEvents](baseEndpoint string, path string) *SseEvents[P] {
+	endpoint := baseEndpoint + path
 	sseEvents := &SseEvents[P]{
-		Url:        url,
+		Endpoint:   endpoint,
 		MessagesCh: make(chan *sse.Event),
 		ErrorCh:    make(chan *SseError),
 		ProcessCh:  make(chan *P),
-		SseClient: func(url string) *sse.Client {
-			log.WithFields(log.Fields{"url": url}).Info("Creating SSE client")
-			return sse.NewClient(url)
-		}(url),
+		SseClient: func(endpoint string) *sse.Client {
+			log.WithFields(log.Fields{"endpoint": endpoint}).Info("Creating SSE client")
+			return sse.NewClient(endpoint)
+		}(endpoint),
 	}
 	return sseEvents
 }

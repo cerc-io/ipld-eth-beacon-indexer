@@ -19,6 +19,7 @@ require (
 	github.com/jackc/puddle v1.2.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/lib/pq v1.10.4 // indirect
+	github.com/minio/sha256-simd v0.1.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	golang.org/x/crypto v0.0.0-20220411220226-7b82a4e95df4 // indirect
 	golang.org/x/net v0.0.0-20220412020605-290c469a71a5 // indirect
@@ -27,6 +28,7 @@ require (
 )
 
 require (
+	github.com/ferranbt/fastssz v0.0.0-20220303160658-88bb965b6747
 	github.com/fsnotify/fsnotify v1.5.1 // indirect
 	github.com/georgysavva/scany v0.3.0
 	github.com/hashicorp/hcl v1.0.0 // indirect
