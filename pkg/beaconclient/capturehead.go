@@ -10,8 +10,10 @@ import (
 // This function will perform all the heavy lifting for tracking the head of the chain.
 func (bc *BeaconClient) CaptureHead() {
 	log.Info("We are tracking the head of the chain.")
-	//go readProcessedEvents(bc.HeadTracking.ProcessCh)
-	bc.CaptureHeadTopic()
+	go bc.handleHead()
+	go bc.handleFinalizedCheckpoint()
+	go bc.handleReorgs()
+	bc.captureEventTopic()
 }
 
 // Stop the head tracking service.
@@ -32,10 +34,11 @@ func (bc *BeaconClient) StopHeadTracking() error {
 	return nil
 }
 
+// This function closes the SSE subscription, but waits until the MessagesCh is empty
 func (se *SseEvents[ProcessedEvents]) finishProcessingChannel(finish chan<- bool) {
 	loghelper.LogUrl(se.Url).Info("Received a close event.")
 	se.SseClient.Unsubscribe(se.MessagesCh)
-	for len(se.MessagesCh) != 0 {
+	for len(se.MessagesCh) != 0 && len(se.ProcessCh) != 0 {
 		time.Sleep(time.Duration(shutdownWaitInterval) * time.Millisecond)
 	}
 	loghelper.LogUrl(se.Url).Info("Done processing all messages, ready for shutdown")

@@ -2,6 +2,7 @@ package gracefulshutdown
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
 	"sync"
@@ -16,8 +17,9 @@ import (
 type Operation func(ctx context.Context) error
 
 // gracefulShutdown waits for termination syscalls and doing clean up operations after received it
-func Shutdown(ctx context.Context, timeout time.Duration, ops map[string]Operation) <-chan struct{} {
-	wait := make(chan struct{})
+func Shutdown(ctx context.Context, timeout time.Duration, ops map[string]Operation) (<-chan struct{}, <-chan error) {
+	waitCh := make(chan struct{})
+	errCh := make(chan error)
 	go func() {
 		s := make(chan os.Signal, 1)
 
@@ -30,7 +32,8 @@ func Shutdown(ctx context.Context, timeout time.Duration, ops map[string]Operati
 		// set timeout for the ops to be done to prevent system hang
 		timeoutFunc := time.AfterFunc(timeout, func() {
 			log.Warnf("timeout %d ms has been elapsed, force exit", timeout.Milliseconds())
-			os.Exit(0)
+			errCh <- fmt.Errorf("Application shutdown took too long.")
+			return
 		})
 
 		defer timeoutFunc.Stop()
@@ -57,8 +60,8 @@ func Shutdown(ctx context.Context, timeout time.Duration, ops map[string]Operati
 
 		wg.Wait()
 
-		close(wait)
+		close(waitCh)
 	}()
 
-	return wait
+	return waitCh, errCh
 }

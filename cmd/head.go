@@ -40,9 +40,7 @@ func startHeadTracking() {
 	go BC.CaptureHead()
 
 	// Shutdown when the time is right.
-	wait := shutdown.ShutdownServices(ctx, time.Duration(maxWaitSecondsShutdown), DB, BC)
-
-	<-wait
+	shutdown.ShutdownServices(ctx, time.Duration(maxWaitSecondsShutdown), DB, BC)
 }
 
 func init() {

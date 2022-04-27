@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestHealthcheck(t *testing.T) {
+func TestBeaconClient(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Healthcheck Suite")
+	RunSpecs(t, "BeaconClient Suite", Label("beacon-client"))
 }

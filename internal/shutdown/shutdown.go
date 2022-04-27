@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/vulcanize/ipld-ethcl-indexer/pkg/beaconclient"
 	"github.com/vulcanize/ipld-ethcl-indexer/pkg/database/sql"
 	"github.com/vulcanize/ipld-ethcl-indexer/pkg/gracefulshutdown"
@@ -11,8 +12,8 @@ import (
 )
 
 // Shutdown all the internal services for the application.
-func ShutdownServices(ctx context.Context, waitTime time.Duration, DB sql.Database, BC *beaconclient.BeaconClient) <-chan struct{} {
-	return gracefulshutdown.Shutdown(ctx, waitTime, map[string]gracefulshutdown.Operation{
+func ShutdownServices(ctx context.Context, waitTime time.Duration, DB sql.Database, BC *beaconclient.BeaconClient) {
+	successCh, errCh := gracefulshutdown.Shutdown(ctx, waitTime, map[string]gracefulshutdown.Operation{
 		"database": func(ctx context.Context) error {
 			err := DB.Close()
 			if err != nil {
@@ -28,4 +29,11 @@ func ShutdownServices(ctx context.Context, waitTime time.Duration, DB sql.Databa
 			return err
 		},
 	})
+
+	select {
+	case _ = <-successCh:
+		log.Info("Gracefully Shutdown ipld-ethcl-indexer!")
+	case err := <-errCh:
+		loghelper.LogError(err).Error("Ungracefully Shutdown ipld-ethcl-indexer!")
+	}
 }

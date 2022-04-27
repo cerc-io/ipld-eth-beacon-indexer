@@ -17,7 +17,7 @@ var (
 // This function will capture all the SSE events for a given SseEvents object.
 // When new messages come in, it will ensure that they are decoded into JSON.
 // If any errors occur, it log the error information.
-func handleSseEvent[P ProcessedEvents](eventHandler *SseEvents[P]) {
+func handleIncomingSseEvent[P ProcessedEvents](eventHandler *SseEvents[P]) {
 	loghelper.LogUrl(eventHandler.Url).Info("Subscribing to Messages")
 	go eventHandler.SseClient.SubscribeChanRaw(eventHandler.MessagesCh)
 	for {
@@ -42,25 +42,27 @@ func handleSseEvent[P ProcessedEvents](eventHandler *SseEvents[P]) {
 	}
 }
 
-// Capture all of the head topics.
-func (bc *BeaconClient) CaptureHeadTopic() {
-	log.Info("We are capturing all SSE events")
-	go handleSseEvent(bc.HeadTracking)
-	go handleSseEvent(bc.ReOrgTracking)
-	go handleSseEvent(bc.FinalizationTracking)
-}
-
 // Turn the data object into a Struct.
 func processMsg[P ProcessedEvents](msg []byte, processCh chan<- *P, errorCh chan<- *SseError) {
-	log.WithFields(log.Fields{"msg": msg}).Debug("Processing a Message")
+	log.WithFields(log.Fields{"msg": msg}).Info("Processing a Message")
 	var msgMarshaled P
 	err := json.Unmarshal(msg, &msgMarshaled)
 	if err != nil {
+		loghelper.LogError(err).Error("Unable to parse message")
 		errorCh <- &SseError{
 			err: err,
 			msg: msg,
 		}
 		return
 	}
+	log.WithFields(log.Fields{"process": processCh}).Info("Processed")
 	processCh <- &msgMarshaled
+}
+
+// Capture all of the event topics.
+func (bc *BeaconClient) captureEventTopic() {
+	log.Info("We are capturing all SSE events")
+	go handleIncomingSseEvent(bc.HeadTracking)
+	go handleIncomingSseEvent(bc.ReOrgTracking)
+	go handleIncomingSseEvent(bc.FinalizationTracking)
 }
