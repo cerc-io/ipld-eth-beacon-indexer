@@ -1,30 +1,41 @@
 ---
 name: Feature request
 about: Suggest an idea for this project
-title: ""
-labels: ""
+title: "[Feature]"
+labels: feature
 assignees: ""
 ---
 
-- [Request](#request)
-  - [Potential Solution](#potential-solution)
+- [Overview](#overview)
+  - [Request](#request)
+- [Potential Solution](#potential-solution)
   - [Alternative Solutions](#alternative-solutions)
 - [Additional Context](#additional-context)
 
 <small><i><a href='http://ecotrust-canada.github.io/markdown-toc/'>Table of contents generated with markdown-toc</a></i></small>
 
-# Request
+# Overview
 
-**Explain what you want and why. If this feature is related to a problem please highlight it here.**
+- **Requester**: @ the requestor.
+- **Epic Link**: Link the epic.
 
-## Potential Solution
+## Request
 
-**Provide any details for a potential solution.**
+<!---
+Explain what you want and why. If this feature is related to a problem please highlight it here.**
+--->
+
+# Potential Solution
+
+<!---Provide any details for a potential solution.
+--->
 
 ## Alternative Solutions
 
-**Provide any alternative solutions.**
+<!---Provide any alternative solutions.
+--->
 
 # Additional Context
 
-**Provide Additional Context.**
+<!---Provide Additional Context.
+--->
