@@ -30,6 +30,26 @@ integration-test-ci:
 	--cover --coverprofile=cover.profile \
 	--race --trace --json-report=report.json
 
+.PHONY: integration-test-local
+integration-test-local:
+	go vet ./...
+	go fmt ./...
+	$(GINKGO) -r --label-filter integration \
+	--procs=4 --compilers=4 \
+	--randomize-all --randomize-suites \
+	--fail-on-pending --keep-going \
+	--race --trace
+
+.PHONY: unit-test-local
+unit-test-local:
+	go vet ./...
+	go fmt ./...
+	$(GINKGO) -r --label-filter unit \
+	--procs=4 --compilers=4 \
+	--randomize-all --randomize-suites \
+	--fail-on-pending --keep-going \
+	--race --trace
+
 .PHONY: unit-test-ci
 unit-test-ci:
 	go vet ./...

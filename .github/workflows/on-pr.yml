@@ -14,10 +14,11 @@ on:
   pull_request:
     paths:
       - "!**.md"
-      - ".gitignore"
+      - "!.gitignore"
       - "!LICENSE"
       - "!.github/workflows/**"
       - ".github/workflows/on-pr.yml"
+      - "**"
 
 jobs:
   build:
@@ -33,8 +34,8 @@ jobs:
     runs-on: ubuntu-latest
     ## IF you want to update the default branch for `pull_request runs, do it after the ||`
     env:
-      foundry-test-ref: ${{ github.event.inputs.foundry-test-ref  || 'feature/build-stack'}}
-      ipld-eth-db-ref: ${{ github.event.inputs.ipld-eth-db-ref  || 'main' }}
+      foundry-test-ref: ${{ github.event.inputs.foundry-test-ref  || 'c17752de64f208f286f02379b80d2a935237c860'}}
+      ipld-eth-db-ref: ${{ github.event.inputs.ipld-eth-db-ref  || '05600e51d2163e1c5e2a872cb54606bc0a380d12' }}
       GOPATH: /tmp/go
     steps:
       - name: Create GOPATH
