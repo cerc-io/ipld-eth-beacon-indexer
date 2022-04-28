@@ -11,3 +11,10 @@ func LogError(err error) *log.Entry {
 		"err": err,
 	})
 }
+
+func LogSlotError(slot string, err error) *log.Entry {
+	return log.WithFields(log.Fields{
+		"err":  err,
+		"slot": slot,
+	})
+}

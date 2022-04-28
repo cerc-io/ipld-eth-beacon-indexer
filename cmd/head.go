@@ -5,8 +5,13 @@ Copyright © 2022 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"context"
+	"time"
+
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/vulcanize/ipld-ethcl-indexer/internal/boot"
+	"github.com/vulcanize/ipld-ethcl-indexer/internal/shutdown"
 	"github.com/vulcanize/ipld-ethcl-indexer/pkg/loghelper"
 )
 
@@ -22,10 +27,20 @@ var headCmd = &cobra.Command{
 
 // Start the application to track at head.
 func startHeadTracking() {
-	_, err := boot.BootApplicationWithRetry(dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver, bcAddress, bcPort)
+	// Boot the application
+	log.Info("Starting the application in head tracking mode.")
+	ctx := context.Background()
+
+	BC, DB, err := boot.BootApplicationWithRetry(ctx, dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver, bcAddress, bcPort, bcConnectionProtocol)
 	if err != nil {
 		loghelper.LogError(err).Error("Unable to Start application")
 	}
+
+	// Capture head blocks
+	go BC.CaptureHead()
+
+	// Shutdown when the time is right.
+	shutdown.ShutdownServices(ctx, time.Duration(maxWaitSecondsShutdown), DB, BC)
 }
 
 func init() {
