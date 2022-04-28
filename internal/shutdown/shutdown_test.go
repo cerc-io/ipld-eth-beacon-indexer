@@ -1,3 +1,6 @@
+//go:build !race
+// +build !race
+
 package shutdown_test
 
 import (
