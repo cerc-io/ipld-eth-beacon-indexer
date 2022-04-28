@@ -61,7 +61,7 @@ func createSseEvent[P ProcessedEvents](baseEndpoint string, path string) *SseEve
 	endpoint := baseEndpoint + path
 	sseEvents := &SseEvents[P]{
 		Endpoint:   endpoint,
-		MessagesCh: make(chan *sse.Event),
+		MessagesCh: make(chan *sse.Event, 1),
 		ErrorCh:    make(chan *SseError),
 		ProcessCh:  make(chan *P),
 		SseClient: func(endpoint string) *sse.Client {
