@@ -16,6 +16,12 @@ import (
 // operation is a clean up function on shutting down
 type Operation func(ctx context.Context) error
 
+var (
+	TimeoutErr = func(timeout string) error {
+		return fmt.Errorf("The Timeout %s, has been elapsed, the application will forcefully exit", timeout)
+	}
+)
+
 // gracefulShutdown waits for termination syscalls and doing clean up operations after received it
 func Shutdown(ctx context.Context, timeout time.Duration, ops map[string]Operation) (<-chan struct{}, <-chan error) {
 	waitCh := make(chan struct{})
@@ -31,8 +37,8 @@ func Shutdown(ctx context.Context, timeout time.Duration, ops map[string]Operati
 
 		// set timeout for the ops to be done to prevent system hang
 		timeoutFunc := time.AfterFunc(timeout, func() {
-			log.Warnf("timeout %d ms has been elapsed, force exit", timeout.Milliseconds())
-			errCh <- fmt.Errorf("Application shutdown took too long.")
+			log.Warnf(TimeoutErr(timeout.String()).Error())
+			errCh <- TimeoutErr(timeout.String())
 			return
 		})
 
