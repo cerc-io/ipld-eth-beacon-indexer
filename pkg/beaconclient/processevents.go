@@ -3,7 +3,12 @@
 
 package beaconclient
 
-import log "github.com/sirupsen/logrus"
+import (
+	"fmt"
+	"strconv"
+
+	log "github.com/sirupsen/logrus"
+)
 
 // This function will perform the necessary steps to handle a reorg.
 func (bc *BeaconClient) handleReorgs() {
@@ -30,8 +35,20 @@ func (bc *BeaconClient) handleFinalizedCheckpoint() {
 func (bc *BeaconClient) handleHead() {
 	log.Info("Starting to process head.")
 	for {
-		// We will add real functionality later
-		head := <-bc.ReOrgTracking.ProcessCh
+		head := <-bc.HeadTracking.ProcessCh
+		// Process all the work here.
+
+		// Update the previous block if its the first message.
+		if bc.PreviousSlot == 0 && bc.PreviousBlockRoot == "" {
+			var err error
+			bc.PreviousSlot, err = strconv.Atoi(head.Slot)
+			if err != nil {
+				bc.HeadTracking.ErrorCh <- &SseError{
+					err: fmt.Errorf("Unable to turn the slot from string to int: %s", head.Slot),
+				}
+			}
+			bc.PreviousBlockRoot = head.Block
+		}
 		log.WithFields(log.Fields{"head": head}).Debug("Received a new head event.")
 	}
 

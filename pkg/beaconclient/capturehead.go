@@ -54,14 +54,14 @@ func (bc *BeaconClient) StopHeadTracking() error {
 	log.Info("We are going to stop tracking the head of chain because of the shutdown signal.")
 	chHead := make(chan bool)
 	chReorg := make(chan bool)
-	chFinal := make(chan bool)
+	//chFinal := make(chan bool)
 
 	go bc.HeadTracking.finishProcessingChannel(chHead)
 	go bc.ReOrgTracking.finishProcessingChannel(chReorg)
-	go bc.FinalizationTracking.finishProcessingChannel(chFinal)
+	//go bc.FinalizationTracking.finishProcessingChannel(chFinal)
 
 	<-chHead
-	<-chFinal
+	//<-chFinal
 	<-chReorg
 	log.Info("Successfully stopped the head tracking service.")
 	return nil

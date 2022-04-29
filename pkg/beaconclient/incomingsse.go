@@ -62,5 +62,5 @@ func (bc *BeaconClient) captureEventTopic() {
 	log.Info("We are capturing all SSE events")
 	go handleIncomingSseEvent(bc.HeadTracking)
 	go handleIncomingSseEvent(bc.ReOrgTracking)
-	go handleIncomingSseEvent(bc.FinalizationTracking)
+	// go handleIncomingSseEvent(bc.FinalizationTracking)
 }

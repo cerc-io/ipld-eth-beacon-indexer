@@ -19,13 +19,19 @@ var (
 
 // A struct that capture the Beacon Server that the Beacon Client will be interacting with and querying.
 type BeaconClient struct {
-	Context                     context.Context                 // A context generic context with multiple uses.
-	ServerEndpoint              string                          // What is the endpoint of the beacon server.
-	PerformHeadTracking         bool                            // Should we track head?
-	PerformHistoricalProcessing bool                            // Should we perform historical processing?
-	HeadTracking                *SseEvents[Head]                // Track the head block
-	ReOrgTracking               *SseEvents[ChainReorg]          // Track all Reorgs
-	FinalizationTracking        *SseEvents[FinalizedCheckpoint] // Track all finalization checkpoints
+	Context                     context.Context // A context generic context with multiple uses.
+	ServerEndpoint              string          // What is the endpoint of the beacon server.
+	PerformHistoricalProcessing bool            // Should we perform historical processing?
+
+	// Used for Head Tracking
+	PerformHeadTracking bool                   // Should we track head?
+	StartingSlot        int                    // If we're performing head tracking. What is the first slot we processed.
+	PreviousSlot        int                    // Whats the previous slot we processed
+	PreviousBlockRoot   string                 // Whats the previous block root, used to check the next blocks parent.
+	CheckKnownGaps      bool                   // Should we check for gaps at start up.
+	HeadTracking        *SseEvents[Head]       // Track the head block
+	ReOrgTracking       *SseEvents[ChainReorg] // Track all Reorgs
+	//FinalizationTracking        *SseEvents[FinalizedCheckpoint] // Track all finalization checkpoints
 }
 
 // A struct to keep track of relevant the head event topic.
@@ -48,11 +54,11 @@ func CreateBeaconClient(ctx context.Context, connectionProtocol string, bcAddres
 	endpoint := fmt.Sprintf("%s://%s:%d", connectionProtocol, bcAddress, bcPort)
 	log.Info("Creating the BeaconClient")
 	return &BeaconClient{
-		Context:              ctx,
-		ServerEndpoint:       endpoint,
-		HeadTracking:         createSseEvent[Head](endpoint, bcHeadTopicEndpoint),
-		ReOrgTracking:        createSseEvent[ChainReorg](endpoint, bcReorgTopicEndpoint),
-		FinalizationTracking: createSseEvent[FinalizedCheckpoint](endpoint, bcFinalizedTopicEndpoint),
+		Context:        ctx,
+		ServerEndpoint: endpoint,
+		HeadTracking:   createSseEvent[Head](endpoint, bcHeadTopicEndpoint),
+		ReOrgTracking:  createSseEvent[ChainReorg](endpoint, bcReorgTopicEndpoint),
+		//FinalizationTracking: createSseEvent[FinalizedCheckpoint](endpoint, bcFinalizedTopicEndpoint),
 	}
 }
 
