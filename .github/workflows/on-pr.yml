@@ -20,6 +20,10 @@ on:
       - ".github/workflows/on-pr.yml"
       - "**"
 
+env:
+  stack-orchestrator-ref: ${{ github.event.inputs.stack-orchestrator-ref  || 'fcbc74451c5494664fe21f765e89c9c6565c07cb'}}
+  ipld-eth-db-ref: ${{ github.event.inputs.ipld-eth-db-ref  || '05600e51d2163e1c5e2a872cb54606bc0a380d12' }}
+  GOPATH: /tmp/go
 jobs:
   build:
     name: Run Docker Build
@@ -33,10 +37,6 @@ jobs:
     name: Run Unit Tests
     runs-on: ubuntu-latest
     ## IF you want to update the default branch for `pull_request runs, do it after the ||`
-    env:
-      stack-orchestrator-ref: ${{ github.event.inputs.stack-orchestrator-ref  || 'fcbc74451c5494664fe21f765e89c9c6565c07cb'}}
-      ipld-eth-db-ref: ${{ github.event.inputs.ipld-eth-db-ref  || '05600e51d2163e1c5e2a872cb54606bc0a380d12' }}
-      GOPATH: /tmp/go
     steps:
       - name: Create GOPATH
         run: mkdir -p /tmp/go
@@ -83,10 +83,6 @@ jobs:
   integration-test:
     name: Run Integration Tests
     runs-on: ubuntu-latest
-    env:
-      stack-orchestrator-ref: ${{ github.event.inputs.stack-orchestrator-ref  || 'fcbc74451c5494664fe21f765e89c9c6565c07cb'}}
-      ipld-eth-db-ref: ${{ github.event.inputs.ipld-eth-db-ref  || '05600e51d2163e1c5e2a872cb54606bc0a380d12' }}
-      GOPATH: /tmp/go
     steps:
       - name: Create GOPATH
         run: mkdir -p /tmp/go
