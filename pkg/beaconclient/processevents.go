@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/vulcanize/ipld-ethcl-indexer/pkg/database/sql"
 	"github.com/vulcanize/ipld-ethcl-indexer/pkg/loghelper"
 )
 
@@ -21,19 +22,19 @@ func (bc *BeaconClient) handleReorgs() {
 	}
 }
 
-// This function will perform the necessary steps to handle a reorg.
-func (bc *BeaconClient) handleFinalizedCheckpoint() {
-	log.Info("Starting to process finalized checkpoints.")
-	for {
-		// We will add real functionality later
-		finalized := <-bc.ReOrgTracking.ProcessCh
-		log.WithFields(log.Fields{"finalized": finalized}).Debug("Received a new finalized checkpoint.")
-	}
-
-}
+// // This function will perform the necessary steps to handle a reorg.
+// func (bc *BeaconClient) handleFinalizedCheckpoint() {
+// 	log.Info("Starting to process finalized checkpoints.")
+// 	for {
+// 		// We will add real functionality later
+// 		finalized := <-bc.FinalizationTracking.ProcessCh
+// 		log.WithFields(log.Fields{"finalized": finalized}).Debug("Received a new finalized checkpoint.")
+// 	}
+//
+// }
 
 // This function will handle the latest head event.
-func (bc *BeaconClient) handleHead() {
+func (bc *BeaconClient) handleHead(db sql.Database) {
 	log.Info("Starting to process head.")
 	for {
 		head := <-bc.HeadTracking.ProcessCh
@@ -44,7 +45,7 @@ func (bc *BeaconClient) handleHead() {
 				err: fmt.Errorf("Unable to turn the slot from string to int: %s", head.Slot),
 			}
 		}
-		err = handleHeadSlot(bc.ServerEndpoint, slot, head.Block, head.State, uint64(bc.PreviousSlot), bc.PreviousBlockRoot)
+		err = handleHeadSlot(db, bc.ServerEndpoint, slot, head.Block, head.State, uint64(bc.PreviousSlot), bc.PreviousBlockRoot)
 		if err != nil {
 			loghelper.LogSlotError(head.Slot, err)
 		}

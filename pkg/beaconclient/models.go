@@ -1,7 +1,5 @@
 package beaconclient
 
-import "math/big"
-
 // This interface captured what the events can be for processed event streams.
 type ProcessedEvents interface {
 	Head | FinalizedCheckpoint | ChainReorg
@@ -40,25 +38,25 @@ type ChainReorg struct {
 
 // A struct to capture whats being written to the ethcl.slots table.
 type DbSlots struct {
-	Epoch     *big.Int // The epoch.
-	Slot      *big.Int // The slot.
-	BlockRoot string   // The block root
-	StateRoot string   // The state root
-	Status    string   // The status, it can be proposed | forked | missed.
+	Epoch     string // The epoch.
+	Slot      string // The slot.
+	BlockRoot string // The block root
+	StateRoot string // The state root
+	Status    string // The status, it can be proposed | forked | missed.
 }
 
 // A struct to capture whats being written to ethcl.signed_beacon_block table.
 type DbSignedBeaconBlock struct {
-	Slot        *big.Int // The slot.
-	BlockRoot   string   // The block root
-	ParentBlock string   // The parent block root.
-	MhKey       string   // The ipld multihash key.
+	Slot        string // The slot.
+	BlockRoot   string // The block root
+	ParentBlock string // The parent block root.
+	MhKey       string // The ipld multihash key.
 
 }
 
 // A struct to capture whats being written to ethcl.beacon_state table.
 type DbBeaconState struct {
-	Slot      *big.Int // The slot.
-	StateRoot string   // The state root
-	MhKey     string   // The ipld multihash key.
+	Slot      string // The slot.
+	StateRoot string // The state root
+	MhKey     string // The ipld multihash key.
 }

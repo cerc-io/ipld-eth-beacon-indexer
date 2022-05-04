@@ -7,12 +7,15 @@ package beaconclient
 import (
 	"encoding/hex"
 	"fmt"
-	"math/big"
 	"strconv"
 	"strings"
 
-	"github.com/ferranbt/fastssz/spectests"
+	// The below is temporary, once https://github.com/prysmaticlabs/prysm/issues/10006 has been resolved we wont need it.
+	// pb "github.com/prysmaticlabs/prysm/proto/prysm/v2"
+
+	st "github.com/prysmaticlabs/prysm/proto/prysm/v1alpha1"
 	log "github.com/sirupsen/logrus"
+	"github.com/vulcanize/ipld-ethcl-indexer/pkg/database/sql"
 	"github.com/vulcanize/ipld-ethcl-indexer/pkg/loghelper"
 )
 
@@ -20,28 +23,37 @@ var (
 	SlotUnmarshalError = func(obj string) string {
 		return fmt.Sprintf("Unable to properly unmarshal the Slot field in the %s.", obj)
 	}
-
-	//SlotUnmarshalError       = "Unable to properly unmarshal the Slot field in the SignedBeaconBlock."
 	ParentRootUnmarshalError = "Unable to properly unmarshal the ParentRoot field in the SignedBeaconBlock."
 	MissingIdentifiedError   = "Can't query state without a set slot or block_root"
 )
 
 type ProcessSlot struct {
-	Slot                  int                          // The slot number.
-	Epoch                 int                          // The epoch number.
-	BlockRoot             string                       // The hex encoded string of the BlockRoot.
-	StateRoot             string                       // The hex encoded string of the StateRoot.
-	ParentBlockRoot       string                       // The hex encoded string of the parent block.
-	Status                string                       // The status of the block
-	HeadOrHistoric        string                       // Is this the head or a historic slot. This is critical when trying to analyze errors and missed slots.
-	SszSignedBeaconBlock  []byte                       // The entire SSZ encoded SignedBeaconBlock
-	SszBeaconState        []byte                       // The entire SSZ encoded BeaconState
-	FullBeaconState       *spectests.BeaconState       // The unmarshaled BeaconState object, the unmarshalling could have errors.
-	FullSignedBeaconBlock *spectests.SignedBeaconBlock // The unmarshaled BeaconState object, the unmarshalling could have errors.
+	// Generic
+
+	Slot            int    // The slot number.
+	Epoch           int    // The epoch number.
+	BlockRoot       string // The hex encoded string of the BlockRoot.
+	StateRoot       string // The hex encoded string of the StateRoot.
+	ParentBlockRoot string // The hex encoded string of the parent block.
+	Status          string // The status of the block
+	HeadOrHistoric  string // Is this the head or a historic slot. This is critical when trying to analyze errors and missed slots.
+	// BeaconBlock
+
+	SszSignedBeaconBlock  []byte                // The entire SSZ encoded SignedBeaconBlock
+	FullSignedBeaconBlock *st.SignedBeaconBlock // The unmarshaled BeaconState object, the unmarshalling could have errors.
+
+	// BeaconState
+	FullBeaconState *st.BeaconState // The unmarshaled BeaconState object, the unmarshalling could have errors.
+	SszBeaconState  []byte          // The entire SSZ encoded BeaconState
+
+	// DB Write objects
+	DbSlotsModel             *DbSlots             // The model being written to the slots table.
+	DbSignedBeaconBlockModel *DbSignedBeaconBlock // The model being written to the signed_beacon_block table.
+	DbBeaconState            *DbBeaconState       // The model being written to the beacon_state table.
 }
 
 // This function will do all the work to process the slot and write it to the DB.
-func handleFullSlot(serverAddress string, slot int, blockRoot string, stateRoot string, previousSlot uint64, previousBlockRoot string, headOrHistoric string) error {
+func handleFullSlot(db sql.Database, serverAddress string, slot int, blockRoot string, stateRoot string, previousSlot uint64, previousBlockRoot string, headOrHistoric string) error {
 	headOrHistoric = strings.ToLower(headOrHistoric)
 	if headOrHistoric != "head" && headOrHistoric != "historic" {
 		return fmt.Errorf("headOrBatch must be either historic or head!")
@@ -73,22 +85,22 @@ func handleFullSlot(serverAddress string, slot int, blockRoot string, stateRoot 
 	}
 
 	// Get this object ready to write
-	ps.createWriteObjects()
+	dw := ps.createWriteObjects(db)
 
 	// Write the object to the DB.
+	dw.writeFullSlot()
 
 	return nil
 }
 
 // Handle a slot that is at head. A wrapper function for calling `handleFullSlot`.
-func handleHeadSlot(serverAddress string, slot int, blockRoot string, stateRoot string, previousSlot uint64, previousBlockRoot string) error {
-	log.Debug("handleHeadSlot")
-	return handleFullSlot(serverAddress, slot, blockRoot, stateRoot, previousSlot, previousBlockRoot, "head")
+func handleHeadSlot(db sql.Database, serverAddress string, slot int, blockRoot string, stateRoot string, previousSlot uint64, previousBlockRoot string) error {
+	return handleFullSlot(db, serverAddress, slot, blockRoot, stateRoot, previousSlot, previousBlockRoot, "head")
 }
 
 // Handle a historic slot. A wrapper function for calling `handleFullSlot`.
-func handleHistoricSlot(serverAddress string, slot int) error {
-	return handleFullSlot(serverAddress, slot, "", "", 0, "", "historic")
+func handleHistoricSlot(db sql.Database, serverAddress string, slot int) error {
+	return handleFullSlot(db, serverAddress, slot, "", "", 0, "", "historic")
 }
 
 // Update the SszSignedBeaconBlock and FullSignedBeaconBlock object with their respective values.
@@ -115,7 +127,7 @@ func (ps *ProcessSlot) getSignedBeaconBlock(serverAddress string) error {
 		ps.checkMissedSlot()
 	}
 
-	ps.FullSignedBeaconBlock = new(spectests.SignedBeaconBlock)
+	ps.FullSignedBeaconBlock = &st.SignedBeaconBlock{}
 	err = ps.FullSignedBeaconBlock.UnmarshalSSZ(ps.SszSignedBeaconBlock)
 
 	if err != nil {
@@ -145,7 +157,7 @@ func (ps *ProcessSlot) getBeaconState(serverEndpoint string) error {
 	stateEndpoint := serverEndpoint + bcStateQueryEndpoint + stateIdentifier
 	ps.SszBeaconState, _, _ = querySsz(stateEndpoint, strconv.Itoa(ps.Slot))
 
-	ps.FullBeaconState = new(spectests.BeaconState)
+	ps.FullBeaconState = new(st.BeaconState)
 	err := ps.FullBeaconState.UnmarshalSSZ(ps.SszBeaconState)
 
 	if err != nil {
@@ -159,13 +171,13 @@ func (ps *ProcessSlot) getBeaconState(serverEndpoint string) error {
 
 // Check to make sure that the previous block we processed is the parent of the current block.
 func (ps *ProcessSlot) checkPreviousSlot(previousSlot uint64, previousBlockRoot string) {
-	if previousSlot == ps.FullBeaconState.Slot {
+	if previousSlot == uint64(ps.FullBeaconState.Slot) {
 		log.WithFields(log.Fields{
 			"slot": ps.FullBeaconState.Slot,
 			"fork": true,
 		}).Warn("A fork occurred! The previous slot and current slot match.")
 		// mark old slot as forked.
-	} else if previousSlot-1 != ps.FullBeaconState.Slot {
+	} else if previousSlot-1 != uint64(ps.FullBeaconState.Slot) {
 		log.WithFields(log.Fields{
 			"previousSlot": previousSlot,
 			"currentSlot":  ps.FullBeaconState.Slot,
@@ -180,6 +192,8 @@ func (ps *ProcessSlot) checkPreviousSlot(previousSlot uint64, previousBlockRoot 
 		// Handle Forks
 		// Mark the previous slot in the DB as a fork.
 		// Continue with this slot.
+	} else {
+		log.Debug("Previous Slot and Current Slot are one distance from each other.")
 	}
 }
 
@@ -199,7 +213,7 @@ func (ps *ProcessSlot) checkMissedSlot() {
 }
 
 // Transforms all the raw data into DB models that can be written to the DB.
-func (ps *ProcessSlot) createWriteObjects() {
+func (ps *ProcessSlot) createWriteObjects(db sql.Database) *DatabaseWriter {
 	var (
 		stateRoot string
 		blockRoot string
@@ -209,75 +223,34 @@ func (ps *ProcessSlot) createWriteObjects() {
 	if ps.StateRoot != "" {
 		stateRoot = ps.StateRoot
 	} else {
-		stateRoot = hex.EncodeToString(ps.FullSignedBeaconBlock.Block.StateRoot)
+		stateRoot = "0x" + hex.EncodeToString(ps.FullSignedBeaconBlock.Block.StateRoot)
+		log.Debug("StateRoot: ", stateRoot)
 	}
 
+	// MUST RESOLVE!
 	if ps.BlockRoot != "" {
 		blockRoot = ps.BlockRoot
 	} else {
-		// wait for response from Prysm.
-		// get the blockroot
+		// We need to get the state of Slot + 1, then we can run the below.
+		// WE can query it for each run, or we can leave it blank, and update it.
+		// I just want to avoid getting the same state twice, especially since the state can get heavy.
+		// blockRoot = "0x" + hex.EncodeToString(ps.FullBeaconState.GetBlockRoots()[ps.Slot%bcSlotPerHistoricalVector][:])
+		// log.Debug("Block Root: ", blockRoot)
+		// log.Debug("ps.Slott: ", ps.Slot)
+		// Maybe we can use the helper down the road.
+		//blockRootRaw, _ := helper.BlockRootAtSlot(ps.FullBeaconState, ps.FullSignedBeaconBlock.Block.Slot)
+		//blockRoot = string(blockRootRaw)
 	}
 
 	if ps.Status != "" {
-		status = ps.StateRoot
+		status = ps.Status
 	} else {
 		status = "proposed"
 	}
-	// Function to write slots table
-	ps.prepareSlotsModel(stateRoot, blockRoot, status)
 
-	// function to write block
-	ps.prepareSignedBeaconBlockModel(blockRoot)
+	dw := CreateDatabaseWrite(db, ps.Slot, stateRoot, blockRoot, ps.ParentBlockRoot, status)
+	dw.rawSignedBeaconBlock = ps.SszSignedBeaconBlock
+	dw.rawBeaconState = ps.SszBeaconState
 
-	// function to write state
-	ps.prepareBeaconStateModel(stateRoot)
-}
-
-// Create the model for the ethcl.slots table
-func (ps *ProcessSlot) prepareSlotsModel(stateRoot string, blockRoot string, status string) *DbSlots {
-	dbSlots := &DbSlots{
-		Epoch:     calculateEpoch(ps.Slot, bcSlotsPerEpoch),
-		Slot:      big.NewInt(int64(ps.Slot)),
-		StateRoot: stateRoot,
-		BlockRoot: blockRoot,
-		Status:    status,
-	}
-	log.Debug("DbSlots: ", dbSlots)
-	return dbSlots
-
-}
-
-// Create the model for the ethcl.signed_beacon_block table.
-func (ps *ProcessSlot) prepareSignedBeaconBlockModel(blockRoot string) *DbSignedBeaconBlock {
-	dbSignedBeaconBlock := &DbSignedBeaconBlock{
-		Slot:        big.NewInt(int64(ps.Slot)),
-		BlockRoot:   blockRoot,
-		ParentBlock: ps.ParentBlockRoot,
-		MhKey:       calculateMhKey(),
-	}
-	log.Debug("dbSignedBeaconBlock: ", dbSignedBeaconBlock)
-	return dbSignedBeaconBlock
-}
-
-// Create the model for the ethcl.beacon_state table.
-func (ps *ProcessSlot) prepareBeaconStateModel(stateRoot string) *DbBeaconState {
-	dbBeaconState := &DbBeaconState{
-		Slot:      big.NewInt(int64(ps.Slot)),
-		StateRoot: stateRoot,
-		MhKey:     calculateMhKey(),
-	}
-
-	log.Debug("dbBeaconState: ", dbBeaconState)
-	return dbBeaconState
-}
-
-// A quick helper function to calculate the epoch.
-func calculateEpoch(slot int, slotPerEpoch int) *big.Int {
-	epoch := slot / slotPerEpoch
-	return big.NewInt(int64(epoch))
-}
-
-func calculateMhKey() string {
-	return ""
+	return dw
 }

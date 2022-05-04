@@ -69,7 +69,7 @@ var _ = Describe("Shutdown", func() {
 				go func() {
 					log.Debug("Adding messages to Channels")
 					BC.HeadTracking.MessagesCh <- &sse.Event{}
-					BC.FinalizationTracking.MessagesCh <- &sse.Event{}
+					//BC.FinalizationTracking.MessagesCh <- &sse.Event{}
 					BC.ReOrgTracking.MessagesCh <- &sse.Event{}
 					log.Debug("Message adding complete")
 					messageAddCh <- true
@@ -81,7 +81,7 @@ var _ = Describe("Shutdown", func() {
 					syscall.Kill(syscall.Getpid(), syscall.SIGHUP)
 					log.Debug("Reading messages from channel")
 					<-BC.HeadTracking.MessagesCh
-					<-BC.FinalizationTracking.MessagesCh
+					//<-BC.FinalizationTracking.MessagesCh
 					<-BC.ReOrgTracking.MessagesCh
 				}()
 				<-shutdownCh
@@ -101,7 +101,7 @@ var _ = Describe("Shutdown", func() {
 				go func() {
 					log.Debug("Adding messages to Channels")
 					BC.HeadTracking.MessagesCh <- &sse.Event{}
-					BC.FinalizationTracking.MessagesCh <- &sse.Event{}
+					//BC.FinalizationTracking.MessagesCh <- &sse.Event{}
 					BC.ReOrgTracking.MessagesCh <- &sse.Event{}
 					log.Debug("Message adding complete")
 					log.Debug("Calling SIGHUP")

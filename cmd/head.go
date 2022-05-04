@@ -36,7 +36,7 @@ func startHeadTracking() {
 	}
 
 	// Capture head blocks
-	go BC.CaptureHead()
+	go BC.CaptureHead(DB)
 
 	// Shutdown when the time is right.
 	err = shutdown.ShutdownServices(ctx, maxWaitSecondsShutdown, DB, BC)
