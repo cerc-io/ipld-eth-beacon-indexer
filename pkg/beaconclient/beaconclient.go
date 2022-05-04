@@ -15,6 +15,7 @@ var (
 	bcFinalizedTopicEndpoint = "/eth/v1/events?topics=finalized_checkpoint" // Endpoint used to subscribe to the head of the chain
 	bcBlockQueryEndpoint     = "/eth/v2/beacon/blocks/"                     // Endpoint to query individual Blocks
 	bcStateQueryEndpoint     = "/eth/v2/debug/beacon/states/"               // Endpoint to query individual States
+	bcSlotsPerEpoch          = 32                                           // Number of slots in a single Epoch
 )
 
 // A struct that capture the Beacon Server that the Beacon Client will be interacting with and querying.

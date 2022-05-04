@@ -5,7 +5,6 @@ package beaconclient
 import (
 	"time"
 
-	"github.com/ferranbt/fastssz/spectests"
 	log "github.com/sirupsen/logrus"
 	"github.com/vulcanize/ipld-ethcl-indexer/pkg/loghelper"
 )
@@ -21,34 +20,34 @@ func (bc *BeaconClient) CaptureHead() {
 }
 
 // A temporary helper function to see the output of beacon block and states.
-func (bc *BeaconClient) tempHelper() {
-	slot := "3200"
-	blockEndpoint := bc.ServerEndpoint + bcBlockQueryEndpoint + slot
-	stateEndpoint := bc.ServerEndpoint + bcStateQueryEndpoint + slot
-	// Query
-	log.Info("Get")
-	blockSsz, _ := querySsz(blockEndpoint, slot)
-	stateSsz, _ := querySsz(stateEndpoint, slot)
-	// Transform
-	log.Info("Tranform")
-	stateObj := new(spectests.BeaconState)
-	err := stateObj.UnmarshalSSZ(stateSsz)
-	if err != nil {
-		loghelper.LogSlotError(slot, err).Error("Unable to unmarshal the SSZ response from the Beacon Node Successfully!")
-	}
-
-	blockObj := new(spectests.SignedBeaconBlock)
-	err = blockObj.UnmarshalSSZ(blockSsz)
-	if err != nil {
-		loghelper.LogSlotError(slot, err).Error("Unable to unmarshal the SSZ response from the Beacon Node Successfully!")
-	}
-
-	// Check
-	log.Info("Check")
-	log.Info("State Slot: ", stateObj.Slot)
-	log.Info("Block Slot: ", blockObj.Block.Slot)
-}
-
+//func (bc *BeaconClient) tempHelper() {
+//	slot := "3200"
+//	blockEndpoint := bc.ServerEndpoint + bcBlockQueryEndpoint + slot
+//	stateEndpoint := bc.ServerEndpoint + bcStateQueryEndpoint + slot
+//	// Query
+//	log.Info("Get")
+//	blockSsz, _ := querySsz(blockEndpoint, slot)
+//	stateSsz, _ := querySsz(stateEndpoint, slot)
+//	// Transform
+//	log.Info("Tranform")
+//	stateObj := new(spectests.BeaconState)
+//	err := stateObj.UnmarshalSSZ(stateSsz)
+//	if err != nil {
+//		loghelper.LogSlotError(slot, err).Error("Unable to unmarshal the SSZ response from the Beacon Node Successfully!")
+//	}
+//
+//	blockObj := new(spectests.SignedBeaconBlock)
+//	err = blockObj.UnmarshalSSZ(blockSsz)
+//	if err != nil {
+//		loghelper.LogSlotError(slot, err).Error("Unable to unmarshal the SSZ response from the Beacon Node Successfully!")
+//	}
+//
+//	// Check
+//	log.Info("Check")
+//	log.Info("State Slot: ", stateObj.Slot)
+//	log.Info("Block Slot: ", blockObj.Block.Slot)
+//}
+//
 // Stop the head tracking service.
 func (bc *BeaconClient) StopHeadTracking() error {
 	log.Info("We are going to stop tracking the head of chain because of the shutdown signal.")
