@@ -30,8 +30,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Run docker build
-        run: make docker-build
+        with:
+          path: "./ipld-ethcl-indexer"
 
       - uses: actions/checkout@v3
         with:
@@ -47,6 +47,10 @@ jobs:
           path: "./ipld-eth-db/"
           fetch-depth: 0
 
+      - uses: actions/checkout@v2
+      - name: Run docker build
+        run: make docker-build
+
       - name: Create config file
         run: |
           echo vulcanize_ipld_eth_db=$GITHUB_WORKSPACE/ipld-eth-db/ > ./config.sh
@@ -57,7 +61,6 @@ jobs:
         run: |
           docker-compose  \
           -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-db.yml" \
-          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-ipld-ethcl-indexer.yml" \
           -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/latest/docker-compose-lighthouse.yml" \
           --env-file ./config.sh \
           up -d --build
