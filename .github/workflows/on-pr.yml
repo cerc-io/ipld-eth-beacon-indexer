@@ -64,8 +64,8 @@ jobs:
           up -d --build
 
       - name: Check to make sure HEALTH file is present
+        shell: bash
         run: |
-
           while [ $(docker compose -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-ipld-ethcl-indexer.yml" cp ipld-ethcl-indexer:/root/HEALTH ./HEALTH; echo $?) -ne 0 ]; do sleep 10; !!; done
           cat ./HEALTH
           if [[ "$(cat ./HEALTH)" -eq "0" ]]; then echo "Application boot successful" && (exit 0); else (exit 1); fi
