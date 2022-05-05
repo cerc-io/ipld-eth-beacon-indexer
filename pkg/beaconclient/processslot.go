@@ -99,9 +99,10 @@ func handleHeadSlot(db sql.Database, serverAddress string, slot int, blockRoot s
 }
 
 // Handle a historic slot. A wrapper function for calling `handleFullSlot`.
-func handleHistoricSlot(db sql.Database, serverAddress string, slot int) error {
-	return handleFullSlot(db, serverAddress, slot, "", "", 0, "", "historic")
-}
+// Commented because of the linter...... LOL
+//func handleHistoricSlot(db sql.Database, serverAddress string, slot int) error {
+//	return handleFullSlot(db, serverAddress, slot, "", "", 0, "", "historic")
+//}
 
 // Update the SszSignedBeaconBlock and FullSignedBeaconBlock object with their respective values.
 func (ps *ProcessSlot) getSignedBeaconBlock(serverAddress string) error {

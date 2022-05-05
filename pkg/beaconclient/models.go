@@ -2,7 +2,7 @@ package beaconclient
 
 // This interface captured what the events can be for processed event streams.
 type ProcessedEvents interface {
-	Head | FinalizedCheckpoint | ChainReorg
+	Head | ChainReorg
 }
 
 // This struct captures the JSON representation of the head topic

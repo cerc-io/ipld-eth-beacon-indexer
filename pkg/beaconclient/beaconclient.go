@@ -10,14 +10,14 @@ import (
 
 // TODO: Use prysms config values instead of hardcoding them here.
 var (
-	bcHealthEndpoint          = "/eth/v1/node/health"                        // Endpoint used for the healthcheck
-	bcHeadTopicEndpoint       = "/eth/v1/events?topics=head"                 // Endpoint used to subscribe to the head of the chain
-	bcReorgTopicEndpoint      = "/eth/v1/events?topics=chain_reorg"          // Endpoint used to subscribe to the head of the chain
-	bcFinalizedTopicEndpoint  = "/eth/v1/events?topics=finalized_checkpoint" // Endpoint used to subscribe to the head of the chain
-	bcBlockQueryEndpoint      = "/eth/v2/beacon/blocks/"                     // Endpoint to query individual Blocks
-	bcStateQueryEndpoint      = "/eth/v2/debug/beacon/states/"               // Endpoint to query individual States
-	bcSlotsPerEpoch           = 32                                           // Number of slots in a single Epoch
-	bcSlotPerHistoricalVector = 8192                                         // The number of slots in a historic vector.
+	bcHealthEndpoint     = "/eth/v1/node/health"               // Endpoint used for the healthcheck
+	bcHeadTopicEndpoint  = "/eth/v1/events?topics=head"        // Endpoint used to subscribe to the head of the chain
+	bcReorgTopicEndpoint = "/eth/v1/events?topics=chain_reorg" // Endpoint used to subscribe to the head of the chain
+	bcBlockQueryEndpoint = "/eth/v2/beacon/blocks/"            // Endpoint to query individual Blocks
+	bcStateQueryEndpoint = "/eth/v2/debug/beacon/states/"      // Endpoint to query individual States
+	bcSlotsPerEpoch      = 32                                  // Number of slots in a single Epoch
+	//bcSlotPerHistoricalVector = 8192                                // The number of slots in a historic vector.
+	//bcFinalizedTopicEndpoint  = "/eth/v1/events?topics=finalized_checkpoint" // Endpoint used to subscribe to the head of the chain
 )
 
 // A struct that capture the Beacon Server that the Beacon Client will be interacting with and querying.
