@@ -5,6 +5,7 @@ package shutdown_test
 
 import (
 	"context"
+	"os"
 	"syscall"
 	"time"
 
@@ -35,10 +36,12 @@ var _ = Describe("Shutdown", func() {
 		BC                     *beaconclient.BeaconClient
 		err                    error
 		ctx                    context.Context
+		notifierCh             chan os.Signal
 	)
 	BeforeEach(func() {
 		ctx = context.Background()
 		BC, DB, err = boot.BootApplicationWithRetry(ctx, dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver, bcAddress, bcPort, bcConnectionProtocol)
+		notifierCh = make(chan os.Signal, 1)
 		Expect(err).To(BeNil())
 	})
 
@@ -47,7 +50,7 @@ var _ = Describe("Shutdown", func() {
 			It("Should Shutdown Successfully.", func() {
 				go func() {
 					log.Debug("Starting shutdown chan")
-					err = shutdown.ShutdownServices(ctx, maxWaitSecondsShutdown, DB, BC)
+					err = shutdown.ShutdownServices(ctx, notifierCh, maxWaitSecondsShutdown, DB, BC)
 					log.Debug("We have completed the shutdown...")
 					Expect(err).ToNot(HaveOccurred())
 				}()
@@ -59,7 +62,7 @@ var _ = Describe("Shutdown", func() {
 				//log.SetLevel(log.DebugLevel)
 				go func() {
 					log.Debug("Starting shutdown chan")
-					err = shutdown.ShutdownServices(ctx, maxWaitSecondsShutdown, DB, BC)
+					err = shutdown.ShutdownServices(ctx, notifierCh, maxWaitSecondsShutdown, DB, BC)
 					log.Debug("We have completed the shutdown...")
 					Expect(err).ToNot(HaveOccurred())
 					shutdownCh <- true
@@ -77,8 +80,8 @@ var _ = Describe("Shutdown", func() {
 
 				go func() {
 					<-messageAddCh
-					log.Debug("Calling SIGHUP")
-					syscall.Kill(syscall.Getpid(), syscall.SIGHUP)
+					log.Debug("Calling SIGTERM")
+					notifierCh <- syscall.SIGTERM
 					log.Debug("Reading messages from channel")
 					<-BC.HeadTracking.MessagesCh
 					//<-BC.FinalizationTracking.MessagesCh
@@ -92,7 +95,7 @@ var _ = Describe("Shutdown", func() {
 				//log.SetLevel(log.DebugLevel)
 				go func() {
 					log.Debug("Starting shutdown chan")
-					err = shutdown.ShutdownServices(ctx, maxWaitSecondsShutdown, DB, BC)
+					err = shutdown.ShutdownServices(ctx, notifierCh, maxWaitSecondsShutdown, DB, BC)
 					log.Debug("We have completed the shutdown...")
 					Expect(err).To(MatchError(gracefulshutdown.TimeoutErr(maxWaitSecondsShutdown.String())))
 					shutdownCh <- true
@@ -105,7 +108,7 @@ var _ = Describe("Shutdown", func() {
 					BC.ReOrgTracking.MessagesCh <- &sse.Event{}
 					log.Debug("Message adding complete")
 					log.Debug("Calling SIGHUP")
-					syscall.Kill(syscall.Getpid(), syscall.SIGHUP)
+					notifierCh <- syscall.SIGTERM
 				}()
 
 				<-shutdownCh

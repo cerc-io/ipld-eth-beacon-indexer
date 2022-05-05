@@ -6,6 +6,7 @@ package cmd
 
 import (
 	"context"
+	"os"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -39,7 +40,8 @@ func startHeadTracking() {
 	go BC.CaptureHead(DB)
 
 	// Shutdown when the time is right.
-	err = shutdown.ShutdownServices(ctx, maxWaitSecondsShutdown, DB, BC)
+	notifierCh := make(chan os.Signal, 1)
+	err = shutdown.ShutdownServices(ctx, notifierCh, maxWaitSecondsShutdown, DB, BC)
 	if err != nil {
 		loghelper.LogError(err).Error("Ungracefully Shutdown ipld-ethcl-indexer!")
 	} else {

@@ -86,6 +86,7 @@ func BootApplicationWithRetry(ctx context.Context, dbHostname string, dbPort int
 				"retryNumber": i,
 			}).Warn("Unable to boot application. Going to try again")
 			time.Sleep(time.Duration(retryInterval) * time.Second)
+			continue
 		}
 		break
 	}

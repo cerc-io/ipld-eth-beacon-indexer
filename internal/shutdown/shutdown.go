@@ -2,6 +2,7 @@ package shutdown
 
 import (
 	"context"
+	"os"
 	"time"
 
 	"github.com/vulcanize/ipld-ethcl-indexer/pkg/beaconclient"
@@ -11,8 +12,8 @@ import (
 )
 
 // Shutdown all the internal services for the application.
-func ShutdownServices(ctx context.Context, waitTime time.Duration, DB sql.Database, BC *beaconclient.BeaconClient) error {
-	successCh, errCh := gracefulshutdown.Shutdown(ctx, waitTime, map[string]gracefulshutdown.Operation{
+func ShutdownServices(ctx context.Context, notifierCh chan os.Signal, waitTime time.Duration, DB sql.Database, BC *beaconclient.BeaconClient) error {
+	successCh, errCh := gracefulshutdown.Shutdown(ctx, notifierCh, waitTime, map[string]gracefulshutdown.Operation{
 		// Combining DB shutdown with BC because BC needs DB open to cleanly shutdown.
 		"beaconClient": func(ctx context.Context) error {
 			defer DB.Close()

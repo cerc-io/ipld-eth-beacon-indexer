@@ -1,7 +1,9 @@
 #!/bin/bash
+
+sleep 10
 echo "Starting ipld-ethcl-indexer"
 
-echo /root/ipld-ethcl-indexer capture head --db.address $DB_ADDRESS \
+echo /root/ipld-ethcl-indexer capture ${CAPTURE_MODE} --db.address $DB_ADDRESS \
   --db.password $DB_PASSWORD \
   --db.port $DB_PORT \
   --db.username $DB_USER \
@@ -11,7 +13,7 @@ echo /root/ipld-ethcl-indexer capture head --db.address $DB_ADDRESS \
   --bc.port $BC_PORT \
   --log.level $LOG_LEVEL
 
-/root/ipld-ethcl-indexer capture head --db.address $DB_ADDRESS \
+/root/ipld-ethcl-indexer capture ${CAPTURE_MODE} --db.address $DB_ADDRESS \
   --db.password $DB_PASSWORD \
   --db.port $DB_PORT \
   --db.username $DB_USER \
@@ -25,7 +27,10 @@ rv=$?
 
 if [ $rv != 0 ]; then
   echo "ipld-ethcl-indexer startup failed"
-  exit 1
+  echo 1 > /root/HEALTH
+else
+  echo "ipld-ethcl-indexer startup succeeded"
+  echo 0 > /root/HEALTH
 fi
 
 tail -f /dev/null

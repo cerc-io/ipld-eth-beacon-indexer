@@ -21,7 +21,7 @@ on:
       - "**"
 
 env:
-  stack-orchestrator-ref: ${{ github.event.inputs.stack-orchestrator-ref  || 'fcbc74451c5494664fe21f765e89c9c6565c07cb'}}
+  stack-orchestrator-ref: ${{ github.event.inputs.stack-orchestrator-ref  || '21d076268730e3f25fcec6371c1aca1bf48040d8'}}
   ipld-eth-db-ref: ${{ github.event.inputs.ipld-eth-db-ref  || '05600e51d2163e1c5e2a872cb54606bc0a380d12' }}
   GOPATH: /tmp/go
 jobs:
@@ -32,6 +32,42 @@ jobs:
       - uses: actions/checkout@v2
       - name: Run docker build
         run: make docker-build
+
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ env.stack-orchestrator-ref }}
+          path: "./stack-orchestrator/"
+          repository: vulcanize/stack-orchestrator
+          fetch-depth: 0
+
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ env.ipld-eth-db-ref }}
+          repository: vulcanize/ipld-eth-db
+          path: "./ipld-eth-db/"
+          fetch-depth: 0
+
+      - name: Create config file
+        run: |
+          echo vulcanize_ipld_eth_db=$GITHUB_WORKSPACE/ipld-eth-db/ > ./config.sh
+          echo vulcanize_ipld_ethcl_indexer=$GITHUB_WORKSPACE/ipld-ethcl-indexer >> ./config.sh
+          cat ./config.sh
+
+      - name: Run docker compose
+        run: |
+          docker-compose  \
+          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-db.yml" \
+          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-ipld-ethcl-indexer.yml" \
+          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/latest/docker-compose-lighthouse.yml" \
+          --env-file ./config.sh \
+          up -d --build
+
+      - name: Check to make sure HEALTH file is present
+        run: |
+          docker compose -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-ipld-ethcl-indexer.yml" cp ipld-ethcl-indexer:/root/HEALTH ./HEALTH
+          while [ $? -ne 0 ]; do !!; done
+          cat ./HEALTH
+          if [[ "$(cat ./HEALTH)" -eq "0" ]]; then echo "Application boot successful" && exit 0; else exit 1; fi
 
   unit-test:
     name: Run Unit Tests
@@ -109,6 +145,7 @@ jobs:
         run: |
           echo vulcanize_ipld_eth_db=$GITHUB_WORKSPACE/ipld-eth-db/ > ./config.sh
           echo vulcanize_ipld_ethcl_indexer=$GITHUB_WORKSPACE/ipld-ethcl-indexer >> ./config.sh
+          echo ethcl_capture_mode=boot >> ./config.sh
           cat ./config.sh
 
       - name: Run docker compose
