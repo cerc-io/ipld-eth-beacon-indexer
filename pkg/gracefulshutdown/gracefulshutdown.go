@@ -23,15 +23,14 @@ var (
 )
 
 // gracefulShutdown waits for termination syscalls and doing clean up operations after received it
-func Shutdown(ctx context.Context, timeout time.Duration, ops map[string]Operation) (<-chan struct{}, <-chan error) {
+func Shutdown(ctx context.Context, notifierCh chan os.Signal, timeout time.Duration, ops map[string]Operation) (<-chan struct{}, <-chan error) {
 	waitCh := make(chan struct{})
 	errCh := make(chan error)
 	go func() {
-		s := make(chan os.Signal, 1)
 
 		// add any other syscalls that you want to be notified with
-		signal.Notify(s, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
-		<-s
+		signal.Notify(notifierCh, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
+		<-notifierCh
 
 		log.Info("Shutting Down your application")
 

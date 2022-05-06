@@ -3,3 +3,4 @@ ipld-ethcl-indexer
 ipld-ethcl-indexer.log
 report.json
 cover.profile
+temp/*
