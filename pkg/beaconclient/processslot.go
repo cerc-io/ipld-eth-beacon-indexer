@@ -30,13 +30,14 @@ var (
 type ProcessSlot struct {
 	// Generic
 
-	Slot            int    // The slot number.
-	Epoch           int    // The epoch number.
-	BlockRoot       string // The hex encoded string of the BlockRoot.
-	StateRoot       string // The hex encoded string of the StateRoot.
-	ParentBlockRoot string // The hex encoded string of the parent block.
-	Status          string // The status of the block
-	HeadOrHistoric  string // Is this the head or a historic slot. This is critical when trying to analyze errors and missed slots.
+	Slot            int          // The slot number.
+	Epoch           int          // The epoch number.
+	BlockRoot       string       // The hex encoded string of the BlockRoot.
+	StateRoot       string       // The hex encoded string of the StateRoot.
+	ParentBlockRoot string       // The hex encoded string of the parent block.
+	Status          string       // The status of the block
+	HeadOrHistoric  string       // Is this the head or a historic slot. This is critical when trying to analyze errors and missed slots.
+	Db              sql.Database // The DB object used to write to the DB.
 	// BeaconBlock
 
 	SszSignedBeaconBlock  []byte                // The entire SSZ encoded SignedBeaconBlock
@@ -53,7 +54,7 @@ type ProcessSlot struct {
 }
 
 // This function will do all the work to process the slot and write it to the DB.
-func handleFullSlot(db sql.Database, serverAddress string, slot int, blockRoot string, stateRoot string, previousSlot uint64, previousBlockRoot string, headOrHistoric string) error {
+func processFullSlot(db sql.Database, serverAddress string, slot int, blockRoot string, stateRoot string, previousSlot int, previousBlockRoot string, headOrHistoric string) error {
 	headOrHistoric = strings.ToLower(headOrHistoric)
 	if headOrHistoric != "head" && headOrHistoric != "historic" {
 		return fmt.Errorf("headOrBatch must be either historic or head!")
@@ -94,8 +95,8 @@ func handleFullSlot(db sql.Database, serverAddress string, slot int, blockRoot s
 }
 
 // Handle a slot that is at head. A wrapper function for calling `handleFullSlot`.
-func handleHeadSlot(db sql.Database, serverAddress string, slot int, blockRoot string, stateRoot string, previousSlot uint64, previousBlockRoot string) error {
-	return handleFullSlot(db, serverAddress, slot, blockRoot, stateRoot, previousSlot, previousBlockRoot, "head")
+func processHeadSlot(db sql.Database, serverAddress string, slot int, blockRoot string, stateRoot string, previousSlot int, previousBlockRoot string) error {
+	return processFullSlot(db, serverAddress, slot, blockRoot, stateRoot, previousSlot, previousBlockRoot, "head")
 }
 
 // Handle a historic slot. A wrapper function for calling `handleFullSlot`.
@@ -171,27 +172,28 @@ func (ps *ProcessSlot) getBeaconState(serverEndpoint string) error {
 }
 
 // Check to make sure that the previous block we processed is the parent of the current block.
-func (ps *ProcessSlot) checkPreviousSlot(previousSlot uint64, previousBlockRoot string) {
-	if previousSlot == uint64(ps.FullBeaconState.Slot) {
+func (ps *ProcessSlot) checkPreviousSlot(previousSlot int, previousBlockRoot string) {
+	parentRoot := "0x" + hex.EncodeToString(ps.FullSignedBeaconBlock.Block.ParentRoot)
+	if previousSlot == int(ps.FullBeaconState.Slot) {
 		log.WithFields(log.Fields{
 			"slot": ps.FullBeaconState.Slot,
 			"fork": true,
 		}).Warn("A fork occurred! The previous slot and current slot match.")
-		// mark old slot as forked.
-	} else if previousSlot-1 != uint64(ps.FullBeaconState.Slot) {
+		processReorg(ps.Db, strconv.Itoa(ps.Slot), ps.BlockRoot)
+	} else if previousSlot-1 != int(ps.FullBeaconState.Slot) {
 		log.WithFields(log.Fields{
 			"previousSlot": previousSlot,
 			"currentSlot":  ps.FullBeaconState.Slot,
 		}).Error("We skipped a few slots.")
 		// Check to see if the slot was skipped.
 		// Call our batch processing function.
-	} else if previousBlockRoot != "0x"+hex.EncodeToString(ps.FullSignedBeaconBlock.Block.ParentRoot) {
+	} else if previousBlockRoot != parentRoot {
 		log.WithFields(log.Fields{
 			"previousBlockRoot":  previousBlockRoot,
-			"currentBlockParent": ps.FullSignedBeaconBlock.Block.ParentRoot,
+			"currentBlockParent": parentRoot,
 		}).Error("The previousBlockRoot does not match the current blocks parent, an unprocessed fork might have occurred.")
-		// Handle Forks
-		// Mark the previous slot in the DB as a fork.
+		processReorg(ps.Db, strconv.Itoa(previousSlot), parentRoot)
+		// Call our batch processing function.
 		// Continue with this slot.
 	} else {
 		log.Debug("Previous Slot and Current Slot are one distance from each other.")

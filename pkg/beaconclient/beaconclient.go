@@ -6,6 +6,7 @@ import (
 
 	"github.com/r3labs/sse"
 	log "github.com/sirupsen/logrus"
+	"github.com/vulcanize/ipld-ethcl-indexer/pkg/database/sql"
 )
 
 // TODO: Use prysms config values instead of hardcoding them here.
@@ -25,6 +26,7 @@ type BeaconClient struct {
 	Context                     context.Context // A context generic context with multiple uses.
 	ServerEndpoint              string          // What is the endpoint of the beacon server.
 	PerformHistoricalProcessing bool            // Should we perform historical processing?
+	Db                          sql.Database    // Database object used for reads and writes.
 
 	// Used for Head Tracking
 	PerformHeadTracking bool                   // Should we track head?

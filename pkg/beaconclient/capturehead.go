@@ -6,17 +6,16 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/vulcanize/ipld-ethcl-indexer/pkg/database/sql"
 	"github.com/vulcanize/ipld-ethcl-indexer/pkg/loghelper"
 )
 
 // This function will perform all the heavy lifting for tracking the head of the chain.
-func (bc *BeaconClient) CaptureHead(db sql.Database) {
+func (bc *BeaconClient) CaptureHead() {
 	log.Info("We are tracking the head of the chain.")
 	//bc.tempHelper()
-	go bc.handleHead(db)
+	go bc.handleHead()
 	//go bc.handleFinalizedCheckpoint()
-	go bc.handleReorgs()
+	go bc.handleReorg()
 	bc.captureEventTopic()
 }
 

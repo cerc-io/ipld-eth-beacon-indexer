@@ -13,7 +13,7 @@ import (
 
 // A helper function to query endpoints that utilize slots.
 func querySsz(endpoint string, slot string) ([]byte, int, error) {
-	log.WithFields(log.Fields{"endpoint": endpoint}).Info("Querying endpoint")
+	log.WithFields(log.Fields{"endpoint": endpoint}).Debug("Querying endpoint")
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", endpoint, nil)
 	if err != nil {

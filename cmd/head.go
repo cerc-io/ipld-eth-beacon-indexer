@@ -37,7 +37,7 @@ func startHeadTracking() {
 	}
 
 	// Capture head blocks
-	go BC.CaptureHead(DB)
+	go BC.CaptureHead()
 
 	// Shutdown when the time is right.
 	notifierCh := make(chan os.Signal, 1)

@@ -29,6 +29,10 @@ VALUES ($1, $2, $3) ON CONFLICT (slot, state_root) DO NOTHING`
 	UpsertBlocksStmt string = `
 INSERT INTO public.blocks (key, data)
 VALUES ($1, $2) ON CONFLICT (key) DO NOTHING`
+	UpdateReorgStmt string = `UPDATE ethcl.slots
+	SET status=forked
+	WHERE slot=$1 AND block_hash<>$2
+	RETURNING block_hash;`
 )
 
 // Put all functionality to prepare the write object
@@ -92,6 +96,8 @@ func (dw *DatabaseWriter) prepareBeaconStateModel(slot int, stateRoot string) {
 
 // Write all the data for a given slot.
 func (dw *DatabaseWriter) writeFullSlot() {
+	// Add errors for each function call
+	// If an error occurs, write to knownGaps table.
 	dw.writeSlots()
 	dw.writeSignedBeaconBlocks()
 	dw.writeBeaconState()
@@ -147,6 +153,23 @@ func (dw *DatabaseWriter) upsertBeaconState() {
 	if err != nil {
 		loghelper.LogSlotError(dw.DbSlots.Slot, err).Error("Unable to write to the slot to the ethcl.signed_beacon_block table")
 	}
+}
+
+// Update a given slot to be marked as forked. Provide the slot and the latest latestBlockRoot.
+// We will mark all entries for the given slot that don't match the provided latestBlockRoot as forked.
+func updateReorgs(db sql.Database, slot string, latestBlockRoot string) (int64, error) {
+	res, err := db.Exec(context.Background(), UpdateReorgStmt, slot, latestBlockRoot)
+	if err != nil {
+		loghelper.LogReorgError(slot, latestBlockRoot, err).Error("We are unable to update the ethcl.slots table with reorgs.")
+		return 0, err
+	}
+	count, err := res.RowsAffected()
+	if err != nil {
+		loghelper.LogReorgError(slot, latestBlockRoot, err).Error("Unable to figure out how many entries were effected by the reorg.")
+		return 0, err
+	}
+
+	return count, nil
 }
 
 // Dummy function for calculating the mhKey.

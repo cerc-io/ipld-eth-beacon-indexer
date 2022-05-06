@@ -73,6 +73,8 @@ func BootApplication(ctx context.Context, dbHostname string, dbPort int, dbName 
 	if err != nil {
 		return nil, nil, err
 	}
+
+	BC.Db = DB
 	return BC, DB, nil
 }
 
