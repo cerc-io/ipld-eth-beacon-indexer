@@ -6,26 +6,37 @@ import (
 
 	"github.com/r3labs/sse"
 	log "github.com/sirupsen/logrus"
+	"github.com/vulcanize/ipld-ethcl-indexer/pkg/database/sql"
 )
 
+// TODO: Use prysms config values instead of hardcoding them here.
 var (
-	bcHealthEndpoint         = "/eth/v1/node/health"                        // Endpoint used for the healthcheck
-	bcHeadTopicEndpoint      = "/eth/v1/events?topics=head"                 // Endpoint used to subscribe to the head of the chain
-	bcReorgTopicEndpoint     = "/eth/v1/events?topics=chain_reorg"          // Endpoint used to subscribe to the head of the chain
-	bcFinalizedTopicEndpoint = "/eth/v1/events?topics=finalized_checkpoint" // Endpoint used to subscribe to the head of the chain
-	bcBlockQueryEndpoint     = "/eth/v2/beacon/blocks/"                     // Endpoint to query individual Blocks
-	bcStateQueryEndpoint     = "/eth/v2/debug/beacon/states/"               // Endpoint to query individual States
+	bcHealthEndpoint     = "/eth/v1/node/health"               // Endpoint used for the healthcheck
+	bcHeadTopicEndpoint  = "/eth/v1/events?topics=head"        // Endpoint used to subscribe to the head of the chain
+	bcReorgTopicEndpoint = "/eth/v1/events?topics=chain_reorg" // Endpoint used to subscribe to the head of the chain
+	bcBlockQueryEndpoint = "/eth/v2/beacon/blocks/"            // Endpoint to query individual Blocks
+	bcStateQueryEndpoint = "/eth/v2/debug/beacon/states/"      // Endpoint to query individual States
+	bcSlotsPerEpoch      = 32                                  // Number of slots in a single Epoch
+	//bcSlotPerHistoricalVector = 8192                                // The number of slots in a historic vector.
+	//bcFinalizedTopicEndpoint  = "/eth/v1/events?topics=finalized_checkpoint" // Endpoint used to subscribe to the head of the chain
 )
 
 // A struct that capture the Beacon Server that the Beacon Client will be interacting with and querying.
 type BeaconClient struct {
-	Context                     context.Context                 // A context generic context with multiple uses.
-	ServerEndpoint              string                          // What is the endpoint of the beacon server.
-	PerformHeadTracking         bool                            // Should we track head?
-	PerformHistoricalProcessing bool                            // Should we perform historical processing?
-	HeadTracking                *SseEvents[Head]                // Track the head block
-	ReOrgTracking               *SseEvents[ChainReorg]          // Track all Reorgs
-	FinalizationTracking        *SseEvents[FinalizedCheckpoint] // Track all finalization checkpoints
+	Context                     context.Context // A context generic context with multiple uses.
+	ServerEndpoint              string          // What is the endpoint of the beacon server.
+	PerformHistoricalProcessing bool            // Should we perform historical processing?
+	Db                          sql.Database    // Database object used for reads and writes.
+
+	// Used for Head Tracking
+	PerformHeadTracking bool                   // Should we track head?
+	StartingSlot        int                    // If we're performing head tracking. What is the first slot we processed.
+	PreviousSlot        int                    // Whats the previous slot we processed
+	PreviousBlockRoot   string                 // Whats the previous block root, used to check the next blocks parent.
+	CheckKnownGaps      bool                   // Should we check for gaps at start up.
+	HeadTracking        *SseEvents[Head]       // Track the head block
+	ReOrgTracking       *SseEvents[ChainReorg] // Track all Reorgs
+	//FinalizationTracking        *SseEvents[FinalizedCheckpoint] // Track all finalization checkpoints
 }
 
 // A struct to keep track of relevant the head event topic.
@@ -48,11 +59,11 @@ func CreateBeaconClient(ctx context.Context, connectionProtocol string, bcAddres
 	endpoint := fmt.Sprintf("%s://%s:%d", connectionProtocol, bcAddress, bcPort)
 	log.Info("Creating the BeaconClient")
 	return &BeaconClient{
-		Context:              ctx,
-		ServerEndpoint:       endpoint,
-		HeadTracking:         createSseEvent[Head](endpoint, bcHeadTopicEndpoint),
-		ReOrgTracking:        createSseEvent[ChainReorg](endpoint, bcReorgTopicEndpoint),
-		FinalizationTracking: createSseEvent[FinalizedCheckpoint](endpoint, bcFinalizedTopicEndpoint),
+		Context:        ctx,
+		ServerEndpoint: endpoint,
+		HeadTracking:   createSseEvent[Head](endpoint, bcHeadTopicEndpoint),
+		ReOrgTracking:  createSseEvent[ChainReorg](endpoint, bcReorgTopicEndpoint),
+		//FinalizationTracking: createSseEvent[FinalizedCheckpoint](endpoint, bcFinalizedTopicEndpoint),
 	}
 }
 

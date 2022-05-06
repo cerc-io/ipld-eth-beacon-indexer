@@ -73,6 +73,8 @@ func BootApplication(ctx context.Context, dbHostname string, dbPort int, dbName 
 	if err != nil {
 		return nil, nil, err
 	}
+
+	BC.Db = DB
 	return BC, DB, nil
 }
 
@@ -86,6 +88,7 @@ func BootApplicationWithRetry(ctx context.Context, dbHostname string, dbPort int
 				"retryNumber": i,
 			}).Warn("Unable to boot application. Going to try again")
 			time.Sleep(time.Duration(retryInterval) * time.Second)
+			continue
 		}
 		break
 	}

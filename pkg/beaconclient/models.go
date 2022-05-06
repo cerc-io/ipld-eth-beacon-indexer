@@ -2,7 +2,7 @@ package beaconclient
 
 // This interface captured what the events can be for processed event streams.
 type ProcessedEvents interface {
-	Head | FinalizedCheckpoint | ChainReorg
+	Head | ChainReorg
 }
 
 // This struct captures the JSON representation of the head topic
@@ -34,4 +34,29 @@ type ChainReorg struct {
 	NewHeadState        string `json:"new_head_state"`
 	Epoch               string `json:"epoch"`
 	ExecutionOptimistic bool   `json:"execution_optimistic"`
+}
+
+// A struct to capture whats being written to the ethcl.slots table.
+type DbSlots struct {
+	Epoch     string // The epoch.
+	Slot      string // The slot.
+	BlockRoot string // The block root
+	StateRoot string // The state root
+	Status    string // The status, it can be proposed | forked | missed.
+}
+
+// A struct to capture whats being written to ethcl.signed_beacon_block table.
+type DbSignedBeaconBlock struct {
+	Slot        string // The slot.
+	BlockRoot   string // The block root
+	ParentBlock string // The parent block root.
+	MhKey       string // The ipld multihash key.
+
+}
+
+// A struct to capture whats being written to ethcl.beacon_state table.
+type DbBeaconState struct {
+	Slot      string // The slot.
+	StateRoot string // The state root
+	MhKey     string // The ipld multihash key.
 }
