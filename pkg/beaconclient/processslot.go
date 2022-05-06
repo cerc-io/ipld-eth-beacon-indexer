@@ -116,7 +116,7 @@ func (ps *ProcessSlot) getSignedBeaconBlock(serverAddress string) error {
 		log.Error(MissingIdentifiedError)
 		return fmt.Errorf(MissingIdentifiedError)
 	}
-	blockEndpoint := serverAddress + bcBlockQueryEndpoint + blockIdentifier
+	blockEndpoint := serverAddress + BcBlockQueryEndpoint + blockIdentifier
 	var err error
 	var rc int
 	ps.SszSignedBeaconBlock, rc, err = querySsz(blockEndpoint, strconv.Itoa(ps.Slot))
@@ -156,7 +156,7 @@ func (ps *ProcessSlot) getBeaconState(serverEndpoint string) error {
 		log.Error(MissingIdentifiedError)
 		return fmt.Errorf(MissingIdentifiedError)
 	}
-	stateEndpoint := serverEndpoint + bcStateQueryEndpoint + stateIdentifier
+	stateEndpoint := serverEndpoint + BcStateQueryEndpoint + stateIdentifier
 	ps.SszBeaconState, _, _ = querySsz(stateEndpoint, strconv.Itoa(ps.Slot))
 
 	ps.FullBeaconState = new(st.BeaconState)
