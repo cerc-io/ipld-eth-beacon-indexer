@@ -12,10 +12,10 @@ import (
 // TODO: Use prysms config values instead of hardcoding them here.
 var (
 	bcHealthEndpoint     = "/eth/v1/node/health"               // Endpoint used for the healthcheck
-	bcHeadTopicEndpoint  = "/eth/v1/events?topics=head"        // Endpoint used to subscribe to the head of the chain
+	BcHeadTopicEndpoint  = "/eth/v1/events?topics=head"        // Endpoint used to subscribe to the head of the chain
 	bcReorgTopicEndpoint = "/eth/v1/events?topics=chain_reorg" // Endpoint used to subscribe to the head of the chain
-	bcBlockQueryEndpoint = "/eth/v2/beacon/blocks/"            // Endpoint to query individual Blocks
-	bcStateQueryEndpoint = "/eth/v2/debug/beacon/states/"      // Endpoint to query individual States
+	BcBlockQueryEndpoint = "/eth/v2/beacon/blocks/"            // Endpoint to query individual Blocks
+	BcStateQueryEndpoint = "/eth/v2/debug/beacon/states/"      // Endpoint to query individual States
 	bcSlotsPerEpoch      = 32                                  // Number of slots in a single Epoch
 	//bcSlotPerHistoricalVector = 8192                                // The number of slots in a historic vector.
 	//bcFinalizedTopicEndpoint  = "/eth/v1/events?topics=finalized_checkpoint" // Endpoint used to subscribe to the head of the chain
@@ -61,7 +61,7 @@ func CreateBeaconClient(ctx context.Context, connectionProtocol string, bcAddres
 	return &BeaconClient{
 		Context:        ctx,
 		ServerEndpoint: endpoint,
-		HeadTracking:   createSseEvent[Head](endpoint, bcHeadTopicEndpoint),
+		HeadTracking:   createSseEvent[Head](endpoint, BcHeadTopicEndpoint),
 		ReOrgTracking:  createSseEvent[ChainReorg](endpoint, bcReorgTopicEndpoint),
 		//FinalizationTracking: createSseEvent[FinalizedCheckpoint](endpoint, bcFinalizedTopicEndpoint),
 	}
