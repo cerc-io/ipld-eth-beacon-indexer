@@ -8,7 +8,6 @@ import (
 	"github.com/vulcanize/ipld-ethcl-indexer/pkg/beaconclient"
 	"github.com/vulcanize/ipld-ethcl-indexer/pkg/database/sql"
 	"github.com/vulcanize/ipld-ethcl-indexer/pkg/database/sql/postgres"
-	"github.com/vulcanize/ipld-ethcl-indexer/pkg/loghelper"
 )
 
 var (
@@ -17,36 +16,6 @@ var (
 	DB            sql.Database               = &postgres.DB{}
 	BC            *beaconclient.BeaconClient = &beaconclient.BeaconClient{}
 )
-
-// A simple wrapper to create a DB object to use.
-func SetupPostgresDb(dbHostname string, dbPort int, dbName string, dbUsername string, dbPassword string, driverName string) (sql.Database, error) {
-	log.Debug("Resolving Driver Type")
-	DbDriver, err := postgres.ResolveDriverType(driverName)
-	if err != nil {
-		log.WithFields(log.Fields{
-			"err":                  err,
-			"driver_name_provided": driverName,
-		}).Error("Can't resolve driver type")
-	}
-	log.Info("Using Driver:", DbDriver)
-
-	postgresConfig := postgres.Config{
-		Hostname:     dbHostname,
-		Port:         dbPort,
-		DatabaseName: dbName,
-		Username:     dbUsername,
-		Password:     dbPassword,
-		Driver:       DbDriver,
-	}
-	DB, err = postgres.NewPostgresDB(postgresConfig)
-
-	if err != nil {
-		loghelper.LogError(err).Error("Unable to connect to the DB")
-		return nil, err
-	}
-	return DB, err
-
-}
 
 // This function will perform some boot operations. If any steps fail, the application will fail to start.
 // Keep in mind that the DB connection can be lost later in the lifecycle of the application or
@@ -69,7 +38,7 @@ func BootApplication(ctx context.Context, dbHostname string, dbPort int, dbName 
 	}
 
 	log.Debug("Setting up DB connection")
-	DB, err := SetupPostgresDb(dbHostname, dbPort, dbName, dbUsername, dbPassword, driverName)
+	DB, err := postgres.SetupPostgresDb(dbHostname, dbPort, dbName, dbUsername, dbPassword, driverName)
 	if err != nil {
 		return nil, nil, err
 	}

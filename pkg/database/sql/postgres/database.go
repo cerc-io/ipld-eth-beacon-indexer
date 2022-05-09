@@ -6,6 +6,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/vulcanize/ipld-ethcl-indexer/pkg/database/sql"
+	"github.com/vulcanize/ipld-ethcl-indexer/pkg/loghelper"
 )
 
 var _ sql.Database = &DB{}
@@ -21,6 +22,35 @@ func NewPostgresDB(c Config) (*DB, error) {
 	}
 
 	return &DB{driver}, nil
+}
+
+// A simple wrapper to create a DB object to use.
+func SetupPostgresDb(dbHostname string, dbPort int, dbName string, dbUsername string, dbPassword string, driverName string) (sql.Database, error) {
+	log.Debug("Resolving Driver Type")
+	DbDriver, err := ResolveDriverType(driverName)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"err":                  err,
+			"driver_name_provided": driverName,
+		}).Error("Can't resolve driver type")
+	}
+	log.Info("Using Driver:", DbDriver)
+
+	postgresConfig := Config{
+		Hostname:     dbHostname,
+		Port:         dbPort,
+		DatabaseName: dbName,
+		Username:     dbUsername,
+		Password:     dbPassword,
+		Driver:       DbDriver,
+	}
+	DB, err := NewPostgresDB(postgresConfig)
+
+	if err != nil {
+		loghelper.LogError(err).Error("Unable to connect to the DB")
+		return nil, err
+	}
+	return DB, err
 }
 
 // Create a driver based on the config
