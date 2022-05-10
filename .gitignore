@@ -4,3 +4,4 @@ ipld-ethcl-indexer.log
 report.json
 cover.profile
 temp/*
+ipld-ethcl-indexer/pkg/beaconclient/data/*

@@ -58,8 +58,15 @@ This project utilizes `ginkgo` for testing. A few notes on testing:
 - All test packages are named `{base_package}_test`. This ensures we only test the public methods.
 - If there is a need to test a private method, please include why in the testing file.
 - Unit tests must contain the `Label("unit")`.
-- Unit tests should not rely on any running service. If a running service is needed. Utilize an integration test.
+- Unit tests should not rely on any running service (except for a postgres DB). If a running service is needed. Utilize an integration test.
 - Integration tests must contain the `Label("integration")`.
+
+### Testing the `pkg/beaconclient`
+
+To test the `/pkg/beaconclient`, you will need to download data locally.
+
+1. [Install Minio](https://docs.min.io/minio/baremetal/quickstart/quickstart.html), you only need the client, `mc`.
+2. Run: `mc cp`
 
 # Contribution
 

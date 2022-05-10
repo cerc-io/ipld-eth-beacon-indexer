@@ -19,23 +19,26 @@ var (
 // When new messages come in, it will ensure that they are decoded into JSON.
 // If any errors occur, it log the error information.
 func handleIncomingSseEvent[P ProcessedEvents](eventHandler *SseEvents[P]) {
-	errG := new(errgroup.Group)
-	errG.Go(func() error {
-		err := eventHandler.SseClient.SubscribeChanRaw(eventHandler.MessagesCh)
-		if err != nil {
-			return err
+	go func() {
+		errG := new(errgroup.Group)
+		errG.Go(func() error {
+			err := eventHandler.SseClient.SubscribeChanRaw(eventHandler.MessagesCh)
+			if err != nil {
+				return err
+			}
+			return nil
+		})
+		if err := errG.Wait(); err != nil {
+			log.WithFields(log.Fields{
+				"err":      err,
+				"endpoint": eventHandler.Endpoint,
+			}).Error("Unable to subscribe to the SSE endpoint.")
+			return
+		} else {
+			loghelper.LogEndpoint(eventHandler.Endpoint).Info("Successfully subscribed to the event stream.")
 		}
-		return nil
-	})
-	if err := errG.Wait(); err != nil {
-		log.WithFields(log.Fields{
-			"err":      err,
-			"endpoint": eventHandler.Endpoint,
-		}).Error("Unable to subscribe to the SSE endpoint.")
-		return
-	} else {
-		loghelper.LogEndpoint(eventHandler.Endpoint).Info("Successfully subscribed to the event stream.")
-	}
+
+	}()
 	for {
 		select {
 		case message := <-eventHandler.MessagesCh:
