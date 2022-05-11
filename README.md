@@ -63,10 +63,23 @@ This project utilizes `ginkgo` for testing. A few notes on testing:
 
 ### Testing the `pkg/beaconclient`
 
+To test the `pkg/beaconclient`, keep the following in mind.
+
+#### Get SSZ Files
+
 To test the `/pkg/beaconclient`, you will need to download data locally.
 
 1. [Install Minio](https://docs.min.io/minio/baremetal/quickstart/quickstart.html), you only need the client, `mc`.
 2. Run: `mc cp`
+
+#### Understanding Testing Components
+
+A few notes about the testing components.
+
+- The `TestEvents` map contains several events for testers to leverage when testing.
+- Any object ending in `-dummy` is not a real object. You will also notice it has a present field called `MimicConfig`. This object will use an existing SSZ object, and update the parameters from the `Head` and `MimicConfig`.
+  - This is done because creating an empty or minimal `SignedBeaconBlock` and `BeaconState` is fairly challenging.
+  - By slightly modifying an existing object, we can test re-org, malformed objects, and other negative conditions.
 
 # Contribution
 

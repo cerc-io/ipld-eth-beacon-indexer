@@ -30,14 +30,15 @@ var (
 type ProcessSlot struct {
 	// Generic
 
-	Slot            int          // The slot number.
-	Epoch           int          // The epoch number.
-	BlockRoot       string       // The hex encoded string of the BlockRoot.
-	StateRoot       string       // The hex encoded string of the StateRoot.
-	ParentBlockRoot string       // The hex encoded string of the parent block.
-	Status          string       // The status of the block
-	HeadOrHistoric  string       // Is this the head or a historic slot. This is critical when trying to analyze errors and missed slots.
-	Db              sql.Database // The DB object used to write to the DB.
+	Slot            int                  // The slot number.
+	Epoch           int                  // The epoch number.
+	BlockRoot       string               // The hex encoded string of the BlockRoot.
+	StateRoot       string               // The hex encoded string of the StateRoot.
+	ParentBlockRoot string               // The hex encoded string of the parent block.
+	Status          string               // The status of the block
+	HeadOrHistoric  string               // Is this the head or a historic slot. This is critical when trying to analyze errors and missed slots.
+	Db              sql.Database         // The DB object used to write to the DB.
+	Metrics         *BeaconClientMetrics // An object to keep track of the beaconclient metrics
 	// BeaconBlock
 
 	SszSignedBeaconBlock  []byte                // The entire SSZ encoded SignedBeaconBlock
@@ -54,7 +55,7 @@ type ProcessSlot struct {
 }
 
 // This function will do all the work to process the slot and write it to the DB.
-func processFullSlot(db sql.Database, serverAddress string, slot int, blockRoot string, stateRoot string, previousSlot int, previousBlockRoot string, headOrHistoric string) error {
+func processFullSlot(db sql.Database, serverAddress string, slot int, blockRoot string, stateRoot string, previousSlot int, previousBlockRoot string, headOrHistoric string, metrics *BeaconClientMetrics) error {
 	headOrHistoric = strings.ToLower(headOrHistoric)
 	if headOrHistoric != "head" && headOrHistoric != "historic" {
 		return fmt.Errorf("headOrBatch must be either historic or head!")
@@ -64,6 +65,8 @@ func processFullSlot(db sql.Database, serverAddress string, slot int, blockRoot 
 		BlockRoot:      blockRoot,
 		StateRoot:      stateRoot,
 		HeadOrHistoric: headOrHistoric,
+		Db:             db,
+		Metrics:        metrics,
 	}
 
 	// Get the SignedBeaconBlock.
@@ -86,7 +89,7 @@ func processFullSlot(db sql.Database, serverAddress string, slot int, blockRoot 
 	}
 
 	// Get this object ready to write
-	dw := ps.createWriteObjects(db)
+	dw := ps.createWriteObjects()
 
 	// Write the object to the DB.
 	dw.writeFullSlot()
@@ -95,8 +98,8 @@ func processFullSlot(db sql.Database, serverAddress string, slot int, blockRoot 
 }
 
 // Handle a slot that is at head. A wrapper function for calling `handleFullSlot`.
-func processHeadSlot(db sql.Database, serverAddress string, slot int, blockRoot string, stateRoot string, previousSlot int, previousBlockRoot string) error {
-	return processFullSlot(db, serverAddress, slot, blockRoot, stateRoot, previousSlot, previousBlockRoot, "head")
+func processHeadSlot(db sql.Database, serverAddress string, slot int, blockRoot string, stateRoot string, previousSlot int, previousBlockRoot string, metrics *BeaconClientMetrics) error {
+	return processFullSlot(db, serverAddress, slot, blockRoot, stateRoot, previousSlot, previousBlockRoot, "head", metrics)
 }
 
 // Handle a historic slot. A wrapper function for calling `handleFullSlot`.
@@ -179,7 +182,7 @@ func (ps *ProcessSlot) checkPreviousSlot(previousSlot int, previousBlockRoot str
 			"slot": ps.FullBeaconState.Slot,
 			"fork": true,
 		}).Warn("A fork occurred! The previous slot and current slot match.")
-		processReorg(ps.Db, strconv.Itoa(ps.Slot), ps.BlockRoot)
+		processReorg(ps.Db, strconv.Itoa(ps.Slot), ps.BlockRoot, ps.Metrics)
 	} else if previousSlot-1 != int(ps.FullBeaconState.Slot) {
 		log.WithFields(log.Fields{
 			"previousSlot": previousSlot,
@@ -192,7 +195,7 @@ func (ps *ProcessSlot) checkPreviousSlot(previousSlot int, previousBlockRoot str
 			"previousBlockRoot":  previousBlockRoot,
 			"currentBlockParent": parentRoot,
 		}).Error("The previousBlockRoot does not match the current blocks parent, an unprocessed fork might have occurred.")
-		processReorg(ps.Db, strconv.Itoa(previousSlot), parentRoot)
+		processReorg(ps.Db, strconv.Itoa(previousSlot), parentRoot, ps.Metrics)
 		// Call our batch processing function.
 		// Continue with this slot.
 	} else {
@@ -216,7 +219,7 @@ func (ps *ProcessSlot) checkMissedSlot() {
 }
 
 // Transforms all the raw data into DB models that can be written to the DB.
-func (ps *ProcessSlot) createWriteObjects(db sql.Database) *DatabaseWriter {
+func (ps *ProcessSlot) createWriteObjects() *DatabaseWriter {
 	var (
 		stateRoot string
 		blockRoot string
@@ -251,7 +254,7 @@ func (ps *ProcessSlot) createWriteObjects(db sql.Database) *DatabaseWriter {
 		status = "proposed"
 	}
 
-	dw := CreateDatabaseWrite(db, ps.Slot, stateRoot, blockRoot, ps.ParentBlockRoot, status)
+	dw := CreateDatabaseWrite(ps.Db, ps.Slot, stateRoot, blockRoot, ps.ParentBlockRoot, status, ps.Metrics)
 	dw.rawSignedBeaconBlock = ps.SszSignedBeaconBlock
 	dw.rawBeaconState = ps.SszBeaconState
 

@@ -6,12 +6,8 @@ import (
 	"github.com/vulcanize/ipld-ethcl-indexer/pkg/loghelper"
 )
 
-func processReorg(db sql.Database, slot string, latestBlockRoot string) {
-	// Check to see if there are slots in the DB with the given slot.
-	// Update them ALL to forked
-	// Upsert the new slot into the DB, mark the status to proposed.
-	// Query at the end to make sure that you have handled the reorg properly.
-	updatedRows, err := updateReorgs(db, slot, latestBlockRoot)
+func processReorg(db sql.Database, slot string, latestBlockRoot string, metrics *BeaconClientMetrics) {
+	updatedRows, err := updateReorgs(db, slot, latestBlockRoot, metrics)
 
 	if err != nil {
 		// Add this slot to the knownGaps table..
