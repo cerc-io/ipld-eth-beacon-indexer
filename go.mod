@@ -83,6 +83,7 @@ require (
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/jackc/pgx/v4 v4.16.0
+	github.com/jarcoal/httpmock v1.2.0
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/magiconair/properties v1.8.6 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect

@@ -66,21 +66,19 @@ unit-test-local:
 	go vet ./...
 	go fmt ./...
 	$(GINKGO) -r --label-filter unit \
-	--procs=4 --compilers=4 \
 	--randomize-all --randomize-suites \
 	--fail-on-pending --keep-going \
-	--race --trace
+	--trace
 
 .PHONY: unit-test-ci
 unit-test-ci:
 	go vet ./...
 	go fmt ./...
 	$(GINKGO) -r --label-filter unit \
-	--procs=4 --compilers=4 \
 	--randomize-all --randomize-suites \
 	--fail-on-pending --keep-going \
 	--cover --coverprofile=cover.profile \
-	--race --trace --json-report=report.json
+	--trace --json-report=report.json
 
 
 .PHONY: build

@@ -25,3 +25,15 @@ This package will contain code to interact with the beacon client.
 ## `pkg/version`
 
 A generic package which can be utilized to easily version our applications.
+
+## `pkg/gracefulshutdown`
+
+A generic package that can be used to shutdown various services within an application.
+
+## `pkg/loghelper`
+
+This package contains useful functions for logging.
+
+## `internal/shutdown`
+
+This package is used to shutdown the `ipld-ethcl-indexer`. It calls the `pkg/gracefulshutdown` package.

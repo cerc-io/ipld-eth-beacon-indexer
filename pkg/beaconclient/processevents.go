@@ -17,7 +17,7 @@ func (bc *BeaconClient) handleReorg() {
 	for {
 		reorg := <-bc.ReOrgTracking.ProcessCh
 		log.WithFields(log.Fields{"reorg": reorg}).Debug("Received a new reorg message.")
-		processReorg(bc.Db, reorg.Slot, reorg.NewHeadBlock)
+		writeReorgs(bc.Db, reorg.Slot, reorg.NewHeadBlock, bc.Metrics)
 	}
 }
 
@@ -33,7 +33,7 @@ func (bc *BeaconClient) handleHead() {
 				err: fmt.Errorf("Unable to turn the slot from string to int: %s", head.Slot),
 			}
 		}
-		err = processHeadSlot(bc.Db, bc.ServerEndpoint, slot, head.Block, head.State, bc.PreviousSlot, bc.PreviousBlockRoot)
+		err = processHeadSlot(bc.Db, bc.ServerEndpoint, slot, head.Block, head.State, bc.PreviousSlot, bc.PreviousBlockRoot, bc.Metrics)
 		if err != nil {
 			loghelper.LogSlotError(head.Slot, err)
 		}
