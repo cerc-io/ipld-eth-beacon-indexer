@@ -22,6 +22,21 @@ The `database` package allows us to interact with a postgres DB. We utilize the 
 
 This package will contain code to interact with the beacon client.
 
+### Known Gaps
+
+Known Gaps tracking is handled within this package. The columns are as follows:
+
+- StartSlot - The start slot for known_gaps, inclusive.
+- EndSlot - The end slot for known_gaps, inclusive.
+- CheckedOut - Indicates if any process is currently processing this entry.
+- ErrorMessage - Captures any error message that might have occurred when previously processing this entry.
+- EntryTime - The time this range was added to the DB. This can help us catch ranges that have not been processed for a long time due to some error.
+- EntryProcess - The entry process that added this process. Potential options are StartUp, Error, HeadGap.
+  - This can help us understand how a specific entry was added. It can be useful for debugging the application.
+  - StartUp - Gaps found when we started the application.
+  - Error - Indicates that the entry was added due to an error with processing.
+  - HeadGap - Indicates that gaps where found when keeping up with Head.
+
 ## `pkg/version`
 
 A generic package which can be utilized to easily version our applications.

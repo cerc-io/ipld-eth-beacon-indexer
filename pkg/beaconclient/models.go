@@ -47,10 +47,11 @@ type DbSlots struct {
 
 // A struct to capture whats being written to ethcl.signed_beacon_block table.
 type DbSignedBeaconBlock struct {
-	Slot        string // The slot.
-	BlockRoot   string // The block root
-	ParentBlock string // The parent block root.
-	MhKey       string // The ipld multihash key.
+	Slot          string // The slot.
+	BlockRoot     string // The block root
+	ParentBlock   string // The parent block root.
+	Eth1BlockHash string // The eth1 block_hash
+	MhKey         string // The ipld multihash key.
 
 }
 
@@ -59,4 +60,15 @@ type DbBeaconState struct {
 	Slot      string // The slot.
 	StateRoot string // The state root
 	MhKey     string // The ipld multihash key.
+}
+
+// A structure to capture whats being written to the ethcl.known_gaps table.
+type DbKnownGaps struct {
+	StartSlot         string // The start slot for known_gaps, inclusive.
+	EndSlot           string // The end slot for known_gaps, inclusive.
+	CheckedOut        bool   // Indicates if any process is currently processing this entry.
+	ReprocessingError string // The error that occurred when attempting to reprocess these entries.
+	EntryError        string // The error that caused this entry to be added to the table. Could be null.
+	EntryTime         string // The time this range was added to the DB. This can help us catch ranges that have not been processed for a long time due to some error.
+	EntryProcess      string // The entry process that added this process. Potential options are StartUp, Error, ManualEntry, HeadGap.
 }
