@@ -21,10 +21,10 @@ var (
 	//bcFinalizedTopicEndpoint  = "/eth/v1/events?topics=finalized_checkpoint" // Endpoint used to subscribe to the head of the chain
 )
 
-// A structure utilized for keeping track of various metrics.
+// A structure utilized for keeping track of various metrics. Currently, mostly used in testing.
 type BeaconClientMetrics struct {
-	HeadTrackingInserts uint64
-	HeadTrackingReorgs  uint64
+	HeadTrackingInserts uint64 // Number of head events we wrote to the DB.
+	HeadTrackingReorgs  uint64 // The number of reorg events written to the DB.
 }
 
 // A struct that capture the Beacon Server that the Beacon Client will be interacting with and querying.

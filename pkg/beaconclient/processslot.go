@@ -81,19 +81,18 @@ func processFullSlot(db sql.Database, serverAddress string, slot int, blockRoot 
 		return err
 	}
 
-	// Handle any reorgs or skipped slots.
-	if ps.HeadOrHistoric == "head" {
-		if previousSlot != 0 && previousBlockRoot != "" {
-			ps.checkPreviousSlot(previousSlot, previousBlockRoot)
-		}
-	}
-
 	// Get this object ready to write
 	dw := ps.createWriteObjects()
 
 	// Write the object to the DB.
 	dw.writeFullSlot()
 
+	// Handle any reorgs or skipped slots.
+	if ps.HeadOrHistoric == "head" {
+		if previousSlot != 0 && previousBlockRoot != "" {
+			ps.checkPreviousSlot(previousSlot, previousBlockRoot)
+		}
+	}
 	return nil
 }
 
@@ -182,7 +181,7 @@ func (ps *ProcessSlot) checkPreviousSlot(previousSlot int, previousBlockRoot str
 			"slot": ps.FullBeaconState.Slot,
 			"fork": true,
 		}).Warn("A fork occurred! The previous slot and current slot match.")
-		processReorg(ps.Db, strconv.Itoa(ps.Slot), ps.BlockRoot, ps.Metrics)
+		writeReorgs(ps.Db, strconv.Itoa(ps.Slot), ps.BlockRoot, ps.Metrics)
 	} else if previousSlot-1 != int(ps.FullBeaconState.Slot) {
 		log.WithFields(log.Fields{
 			"previousSlot": previousSlot,
@@ -195,7 +194,7 @@ func (ps *ProcessSlot) checkPreviousSlot(previousSlot int, previousBlockRoot str
 			"previousBlockRoot":  previousBlockRoot,
 			"currentBlockParent": parentRoot,
 		}).Error("The previousBlockRoot does not match the current blocks parent, an unprocessed fork might have occurred.")
-		processReorg(ps.Db, strconv.Itoa(previousSlot), parentRoot, ps.Metrics)
+		writeReorgs(ps.Db, strconv.Itoa(previousSlot), parentRoot, ps.Metrics)
 		// Call our batch processing function.
 		// Continue with this slot.
 	} else {

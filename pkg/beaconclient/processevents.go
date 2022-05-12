@@ -17,7 +17,7 @@ func (bc *BeaconClient) handleReorg() {
 	for {
 		reorg := <-bc.ReOrgTracking.ProcessCh
 		log.WithFields(log.Fields{"reorg": reorg}).Debug("Received a new reorg message.")
-		processReorg(bc.Db, reorg.Slot, reorg.NewHeadBlock, bc.Metrics)
+		writeReorgs(bc.Db, reorg.Slot, reorg.NewHeadBlock, bc.Metrics)
 	}
 }
 

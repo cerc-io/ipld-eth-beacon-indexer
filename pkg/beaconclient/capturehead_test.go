@@ -27,12 +27,11 @@ import (
 )
 
 type Message struct {
-	HeadMessage       beaconclient.Head       // The head messsage that will be streamed to the BeaconClient
-	ReorgMessage      beaconclient.ChainReorg // The reorg messsage that will be streamed to the BeaconClient
-	TestNotes         string                  // A small explanation of the purpose this structure plays in the testing landscape.
-	MimicConfig       *MimicConfig            // A configuration of parameters that you are trying to
-	SignedBeaconBlock string                  // The file path output of an SSZ encoded SignedBeaconBlock.
-	BeaconState       string                  // The file path output of an SSZ encoded BeaconState.
+	HeadMessage       beaconclient.Head // The head messsage that will be streamed to the BeaconClient
+	TestNotes         string            // A small explanation of the purpose this structure plays in the testing landscape.
+	MimicConfig       *MimicConfig      // A configuration of parameters that you are trying to
+	SignedBeaconBlock string            // The file path output of an SSZ encoded SignedBeaconBlock.
+	BeaconState       string            // The file path output of an SSZ encoded BeaconState.
 }
 
 // A structure that can be utilized to mimic and existing SSZ object but change it ever so slightly.
@@ -44,21 +43,23 @@ type MimicConfig struct {
 var _ = Describe("Capturehead", func() {
 
 	var (
-		address         string = "localhost"
-		port            int    = 8080
-		protocol        string = "http"
-		TestEvents      map[string]*Message
-		dbHost          string = "localhost"
-		dbPort          int    = 8077
-		dbName          string = "vulcanize_testing"
-		dbUser          string = "vdbm"
-		dbPassword      string = "password"
-		dbDriver        string = "pgx"
-		dummyParentRoot string = "46f98c08b54a71dfda4d56e29ec3952b8300cd8d6b67a9b6c562ae96a7a25a42"
+		TestConfig       Config
+		BeaconNodeTester TestBeaconNode
+		address          string = "localhost"
+		port             int    = 8080
+		protocol         string = "http"
+		TestEvents       map[string]Message
+		dbHost           string = "localhost"
+		dbPort           int    = 8077
+		dbName           string = "vulcanize_testing"
+		dbUser           string = "vdbm"
+		dbPassword       string = "password"
+		dbDriver         string = "pgx"
+		dummyParentRoot  string = "46f98c08b54a71dfda4d56e29ec3952b8300cd8d6b67a9b6c562ae96a7a25a42"
 	)
 
 	BeforeEach(func() {
-		TestEvents = map[string]*Message{
+		TestEvents = map[string]Message{
 			"100-dummy": {
 				HeadMessage: beaconclient.Head{
 					Slot:                      "100",
@@ -69,10 +70,25 @@ var _ = Describe("Capturehead", func() {
 					EpochTransition:           false,
 					ExecutionOptimistic:       false,
 				},
-				TestNotes:         "An easy to process Phase 0 block",
+				TestNotes:         "A block that is supposed to replicate slot 100, but contains some dummy test information.",
 				MimicConfig:       &MimicConfig{},
-				SignedBeaconBlock: filepath.Join("data", "100", "signed-beacon-block.ssz"),
-				BeaconState:       filepath.Join("data", "100", "beacon-state.ssz"),
+				SignedBeaconBlock: filepath.Join("ssz-data", "100", "signed-beacon-block.ssz"),
+				BeaconState:       filepath.Join("ssz-data", "100", "beacon-state.ssz"),
+			},
+			"100-dummy-2": {
+				HeadMessage: beaconclient.Head{
+					Slot:                      "100",
+					Block:                     "04955400371347e26f61d7a4bbda5b23fa0b25d5fc465160f2a9aaaaaaaaaaaa",
+					State:                     "36d5c9a129979b4502bd9a06e57a742810ecbc3fa55a0361c072bbbbbbbbbbbb",
+					CurrentDutyDependentRoot:  "",
+					PreviousDutyDependentRoot: "",
+					EpochTransition:           false,
+					ExecutionOptimistic:       false,
+				},
+				TestNotes:         "A block that is supposed to replicate slot 100, but contains some dummy test information.",
+				MimicConfig:       &MimicConfig{},
+				SignedBeaconBlock: filepath.Join("ssz-data", "100", "signed-beacon-block.ssz"),
+				BeaconState:       filepath.Join("ssz-data", "100", "beacon-state.ssz"),
 			},
 			"100": {
 				HeadMessage: beaconclient.Head{
@@ -85,8 +101,8 @@ var _ = Describe("Capturehead", func() {
 					ExecutionOptimistic:       false,
 				},
 				TestNotes:         "An easy to process Phase 0 block",
-				SignedBeaconBlock: filepath.Join("data", "100", "signed-beacon-block.ssz"),
-				BeaconState:       filepath.Join("data", "100", "beacon-state.ssz"),
+				SignedBeaconBlock: filepath.Join("ssz-data", "100", "signed-beacon-block.ssz"),
+				BeaconState:       filepath.Join("ssz-data", "100", "beacon-state.ssz"),
 			},
 			"2375703-dummy": {
 				HeadMessage: beaconclient.Head{
@@ -100,8 +116,23 @@ var _ = Describe("Capturehead", func() {
 				},
 				TestNotes:         "This is a dummy message that is used for reorgs",
 				MimicConfig:       &MimicConfig{},
-				SignedBeaconBlock: filepath.Join("data", "2375703", "signed-beacon-block.ssz"),
-				BeaconState:       filepath.Join("data", "2375703", "beacon-state.ssz"),
+				SignedBeaconBlock: filepath.Join("ssz-data", "2375703", "signed-beacon-block.ssz"),
+				BeaconState:       filepath.Join("ssz-data", "2375703", "beacon-state.ssz"),
+			},
+			"2375703-dummy-2": {
+				HeadMessage: beaconclient.Head{
+					Slot:                      "2375703",
+					Block:                     "c9fb337b62e2a0dae4f27ab49913132570f7f2cab3f23ad99f4d07508aaaaaaa",
+					State:                     "0299a145bcda2c8f5e7d2e068ee101861edbee2ec1db2d5e1d850b0d2bbbbbbb",
+					CurrentDutyDependentRoot:  "",
+					PreviousDutyDependentRoot: "",
+					EpochTransition:           false,
+					ExecutionOptimistic:       false,
+				},
+				TestNotes:         "This is a dummy message that is used for reorgs",
+				MimicConfig:       &MimicConfig{},
+				SignedBeaconBlock: filepath.Join("ssz-data", "2375703", "signed-beacon-block.ssz"),
+				BeaconState:       filepath.Join("ssz-data", "2375703", "beacon-state.ssz"),
 			},
 			"2375703": {
 				HeadMessage: beaconclient.Head{
@@ -109,190 +140,140 @@ var _ = Describe("Capturehead", func() {
 					Block:                    "0x4392372c5f6e39499e31bf924388b5815639103149f0f54f8a453773b1802301",
 					State:                    "0xb6215b560273af63ec7e011572b60ec1ca0b0232f8ff44fcd4ed55c7526e964e",
 					CurrentDutyDependentRoot: "", PreviousDutyDependentRoot: "", EpochTransition: false, ExecutionOptimistic: false},
-				ReorgMessage:      beaconclient.ChainReorg{},
 				TestNotes:         "An easy to process Altair Block",
-				SignedBeaconBlock: filepath.Join("data", "2375703", "signed-beacon-block.ssz"),
-				BeaconState:       filepath.Join("data", "2375703", "beacon-state.ssz"),
+				SignedBeaconBlock: filepath.Join("ssz-data", "2375703", "signed-beacon-block.ssz"),
+				BeaconState:       filepath.Join("ssz-data", "2375703", "beacon-state.ssz"),
 			},
+		}
+		TestConfig = Config{
+			protocol:        protocol,
+			address:         address,
+			port:            port,
+			dummyParentRoot: dummyParentRoot,
+			dbHost:          dbHost,
+			dbPort:          dbPort,
+			dbName:          dbName,
+			dbUser:          dbUser,
+			dbPassword:      dbPassword,
+			dbDriver:        dbDriver,
+		}
+
+		BeaconNodeTester = TestBeaconNode{
+			TestEvents: TestEvents,
+			TestConfig: TestConfig,
 		}
 	})
 
 	// We might also want to add an integration test that will actually process a single event, then end.
 	// This will help us know that our models match that actual data being served from the beacon node.
 
-	Describe("Receiving New Head SSE messages", Label("unit"), func() {
+	Describe("Receiving New Head SSE messages", Label("unit", "behavioral"), func() {
 		Context("Correctly formatted Phase0 Block", func() {
 			It("Should turn it into a struct successfully.", func() {
-
-				BC := setUpTest(TestEvents, protocol, address, port, dummyParentRoot, dbHost, dbPort, dbName, dbUser, dbPassword, dbDriver)
-				SetupBeaconNodeMock(TestEvents, protocol, address, port, dummyParentRoot)
-				defer httpmock.Deactivate()
-
-				go BC.CaptureHead()
-				sendHeadMessage(BC, TestEvents["100"].HeadMessage)
-
-				epoch, slot, blockRoot, stateRoot, status := queryDbSlotAndBlock(BC.Db, TestEvents["100"].HeadMessage.Slot, TestEvents["100"].HeadMessage.Block)
-				Expect(slot).To(Equal(100))
-				Expect(epoch).To(Equal(3))
-				Expect(blockRoot).To(Equal(TestEvents["100"].HeadMessage.Block))
-				Expect(stateRoot).To(Equal(TestEvents["100"].HeadMessage.State))
-				Expect(status).To(Equal("proposed"))
+				BeaconNodeTester.testProcessBlock(BeaconNodeTester.TestEvents["100"].HeadMessage, 3)
 
 			})
 		})
 		Context("Correctly formatted Altair Block", func() {
 			It("Should turn it into a struct successfully.", func() {
-
-				BC := setUpTest(TestEvents, protocol, address, port, dummyParentRoot, dbHost, dbPort, dbName, dbUser, dbPassword, dbDriver)
-
-				SetupBeaconNodeMock(TestEvents, protocol, address, port, dummyParentRoot)
-				defer httpmock.Deactivate()
-
-				go BC.CaptureHead()
-				sendHeadMessage(BC, TestEvents["2375703"].HeadMessage)
-
-				epoch, slot, blockRoot, stateRoot, status := queryDbSlotAndBlock(BC.Db, TestEvents["2375703"].HeadMessage.Slot, TestEvents["2375703"].HeadMessage.Block)
-				Expect(slot).To(Equal(2375703))
-				Expect(epoch).To(Equal(74240))
-				Expect(blockRoot).To(Equal(TestEvents["2375703"].HeadMessage.Block))
-				Expect(stateRoot).To(Equal(TestEvents["2375703"].HeadMessage.State))
-				Expect(status).To(Equal("proposed"))
-
+				BeaconNodeTester.testProcessBlock(BeaconNodeTester.TestEvents["2375703"].HeadMessage, 74240)
 			})
 		})
 		//Context("A single incorrectly formatted head message", func() {
 		//	It("Should create an error, maybe also add the projected slot to the knownGaps table......")
+		// If it can unmarshal the head add it to knownGaps
 		//})
 		//Context("An incorrectly formatted message sandwiched between correctly formatted messages", func() {
 		//	It("Should create an error, maybe also add the projected slot to the knownGaps table......")
 		//})
+		//	Context("When there is a skipped slot", func() {
+		//		It("Should indicate that the slot was skipped")
+		//	})
+		//	Context("When the slot is not properly served", func() {
+		//		It("Should return an error, and add the slot to the knownGaps table.")
+		//	})
+		//})
+		//	Context("With gaps in between head slots", func() {
+		//		It("Should add the slots in between to the knownGaps table")
+		//	})
+		//	Context("With the previousBlockHash not matching the parentBlockHash", func() {
+		//		It("Should recognize the reorg and add the previous slot to knownGaps table.")
+		//	})
+		//	Context("Out of order", func() {
+		//		It("Not sure what it should do....")
+		//	})
 	})
 
-	Describe("Receiving New Reorg SSE messages", Label("dry"), func() {
-		Context("Altair: Reorg slot is already in the DB", func() {
+	Describe("ReOrg Scenario", Label("dry"), func() {
+		Context("Altair: Multiple head messages for the same slot.", func() {
 			It("The previous block should be marked as 'forked', the new block should be the only one marked as 'proposed'.", func() {
-
-				BC := setUpTest(TestEvents, protocol, address, port, dummyParentRoot, dbHost, dbPort, dbName, dbUser, dbPassword, dbDriver)
-				SetupBeaconNodeMock(TestEvents, protocol, address, port, dummyParentRoot)
-				defer httpmock.Deactivate()
-
-				go BC.CaptureHead()
-				log.Info("Sending Altair Messages to BeaconClient")
-				sendHeadMessage(BC, TestEvents["2375703-dummy"].HeadMessage)
-				sendHeadMessage(BC, TestEvents["2375703"].HeadMessage)
-
-				for atomic.LoadUint64(&BC.Metrics.HeadTrackingReorgs) != 1 {
-					time.Sleep(1 * time.Second)
-				}
-
-				log.Info("Checking Altair to make sure the fork was marked properly.")
-				epoch, slot, blockRoot, stateRoot, status := queryDbSlotAndBlock(BC.Db, TestEvents["2375703-dummy"].HeadMessage.Slot, TestEvents["2375703-dummy"].HeadMessage.Block)
-				Expect(slot).To(Equal(2375703))
-				Expect(epoch).To(Equal(74240))
-				Expect(blockRoot).To(Equal(TestEvents["2375703-dummy"].HeadMessage.Block))
-				Expect(stateRoot).To(Equal(TestEvents["2375703-dummy"].HeadMessage.State))
-				Expect(status).To(Equal("forked"))
-
-				epoch, slot, blockRoot, stateRoot, status = queryDbSlotAndBlock(BC.Db, TestEvents["2375703"].HeadMessage.Slot, TestEvents["2375703"].HeadMessage.Block)
-				Expect(slot).To(Equal(2375703))
-				Expect(epoch).To(Equal(74240))
-				Expect(blockRoot).To(Equal(TestEvents["2375703"].HeadMessage.Block))
-				Expect(stateRoot).To(Equal(TestEvents["2375703"].HeadMessage.State))
-				Expect(status).To(Equal("proposed"))
+				BeaconNodeTester.testMultipleHead(TestEvents["2375703-dummy"].HeadMessage, TestEvents["2375703"].HeadMessage, 74240)
 			})
 		})
-		Context("Phase0: Reorg slot is already in the DB", func() {
+		Context("Phase0: Multiple head messages for the same slot.", func() {
 			It("The previous block should be marked as 'forked', the new block should be the only one marked as 'proposed'.", func() {
-
-				BC := setUpTest(TestEvents, protocol, address, port, dummyParentRoot, dbHost, dbPort, dbName, dbUser, dbPassword, dbDriver)
-				SetupBeaconNodeMock(TestEvents, protocol, address, port, dummyParentRoot)
-				defer httpmock.Deactivate()
-
-				go BC.CaptureHead()
-				log.Info("Sending Phase0 Messages to BeaconClient")
-				sendHeadMessage(BC, TestEvents["100-dummy"].HeadMessage)
-				sendHeadMessage(BC, TestEvents["100"].HeadMessage)
-
-				for atomic.LoadUint64(&BC.Metrics.HeadTrackingReorgs) != 1 {
-					time.Sleep(1 * time.Second)
-				}
-
-				log.Info("Checking Phase0 to make sure the fork was marked properly.")
-				epoch, slot, blockRoot, stateRoot, status := queryDbSlotAndBlock(BC.Db, TestEvents["100-dummy"].HeadMessage.Slot, TestEvents["100-dummy"].HeadMessage.Block)
-				Expect(slot).To(Equal(100))
-				Expect(epoch).To(Equal(3))
-				Expect(blockRoot).To(Equal(TestEvents["100-dummy"].HeadMessage.Block))
-				Expect(stateRoot).To(Equal(TestEvents["100-dummy"].HeadMessage.State))
-				Expect(status).To(Equal("forked"))
-
-				epoch, slot, blockRoot, stateRoot, status = queryDbSlotAndBlock(BC.Db, TestEvents["100"].HeadMessage.Slot, TestEvents["100"].HeadMessage.Block)
-				Expect(slot).To(Equal(100))
-				Expect(epoch).To(Equal(3))
-				Expect(blockRoot).To(Equal(TestEvents["100"].HeadMessage.Block))
-				Expect(stateRoot).To(Equal(TestEvents["100"].HeadMessage.State))
-				Expect(status).To(Equal("proposed"))
+				BeaconNodeTester.testMultipleHead(TestEvents["100-dummy"].HeadMessage, TestEvents["100"].HeadMessage, 3)
 			})
 		})
-		//Context("Multiple reorgs have occurred on this slot", func() {
-		//	It("The previous blocks should be marked as 'forked', the new block should be the only one marked as 'proposed'.")
-		//})
+		Context("Phase 0: Multiple reorgs have occurred on this slot", Label("new"), func() {
+			It("The previous blocks should be marked as 'forked', the new block should be the only one marked as 'proposed'.", func() {
+				BeaconNodeTester.testMultipleReorgs(TestEvents["100-dummy"].HeadMessage, TestEvents["100-dummy-2"].HeadMessage, TestEvents["100"].HeadMessage, 3)
+			})
+		})
+		Context("Altair: Multiple reorgs have occurred on this slot", Label("new"), func() {
+			It("The previous blocks should be marked as 'forked', the new block should be the only one marked as 'proposed'.", func() {
+				BeaconNodeTester.testMultipleReorgs(TestEvents["2375703-dummy"].HeadMessage, TestEvents["2375703-dummy-2"].HeadMessage, TestEvents["2375703"].HeadMessage, 74240)
+			})
+		})
 		//Context("Reorg slot in not already in the DB", func() {
 		//	It("Should simply have the correct slot in the DB.")
+		// Add to knowngaps
 		//})
 
 	})
-
-	//Describe("Querying SignedBeaconBlock and Beacon State", Label("unit"), func() {
-	//	Context("When the slot is properly served by the beacon node", func() {
-	//		It("Should provide a successful response.")
-	//	})
-	//	Context("When there is a skipped slot", func() {
-	//		It("Should indicate that the slot was skipped")
-	//		// Future use case.
-
-	//	})
-	//	Context("When the slot is not properly served", func() {
-	//		It("Should return an error, and add the slot to the knownGaps table.")
-	//	})
-	//})
-
-	//Describe("Receiving properly formatted Head SSE events.", Label("unit"), func() {
-	//	Context("In sequential order", func() {
-	//		It("Should write each event to the DB successfully.")
-	//	})
-	//	Context("With gaps in slots", func() {
-	//		It("Should add the slots in between to the knownGaps table")
-	//	})
-	//	Context("With a repeat slot", func() {
-	//		It("Should recognize the reorg and process it.")
-	//	})
-	//	Context("With the previousBlockHash not matching the parentBlockHash", func() {
-	//		It("Should recognize the reorg and add the previous slot to knownGaps table.")
-	//	})
-	//	Context("Out of order", func() {
-	//		It("Not sure what it should do....")
-	//	})
-	//	Context("With a skipped slot", func() {
-	//		It("Should recognize the slot as skipped and continue without error.")
-	//		// Future use case
-	//	})
-	//})
 })
 
-// Must run before each test. We can't use the beforeEach because of the way
-// Ginko treats race conditions.
-func setUpTest(testEvents map[string]*Message, protocol string, address string, port int, dummyParentRoot string,
-	dbHost string, dbPort int, dbName string, dbUser string, dbPassword string, dbDriver string) *beaconclient.BeaconClient {
+type Config struct {
+	protocol        string
+	address         string
+	port            int
+	dummyParentRoot string
+	dbHost          string
+	dbPort          int
+	dbName          string
+	dbUser          string
+	dbPassword      string
+	dbDriver        string
+}
 
-	BC := *beaconclient.CreateBeaconClient(context.Background(), protocol, address, port)
-	DB, err := postgres.SetupPostgresDb(dbHost, dbPort, dbName, dbUser, dbPassword, dbDriver)
+//////////////////////////////////////////////////////
+// Helper functions
+//////////////////////////////////////////////////////
+
+// Must run before each test. We can't use the beforeEach because of the way
+// Gingko treats race conditions.
+func setUpTest(config Config) *beaconclient.BeaconClient {
+	bc := *beaconclient.CreateBeaconClient(context.Background(), config.protocol, config.address, config.port)
+	db, err := postgres.SetupPostgresDb(config.dbHost, config.dbPort, config.dbName, config.dbUser, config.dbPassword, config.dbDriver)
 	Expect(err).ToNot(HaveOccurred())
 
 	// Drop all records from the DB.
-	clearEthclDbTables(DB)
-	BC.Db = DB
+	clearEthclDbTables(db)
+	bc.Db = db
 
-	return &BC
+	return &bc
+}
+
+// A helper function to validate the expected output.
+func validateSlot(bc *beaconclient.BeaconClient, headMessage *beaconclient.Head, correctEpoch int, correctStatus string) {
+	epoch, slot, blockRoot, stateRoot, status := queryDbSlotAndBlock(bc.Db, headMessage.Slot, headMessage.Block)
+	slot, err := strconv.Atoi(headMessage.Slot)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(slot).To(Equal(slot))
+	Expect(epoch).To(Equal(correctEpoch))
+	Expect(blockRoot).To(Equal(headMessage.Block))
+	Expect(stateRoot).To(Equal(headMessage.State))
+	Expect(status).To(Equal(correctStatus))
 }
 
 // Wrapper function to send a head message to the beaconclient
@@ -334,23 +315,22 @@ func clearEthclDbTables(db sql.Database) {
 
 }
 
+// An object that is used to aggregate test functions. Test functions are needed because we need to
+// run the same tests on multiple blocks for multiple forks. So they save us time.
 type TestBeaconNode struct {
-	TestEvents map[string]*Message
+	TestEvents map[string]Message
+	TestConfig Config
 }
 
 // Create a new new mock for the beacon node.
-func SetupBeaconNodeMock(TestEvents map[string]*Message, protocol string, address string, port int, dummyParentRoot string) {
+func (tbc TestBeaconNode) SetupBeaconNodeMock(TestEvents map[string]Message, protocol string, address string, port int, dummyParentRoot string) {
 	httpmock.Activate()
-	testBC := &TestBeaconNode{
-		TestEvents: TestEvents,
-	}
-
 	stateUrl := `=~^` + protocol + "://" + address + ":" + strconv.Itoa(port) + beaconclient.BcStateQueryEndpoint + `([^/]+)\z`
 	httpmock.RegisterResponder("GET", stateUrl,
 		func(req *http.Request) (*http.Response, error) {
 			// Get ID from request
 			id := httpmock.MustGetSubmatch(req, 1)
-			dat, err := testBC.provideSsz(id, "state", dummyParentRoot)
+			dat, err := tbc.provideSsz(id, "state", dummyParentRoot)
 			if err != nil {
 				return httpmock.NewStringResponse(404, fmt.Sprintf("Unable to find file for %s", id)), err
 			}
@@ -363,7 +343,7 @@ func SetupBeaconNodeMock(TestEvents map[string]*Message, protocol string, addres
 		func(req *http.Request) (*http.Response, error) {
 			// Get ID from request
 			id := httpmock.MustGetSubmatch(req, 1)
-			dat, err := testBC.provideSsz(id, "block", dummyParentRoot)
+			dat, err := tbc.provideSsz(id, "block", dummyParentRoot)
 			if err != nil {
 				return httpmock.NewStringResponse(404, fmt.Sprintf("Unable to find file for %s", id)), err
 			}
@@ -375,7 +355,7 @@ func SetupBeaconNodeMock(TestEvents map[string]*Message, protocol string, addres
 // A function to mimic querying the state from the beacon node. We simply get the SSZ file are return it.
 func (tbc TestBeaconNode) provideSsz(slotIdentifier string, sszIdentifier string, dummyParentRoot string) ([]byte, error) {
 	var slotFile string
-	var Message *Message
+	var Message Message
 
 	for _, val := range tbc.TestEvents {
 		if sszIdentifier == "state" {
@@ -432,7 +412,6 @@ func (tbc TestBeaconNode) provideSsz(slotIdentifier string, sszIdentifier string
 			state.Slot = types.Slot(slot)
 			return state.MarshalSSZ()
 		}
-
 	}
 
 	if slotFile == "" {
@@ -444,4 +423,91 @@ func (tbc TestBeaconNode) provideSsz(slotIdentifier string, sszIdentifier string
 		return nil, fmt.Errorf("Can't find the slot file, %s", slotFile)
 	}
 	return dat, nil
+}
+
+// Helper function to test three reorg messages. There are going to be many functions like this,
+// Because we need to test the same logic for multiple phases.
+func (tbc TestBeaconNode) testMultipleReorgs(firstHead beaconclient.Head, secondHead beaconclient.Head, thirdHead beaconclient.Head, epoch int) {
+	bc := setUpTest(tbc.TestConfig)
+	tbc.SetupBeaconNodeMock(tbc.TestEvents, tbc.TestConfig.protocol, tbc.TestConfig.address, tbc.TestConfig.port, tbc.TestConfig.dummyParentRoot)
+	defer httpmock.DeactivateAndReset()
+
+	go bc.CaptureHead()
+	time.Sleep(1 * time.Second)
+
+	log.Info("Sending Phase0 Messages to BeaconClient")
+	sendHeadMessage(bc, firstHead)
+	sendHeadMessage(bc, secondHead)
+	sendHeadMessage(bc, thirdHead)
+
+	for atomic.LoadUint64(&bc.Metrics.HeadTrackingReorgs) != 2 {
+		time.Sleep(1 * time.Second)
+	}
+
+	log.Info("Checking Phase0 to make sure the fork was marked properly.")
+	validateSlot(bc, &firstHead, epoch, "forked")
+	validateSlot(bc, &secondHead, epoch, "forked")
+	validateSlot(bc, &thirdHead, epoch, "proposed")
+
+	log.Info("Send the reorg message.")
+
+	data, err := json.Marshal(&beaconclient.ChainReorg{
+		Slot:                firstHead.Slot,
+		Depth:               "1",
+		OldHeadBlock:        thirdHead.Block,
+		NewHeadBlock:        secondHead.Block,
+		OldHeadState:        thirdHead.State,
+		NewHeadState:        secondHead.State,
+		Epoch:               strconv.Itoa(epoch),
+		ExecutionOptimistic: false,
+	})
+	Expect(err).ToNot(HaveOccurred())
+	bc.ReOrgTracking.MessagesCh <- &sse.Event{
+		Data: data,
+	}
+
+	for atomic.LoadUint64(&bc.Metrics.HeadTrackingReorgs) != 3 {
+		time.Sleep(1 * time.Second)
+	}
+
+	log.Info("Make sure the forks were properly updated!")
+
+	validateSlot(bc, &firstHead, epoch, "forked")
+	validateSlot(bc, &secondHead, epoch, "proposed")
+	validateSlot(bc, &thirdHead, epoch, "forked")
+
+}
+
+// A test to validate a single block was processed correctly
+func (tbc TestBeaconNode) testProcessBlock(head beaconclient.Head, epoch int) {
+	bc := setUpTest(tbc.TestConfig)
+	tbc.SetupBeaconNodeMock(tbc.TestEvents, tbc.TestConfig.protocol, tbc.TestConfig.address, tbc.TestConfig.port, tbc.TestConfig.dummyParentRoot)
+	defer httpmock.DeactivateAndReset()
+
+	go bc.CaptureHead()
+	time.Sleep(1 * time.Second)
+	sendHeadMessage(bc, head)
+	validateSlot(bc, &head, epoch, "proposed")
+}
+
+// A test that ensures that if two HeadMessages occur for a single slot they are marked
+// as proposed and forked correctly.
+func (tbc TestBeaconNode) testMultipleHead(firstHead beaconclient.Head, secondHead beaconclient.Head, epoch int) {
+	bc := setUpTest(tbc.TestConfig)
+	tbc.SetupBeaconNodeMock(tbc.TestEvents, tbc.TestConfig.protocol, tbc.TestConfig.address, tbc.TestConfig.port, tbc.TestConfig.dummyParentRoot)
+	defer httpmock.DeactivateAndReset()
+
+	go bc.CaptureHead()
+	time.Sleep(1 * time.Second)
+
+	sendHeadMessage(bc, firstHead)
+	sendHeadMessage(bc, secondHead)
+
+	for atomic.LoadUint64(&bc.Metrics.HeadTrackingReorgs) != 1 {
+		time.Sleep(1 * time.Second)
+	}
+
+	log.Info("Checking Altair to make sure the fork was marked properly.")
+	validateSlot(bc, &firstHead, epoch, "forked")
+	validateSlot(bc, &secondHead, epoch, "proposed")
 }
