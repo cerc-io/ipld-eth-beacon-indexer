@@ -22,8 +22,10 @@ var (
 	bcAddress              string
 	bcPort                 int
 	bcConnectionProtocol   string
+	bcType                 string
 	maxWaitSecondsShutdown time.Duration  = time.Duration(5) * time.Second
 	notifierCh             chan os.Signal = make(chan os.Signal, 1)
+	testDisregardSync      bool
 )
 
 // captureCmd represents the capture command
@@ -62,13 +64,17 @@ func init() {
 	exitErr(err)
 
 	//// Beacon Client Specific
-	captureCmd.PersistentFlags().StringVarP(&bcAddress, "bc.address", "l", "", "Address to connect to beacon node (required if username is set)")
-	captureCmd.PersistentFlags().IntVarP(&bcPort, "bc.port", "r", 0, "Port to connect to beacon node (required if username is set)")
+	captureCmd.PersistentFlags().StringVarP(&bcAddress, "bc.address", "l", "", "Address to connect to beacon node (required)")
+	captureCmd.PersistentFlags().StringVarP(&bcType, "bc.type", "", "lighthouse", "The beacon client we are using, options are prysm and lighthouse.")
+	captureCmd.PersistentFlags().IntVarP(&bcPort, "bc.port", "r", 0, "Port to connect to beacon node (required )")
 	captureCmd.PersistentFlags().StringVarP(&bcConnectionProtocol, "bc.connectionProtocol", "", "http", "protocol for connecting to the beacon node.")
 	err = captureCmd.MarkPersistentFlagRequired("bc.address")
 	exitErr(err)
 	err = captureCmd.MarkPersistentFlagRequired("bc.port")
 	exitErr(err)
+
+	//// Testing Specific
+	captureCmd.PersistentFlags().BoolVar(&testDisregardSync, "t.skipSync", false, "Should we disregard the head sync?")
 
 	// Bind Flags with Viper
 	//// DB Flags
@@ -82,11 +88,17 @@ func init() {
 	exitErr(err)
 	err = viper.BindPFlag("db.name", captureCmd.PersistentFlags().Lookup("db.name"))
 	exitErr(err)
-	err = viper.BindPFlag("db.driver", captureCmd.PersistentFlags().Lookup("db.driver"))
+	err = viper.BindPFlag("t.skipSync", captureCmd.PersistentFlags().Lookup("t.skipSync"))
+	exitErr(err)
+
+	// Testing Specific
+	err = viper.BindPFlag("t.driver", captureCmd.PersistentFlags().Lookup("db.driver"))
 	exitErr(err)
 
 	// LH specific
 	err = viper.BindPFlag("bc.address", captureCmd.PersistentFlags().Lookup("bc.address"))
+	exitErr(err)
+	err = viper.BindPFlag("bc.type", captureCmd.PersistentFlags().Lookup("bc.type"))
 	exitErr(err)
 	err = viper.BindPFlag("bc.port", captureCmd.PersistentFlags().Lookup("bc.port"))
 	exitErr(err)

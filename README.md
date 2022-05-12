@@ -37,7 +37,7 @@ To run the application, do as follows:
 2. Run the start up command.
 
 ```
-go run main.go capture head --db.address localhost \
+go run -race main.go capture head --db.address localhost \
   --db.password password \
   --db.port 8077 \
   --db.username vdbm \
@@ -46,8 +46,10 @@ go run main.go capture head --db.address localhost \
   --bc.address localhost \
   --bc.port 5052 \
   --bc.connectionProtocol http \
+  --t.skipSync=true \
   --log.level info \
-  --log.output=true
+  --log.output=true \
+  --kg.increment 100
 ```
 
 ## Running Tests

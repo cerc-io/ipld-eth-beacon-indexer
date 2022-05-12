@@ -40,7 +40,7 @@ var _ = Describe("Shutdown", func() {
 	)
 	BeforeEach(func() {
 		ctx = context.Background()
-		BC, DB, err = boot.BootApplicationWithRetry(ctx, dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver, bcAddress, bcPort, bcConnectionProtocol)
+		BC, DB, err = boot.BootApplicationWithRetry(ctx, dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver, bcAddress, bcPort, bcConnectionProtocol, true)
 		notifierCh = make(chan os.Signal, 1)
 		Expect(err).To(BeNil())
 	})
