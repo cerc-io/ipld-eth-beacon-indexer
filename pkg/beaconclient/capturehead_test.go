@@ -43,19 +43,20 @@ type MimicConfig struct {
 var _ = Describe("Capturehead", func() {
 
 	var (
-		TestConfig       Config
-		BeaconNodeTester TestBeaconNode
-		address          string = "localhost"
-		port             int    = 8080
-		protocol         string = "http"
-		TestEvents       map[string]Message
-		dbHost           string = "localhost"
-		dbPort           int    = 8077
-		dbName           string = "vulcanize_testing"
-		dbUser           string = "vdbm"
-		dbPassword       string = "password"
-		dbDriver         string = "pgx"
-		dummyParentRoot  string = "46f98c08b54a71dfda4d56e29ec3952b8300cd8d6b67a9b6c562ae96a7a25a42"
+		TestConfig              Config
+		BeaconNodeTester        TestBeaconNode
+		address                 string = "localhost"
+		port                    int    = 8080
+		protocol                string = "http"
+		TestEvents              map[string]Message
+		dbHost                  string = "localhost"
+		dbPort                  int    = 8077
+		dbName                  string = "vulcanize_testing"
+		dbUser                  string = "vdbm"
+		dbPassword              string = "password"
+		dbDriver                string = "pgx"
+		dummyParentRoot         string = "46f98c08b54a71dfda4d56e29ec3952b8300cd8d6b67a9b6c562ae96a7a25a42"
+		knownGapsTableIncrement int    = 10000
 	)
 
 	BeforeEach(func() {
@@ -146,16 +147,17 @@ var _ = Describe("Capturehead", func() {
 			},
 		}
 		TestConfig = Config{
-			protocol:        protocol,
-			address:         address,
-			port:            port,
-			dummyParentRoot: dummyParentRoot,
-			dbHost:          dbHost,
-			dbPort:          dbPort,
-			dbName:          dbName,
-			dbUser:          dbUser,
-			dbPassword:      dbPassword,
-			dbDriver:        dbDriver,
+			protocol:                protocol,
+			address:                 address,
+			port:                    port,
+			dummyParentRoot:         dummyParentRoot,
+			dbHost:                  dbHost,
+			dbPort:                  dbPort,
+			dbName:                  dbName,
+			dbUser:                  dbUser,
+			dbPassword:              dbPassword,
+			dbDriver:                dbDriver,
+			knownGapsTableIncrement: knownGapsTableIncrement,
 		}
 
 		BeaconNodeTester = TestBeaconNode{
@@ -234,16 +236,17 @@ var _ = Describe("Capturehead", func() {
 })
 
 type Config struct {
-	protocol        string
-	address         string
-	port            int
-	dummyParentRoot string
-	dbHost          string
-	dbPort          int
-	dbName          string
-	dbUser          string
-	dbPassword      string
-	dbDriver        string
+	protocol                string
+	address                 string
+	port                    int
+	dummyParentRoot         string
+	dbHost                  string
+	dbPort                  int
+	dbName                  string
+	dbUser                  string
+	dbPassword              string
+	dbDriver                string
+	knownGapsTableIncrement int
 }
 
 //////////////////////////////////////////////////////
@@ -307,7 +310,7 @@ func queryDbSlotAndBlock(db sql.Database, querySlot string, queryBlockRoot strin
 
 // A function that will remove all entries from the ethcl tables for you.
 func clearEthclDbTables(db sql.Database) {
-	deleteQueries := []string{"DELETE FROM ethcl.slots;", "DELETE FROM ethcl.signed_beacon_block;", "DELETE FROM ethcl.beacon_state;", "DELETE FROM ethcl.batch_processing;"}
+	deleteQueries := []string{"DELETE FROM ethcl.slots;", "DELETE FROM ethcl.signed_beacon_block;", "DELETE FROM ethcl.beacon_state;", "DELETE FROM ethcl.known_gaps;"}
 	for _, queries := range deleteQueries {
 		_, err := db.Exec(context.Background(), queries)
 		Expect(err).ToNot(HaveOccurred())
@@ -436,7 +439,7 @@ func (tbc TestBeaconNode) testMultipleReorgs(firstHead beaconclient.Head, second
 	tbc.SetupBeaconNodeMock(tbc.TestEvents, tbc.TestConfig.protocol, tbc.TestConfig.address, tbc.TestConfig.port, tbc.TestConfig.dummyParentRoot)
 	defer httpmock.DeactivateAndReset()
 
-	go bc.CaptureHead()
+	go bc.CaptureHead(tbc.TestConfig.knownGapsTableIncrement)
 	time.Sleep(1 * time.Second)
 
 	log.Info("Sending Phase0 Messages to BeaconClient")
@@ -488,7 +491,7 @@ func (tbc TestBeaconNode) testProcessBlock(head beaconclient.Head, epoch int) {
 	tbc.SetupBeaconNodeMock(tbc.TestEvents, tbc.TestConfig.protocol, tbc.TestConfig.address, tbc.TestConfig.port, tbc.TestConfig.dummyParentRoot)
 	defer httpmock.DeactivateAndReset()
 
-	go bc.CaptureHead()
+	go bc.CaptureHead(tbc.TestConfig.knownGapsTableIncrement)
 	time.Sleep(1 * time.Second)
 	sendHeadMessage(bc, head)
 	validateSlot(bc, &head, epoch, "proposed")
@@ -501,7 +504,7 @@ func (tbc TestBeaconNode) testMultipleHead(firstHead beaconclient.Head, secondHe
 	tbc.SetupBeaconNodeMock(tbc.TestEvents, tbc.TestConfig.protocol, tbc.TestConfig.address, tbc.TestConfig.port, tbc.TestConfig.dummyParentRoot)
 	defer httpmock.DeactivateAndReset()
 
-	go bc.CaptureHead()
+	go bc.CaptureHead(tbc.TestConfig.knownGapsTableIncrement)
 	time.Sleep(1 * time.Second)
 
 	sendHeadMessage(bc, firstHead)

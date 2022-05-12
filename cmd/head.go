@@ -6,13 +6,17 @@ package cmd
 
 import (
 	"context"
-	"os"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"github.com/vulcanize/ipld-ethcl-indexer/internal/boot"
 	"github.com/vulcanize/ipld-ethcl-indexer/internal/shutdown"
 	"github.com/vulcanize/ipld-ethcl-indexer/pkg/loghelper"
+)
+
+var (
+	kgTableIncrement int
 )
 
 // headCmd represents the head command
@@ -37,10 +41,9 @@ func startHeadTracking() {
 	}
 
 	// Capture head blocks
-	go BC.CaptureHead()
+	go BC.CaptureHead(kgTableIncrement)
 
 	// Shutdown when the time is right.
-	notifierCh := make(chan os.Signal, 1)
 	err = shutdown.ShutdownServices(ctx, notifierCh, maxWaitSecondsShutdown, DB, BC)
 	if err != nil {
 		loghelper.LogError(err).Error("Ungracefully Shutdown ipld-ethcl-indexer!")
@@ -53,13 +56,8 @@ func startHeadTracking() {
 func init() {
 	captureCmd.AddCommand(headCmd)
 
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// headCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// headCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	// Known Gaps specific
+	captureCmd.PersistentFlags().IntVarP(&kgTableIncrement, "kg.increment", "", 10000, "The max slots within a single entry to the known_gaps table.")
+	err := viper.BindPFlag("kg.increment", captureCmd.PersistentFlags().Lookup("kg.increment"))
+	exitErr(err)
 }
