@@ -34,6 +34,7 @@ type BeaconClient struct {
 	PerformHistoricalProcessing bool                 // Should we perform historical processing?
 	Db                          sql.Database         // Database object used for reads and writes.
 	Metrics                     *BeaconClientMetrics // An object used to keep track of certain BeaconClient Metrics.
+	KnownGapTableIncrement      int                  // The max number of slots within a single known_gaps table entry.
 
 	// Used for Head Tracking
 	PerformHeadTracking bool                   // Should we track head?

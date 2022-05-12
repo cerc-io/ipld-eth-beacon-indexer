@@ -24,6 +24,7 @@ func (bc *BeaconClient) handleReorg() {
 // This function will handle the latest head event.
 func (bc *BeaconClient) handleHead() {
 	log.Info("Starting to process head.")
+	errorSlots := 0
 	for {
 		head := <-bc.HeadTracking.ProcessCh
 		// Process all the work here.
@@ -32,10 +33,20 @@ func (bc *BeaconClient) handleHead() {
 			bc.HeadTracking.ErrorCh <- &SseError{
 				err: fmt.Errorf("Unable to turn the slot from string to int: %s", head.Slot),
 			}
+			errorSlots = errorSlots + 1
+			continue
 		}
-		err = processHeadSlot(bc.Db, bc.ServerEndpoint, slot, head.Block, head.State, bc.PreviousSlot, bc.PreviousBlockRoot, bc.Metrics)
+		if errorSlots != 0 && bc.PreviousSlot != 0 {
+			log.WithFields(log.Fields{
+				"lastProcessedSlot": bc.PreviousSlot,
+				"errorMessages":     errorSlots,
+			}).Warn("We added slots to the knownGaps table because we got bad head messages.")
+			writeKnownGaps(bc.Db, bc.KnownGapTableIncrement, bc.PreviousSlot, bcSlotsPerEpoch+errorSlots, fmt.Errorf("Bad Head Messages"), "headProcessing")
+		}
+
+		err = processHeadSlot(bc.Db, bc.ServerEndpoint, slot, head.Block, head.State, bc.PreviousSlot, bc.PreviousBlockRoot, bc.Metrics, bc.KnownGapTableIncrement)
 		if err != nil {
-			loghelper.LogSlotError(head.Slot, err)
+			loghelper.LogSlotError(head.Slot, err).Error("Unable to process a slot")
 		}
 		log.WithFields(log.Fields{"head": head}).Debug("Received a new head event.")
 

@@ -22,7 +22,8 @@ var (
 	bcAddress              string
 	bcPort                 int
 	bcConnectionProtocol   string
-	maxWaitSecondsShutdown time.Duration = time.Duration(5) * time.Second
+	maxWaitSecondsShutdown time.Duration  = time.Duration(5) * time.Second
+	notifierCh             chan os.Signal = make(chan os.Signal, 1)
 )
 
 // captureCmd represents the capture command
