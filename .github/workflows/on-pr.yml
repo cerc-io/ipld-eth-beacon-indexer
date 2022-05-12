@@ -25,7 +25,7 @@ on:
       - "**"
 
 env:
-  stack-orchestrator-ref: ${{ github.event.inputs.stack-orchestrator-ref  || '21d076268730e3f25fcec6371c1aca1bf48040d8'}}
+  stack-orchestrator-ref: ${{ github.event.inputs.stack-orchestrator-ref  || '026ae987327dda66e733463d960c17ff5f8eed9d'}}
   ipld-eth-db-ref: ${{ github.event.inputs.ipld-eth-db-ref  || 'minimal-beacon-chain-schema' }}
   ssz-data-ref: ${{ github.event.inputs.ssz-data-ref  || 'main' }}
   GOPATH: /tmp/go
