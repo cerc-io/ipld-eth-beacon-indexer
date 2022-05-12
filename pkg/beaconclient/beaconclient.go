@@ -21,12 +21,19 @@ var (
 	//bcFinalizedTopicEndpoint  = "/eth/v1/events?topics=finalized_checkpoint" // Endpoint used to subscribe to the head of the chain
 )
 
+// A structure utilized for keeping track of various metrics. Currently, mostly used in testing.
+type BeaconClientMetrics struct {
+	HeadTrackingInserts uint64 // Number of head events we wrote to the DB.
+	HeadTrackingReorgs  uint64 // The number of reorg events written to the DB.
+}
+
 // A struct that capture the Beacon Server that the Beacon Client will be interacting with and querying.
 type BeaconClient struct {
-	Context                     context.Context // A context generic context with multiple uses.
-	ServerEndpoint              string          // What is the endpoint of the beacon server.
-	PerformHistoricalProcessing bool            // Should we perform historical processing?
-	Db                          sql.Database    // Database object used for reads and writes.
+	Context                     context.Context      // A context generic context with multiple uses.
+	ServerEndpoint              string               // What is the endpoint of the beacon server.
+	PerformHistoricalProcessing bool                 // Should we perform historical processing?
+	Db                          sql.Database         // Database object used for reads and writes.
+	Metrics                     *BeaconClientMetrics // An object used to keep track of certain BeaconClient Metrics.
 
 	// Used for Head Tracking
 	PerformHeadTracking bool                   // Should we track head?
@@ -63,6 +70,10 @@ func CreateBeaconClient(ctx context.Context, connectionProtocol string, bcAddres
 		ServerEndpoint: endpoint,
 		HeadTracking:   createSseEvent[Head](endpoint, BcHeadTopicEndpoint),
 		ReOrgTracking:  createSseEvent[ChainReorg](endpoint, bcReorgTopicEndpoint),
+		Metrics: &BeaconClientMetrics{
+			HeadTrackingInserts: 0,
+			HeadTrackingReorgs:  0,
+		},
 		//FinalizationTracking: createSseEvent[FinalizedCheckpoint](endpoint, bcFinalizedTopicEndpoint),
 	}
 }

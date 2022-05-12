@@ -14,9 +14,27 @@ This application will capture all the `BeaconState`'s and `SignedBeaconBlock`'s 
 
 To learn more about the applications individual components, please read the [application components](/application_component.md).
 
-# Running the Application
+# Quick Start
 
-To run the application, utilize the following command, and update the values as needed.
+## Running the Application
+
+To run the application, do as follows:
+
+1. Setup the prerequisite applications.
+   a. Run a beacon client (such as lighthouse).
+   b. Run a postgres DB.
+   c. You can utilize the `stack-orchestrator` [repository](https://github.com/vulcanize/stack-orchestrato).
+
+   ```
+   ./wrapper.sh -e skip \
+   -d ../docker/local/docker-compose-db.yml \
+   -d ../docker/latest/docker-compose-lighthouse.yml \
+   -v remove \
+   -p ../local-config.sh
+
+   ```
+
+2. Run the start up command.
 
 ```
 go run main.go capture head --db.address localhost \
@@ -27,8 +45,18 @@ go run main.go capture head --db.address localhost \
   --db.driver PGX \
   --bc.address localhost \
   --bc.port 5052 \
-  --log.level info
+  --bc.connectionProtocol http \
+  --log.level info \
+  --log.output=true
 ```
+
+## Running Tests
+
+To run tests, you will need to clone another repository which contains all the ssz files.
+
+1. `git clone git@github.com:vulcanize/ssz-data.git pkg/beaconclient/ssz-data`
+2. To run unit tests, make sure you have a DB running: `make unit-test-local`
+3. To run integration tests, make sure you have a lighthouse client and a DB running: `make integration-test-local-no-race` .
 
 # Development Patterns
 
@@ -58,8 +86,17 @@ This project utilizes `ginkgo` for testing. A few notes on testing:
 - All test packages are named `{base_package}_test`. This ensures we only test the public methods.
 - If there is a need to test a private method, please include why in the testing file.
 - Unit tests must contain the `Label("unit")`.
-- Unit tests should not rely on any running service. If a running service is needed. Utilize an integration test.
+- Unit tests should not rely on any running service (except for a postgres DB). If a running service is needed. Utilize an integration test.
 - Integration tests must contain the `Label("integration")`.
+
+#### Understanding Testing Components
+
+A few notes about the testing components.
+
+- The `TestEvents` map contains several events for testers to leverage when testing.
+- Any object ending in `-dummy` is not a real object. You will also notice it has a present field called `MimicConfig`. This object will use an existing SSZ object, and update the parameters from the `Head` and `MimicConfig`.
+  - This is done because creating an empty or minimal `SignedBeaconBlock` and `BeaconState` is fairly challenging.
+  - By slightly modifying an existing object, we can test re-org, malformed objects, and other negative conditions.
 
 # Contribution
 
