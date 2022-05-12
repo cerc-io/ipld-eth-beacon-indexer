@@ -42,7 +42,7 @@ type DbSlots struct {
 	Slot      string // The slot.
 	BlockRoot string // The block root
 	StateRoot string // The state root
-	Status    string // The status, it can be proposed | forked | missed.
+	Status    string // The status, it can be proposed | forked | skipped.
 }
 
 // A struct to capture whats being written to ethcl.signed_beacon_block table.

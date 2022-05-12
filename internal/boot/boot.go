@@ -54,7 +54,7 @@ func BootApplication(ctx context.Context, dbHostname string, dbPort int, dbName 
 			log.Error("Unable to get the nodes sync status")
 			return BC, DB, err
 		}
-		if status != false {
+		if status {
 			log.Error("The node is still syncing..")
 			err = fmt.Errorf("The node is still syncing.")
 			return BC, DB, err

@@ -25,7 +25,7 @@ var _ = Describe("Boot", func() {
 			It("Should connect successfully", func() {
 				_, db, err := boot.BootApplicationWithRetry(context.Background(), dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver, bcAddress, bcPort, bcConnectionProtocol, true)
 				defer db.Close()
-				Expect(err).To(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 		Context("When the DB and BC are both up and running, and we check for a synced head", func() {
@@ -38,19 +38,19 @@ var _ = Describe("Boot", func() {
 		Context("When the DB is running but not the BC", func() {
 			It("Should not connect successfully", func() {
 				_, _, err := boot.BootApplication(context.Background(), dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver, "hi", 100, bcConnectionProtocol, true)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(err).To(HaveOccurred())
 			})
 		})
 		Context("When the BC is running but not the DB", func() {
 			It("Should not connect successfully", func() {
 				_, _, err := boot.BootApplication(context.Background(), "hi", 10, dbName, dbUsername, dbPassword, dbDriver, bcAddress, bcPort, bcConnectionProtocol, true)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(err).To(HaveOccurred())
 			})
 		})
 		Context("When neither the BC or DB are running", func() {
 			It("Should not connect successfully", func() {
 				_, _, err := boot.BootApplication(context.Background(), "hi", 10, dbName, dbUsername, dbPassword, dbDriver, "hi", 100, bcConnectionProtocol, true)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(err).To(HaveOccurred())
 			})
 		})
 	})
