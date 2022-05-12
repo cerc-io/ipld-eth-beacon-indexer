@@ -5,3 +5,4 @@ report.json
 cover.profile
 temp/*
 pkg/beaconclient/ssz-data/
+*.test
