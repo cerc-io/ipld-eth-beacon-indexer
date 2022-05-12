@@ -204,7 +204,7 @@ var _ = Describe("Capturehead", func() {
 		//	})
 	})
 
-	Describe("ReOrg Scenario", Label("dry"), func() {
+	Describe("ReOrg Scenario", Label("unit", "behavioral"), func() {
 		Context("Altair: Multiple head messages for the same slot.", func() {
 			It("The previous block should be marked as 'forked', the new block should be the only one marked as 'proposed'.", func() {
 				BeaconNodeTester.testMultipleHead(TestEvents["2375703-dummy"].HeadMessage, TestEvents["2375703"].HeadMessage, 74240)
@@ -266,10 +266,10 @@ func setUpTest(config Config) *beaconclient.BeaconClient {
 
 // A helper function to validate the expected output.
 func validateSlot(bc *beaconclient.BeaconClient, headMessage *beaconclient.Head, correctEpoch int, correctStatus string) {
-	epoch, slot, blockRoot, stateRoot, status := queryDbSlotAndBlock(bc.Db, headMessage.Slot, headMessage.Block)
-	slot, err := strconv.Atoi(headMessage.Slot)
+	epoch, dbSlot, blockRoot, stateRoot, status := queryDbSlotAndBlock(bc.Db, headMessage.Slot, headMessage.Block)
+	baseSlot, err := strconv.Atoi(headMessage.Slot)
 	Expect(err).ToNot(HaveOccurred())
-	Expect(slot).To(Equal(slot))
+	Expect(dbSlot).To(Equal(baseSlot))
 	Expect(epoch).To(Equal(correctEpoch))
 	Expect(blockRoot).To(Equal(headMessage.Block))
 	Expect(stateRoot).To(Equal(headMessage.State))
@@ -397,6 +397,7 @@ func (tbc TestBeaconNode) provideSsz(slotIdentifier string, sszIdentifier string
 				Expect(err).ToNot(HaveOccurred())
 			} else {
 				block.Block.ParentRoot, err = hex.DecodeString(Message.MimicConfig.ParentRoot)
+				Expect(err).ToNot(HaveOccurred())
 			}
 			return block.MarshalSSZ()
 		}
@@ -406,7 +407,8 @@ func (tbc TestBeaconNode) provideSsz(slotIdentifier string, sszIdentifier string
 				return nil, fmt.Errorf("Can't find the slot file, %s", slotFile)
 			}
 			state := st.BeaconState{}
-			state.UnmarshalSSZ(dat)
+			err = state.UnmarshalSSZ(dat)
+			Expect(err)
 			slot, err := strconv.ParseUint(Message.HeadMessage.Slot, 10, 64)
 			Expect(err).ToNot(HaveOccurred())
 			state.Slot = types.Slot(slot)

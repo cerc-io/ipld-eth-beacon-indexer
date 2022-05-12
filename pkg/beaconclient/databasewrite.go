@@ -169,9 +169,13 @@ func (dw *DatabaseWriter) upsertBeaconState() {
 // We will mark all entries for the given slot that don't match the provided latestBlockRoot as forked.
 func writeReorgs(db sql.Database, slot string, latestBlockRoot string, metrics *BeaconClientMetrics) {
 	forkCount, err := updateForked(db, slot, latestBlockRoot)
+	if err != nil {
+		loghelper.LogReorgError(slot, latestBlockRoot, err).Error("We ran into some trouble while updating all forks.")
+		// Add to knownGaps Table
+	}
 	proposedCount, err := updateProposed(db, slot, latestBlockRoot)
 	if err != nil {
-		loghelper.LogReorgError(slot, latestBlockRoot, err).Error("We ran into some trouble processing a reorg.")
+		loghelper.LogReorgError(slot, latestBlockRoot, err).Error("We ran into some trouble while trying to update the proposed slot.")
 		// Add to knownGaps Table
 	}
 

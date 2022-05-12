@@ -68,7 +68,7 @@ unit-test-local:
 	$(GINKGO) -r --label-filter unit \
 	--randomize-all --randomize-suites \
 	--fail-on-pending --keep-going \
-	--race --trace
+	--trace
 
 .PHONY: unit-test-ci
 unit-test-ci:
@@ -78,7 +78,7 @@ unit-test-ci:
 	--randomize-all --randomize-suites \
 	--fail-on-pending --keep-going \
 	--cover --coverprofile=cover.profile \
-	--race --trace --json-report=report.json
+	--trace --json-report=report.json
 
 
 .PHONY: build
