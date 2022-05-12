@@ -29,7 +29,7 @@ var _ = Describe("Pgx", func() {
 				_, err := postgres.NewPostgresDB(postgres.Config{
 					Driver: "PGX",
 				})
-				Expect(err).NotTo(HaveOccurred())
+				Expect(err).To(HaveOccurred())
 
 				present, err := doesContainsSubstring(err.Error(), sql.DbConnectionFailedMsg)
 				Expect(present).To(BeTrue())
