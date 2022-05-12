@@ -236,6 +236,7 @@ func (ps *ProcessSlot) createWriteObjects() *DatabaseWriter {
 	if ps.BlockRoot != "" {
 		blockRoot = ps.BlockRoot
 	} else {
+		log.Info("We need to add logic")
 		// We need to get the state of Slot + 1, then we can run the below.
 		// WE can query it for each run, or we can leave it blank, and update it.
 		// I just want to avoid getting the same state twice, especially since the state can get heavy.

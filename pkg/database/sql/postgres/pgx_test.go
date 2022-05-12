@@ -29,17 +29,18 @@ var _ = Describe("Pgx", func() {
 				_, err := postgres.NewPostgresDB(postgres.Config{
 					Driver: "PGX",
 				})
-				Expect(err).NotTo(BeNil())
+				Expect(err).NotTo(HaveOccurred())
 
 				present, err := doesContainsSubstring(err.Error(), sql.DbConnectionFailedMsg)
 				Expect(present).To(BeTrue())
+				Expect(err).NotTo(HaveOccurred())
 			})
 		})
 		Context("The connection is successful", func() {
 			It("Should create a DB object", func() {
 				db, err := postgres.NewPostgresDB(postgres.DefaultConfig)
-				defer db.Close()
 				Expect(err).To(BeNil())
+				defer db.Close()
 			})
 		})
 	})

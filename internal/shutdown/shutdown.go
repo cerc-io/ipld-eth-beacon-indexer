@@ -26,7 +26,7 @@ func ShutdownServices(ctx context.Context, notifierCh chan os.Signal, waitTime t
 	})
 
 	select {
-	case _ = <-successCh:
+	case <-successCh:
 		return nil
 	case err := <-errCh:
 		return err

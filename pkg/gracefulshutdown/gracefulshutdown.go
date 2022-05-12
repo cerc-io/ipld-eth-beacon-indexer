@@ -38,7 +38,6 @@ func Shutdown(ctx context.Context, notifierCh chan os.Signal, timeout time.Durat
 		timeoutFunc := time.AfterFunc(timeout, func() {
 			log.Warnf(TimeoutErr(timeout.String()).Error())
 			errCh <- TimeoutErr(timeout.String())
-			return
 		})
 
 		defer timeoutFunc.Stop()
