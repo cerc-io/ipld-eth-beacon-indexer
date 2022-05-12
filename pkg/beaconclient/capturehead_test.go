@@ -332,6 +332,7 @@ func (tbc TestBeaconNode) SetupBeaconNodeMock(TestEvents map[string]Message, pro
 			id := httpmock.MustGetSubmatch(req, 1)
 			dat, err := tbc.provideSsz(id, "state", dummyParentRoot)
 			if err != nil {
+				Expect(err).NotTo(HaveOccurred())
 				return httpmock.NewStringResponse(404, fmt.Sprintf("Unable to find file for %s", id)), err
 			}
 			return httpmock.NewBytesResponse(200, dat), nil
@@ -345,6 +346,7 @@ func (tbc TestBeaconNode) SetupBeaconNodeMock(TestEvents map[string]Message, pro
 			id := httpmock.MustGetSubmatch(req, 1)
 			dat, err := tbc.provideSsz(id, "block", dummyParentRoot)
 			if err != nil {
+				Expect(err).NotTo(HaveOccurred())
 				return httpmock.NewStringResponse(404, fmt.Sprintf("Unable to find file for %s", id)), err
 			}
 			return httpmock.NewBytesResponse(200, dat), nil
