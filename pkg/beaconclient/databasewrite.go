@@ -3,9 +3,7 @@ package beaconclient
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"strconv"
-	"time"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/vulcanize/ipld-ethcl-indexer/pkg/database/sql"
@@ -60,15 +58,21 @@ type DatabaseWriter struct {
 	rawSignedBeaconBlock []byte
 }
 
-func CreateDatabaseWrite(db sql.Database, slot int, stateRoot string, blockRoot string, parentBlockRoot string, eth1BlockHash string, status string, metrics *BeaconClientMetrics) *DatabaseWriter {
+func CreateDatabaseWrite(db sql.Database, slot int, stateRoot string, blockRoot string, parentBlockRoot string, eth1BlockHash string, status string, metrics *BeaconClientMetrics) (*DatabaseWriter, error) {
 	dw := &DatabaseWriter{
 		Db:      db,
 		Metrics: metrics,
 	}
 	dw.prepareSlotsModel(slot, stateRoot, blockRoot, status)
-	dw.prepareSignedBeaconBlockModel(slot, blockRoot, parentBlockRoot, eth1BlockHash)
-	dw.prepareBeaconStateModel(slot, stateRoot)
-	return dw
+	err := dw.prepareSignedBeaconBlockModel(slot, blockRoot, parentBlockRoot, eth1BlockHash)
+	if err != nil {
+		return nil, err
+	}
+	err = dw.prepareBeaconStateModel(slot, stateRoot)
+	if err != nil {
+		return nil, err
+	}
+	return dw, err
 }
 
 // Write functions to write each all together...
@@ -87,26 +91,35 @@ func (dw *DatabaseWriter) prepareSlotsModel(slot int, stateRoot string, blockRoo
 }
 
 // Create the model for the ethcl.signed_beacon_block table.
-func (dw *DatabaseWriter) prepareSignedBeaconBlockModel(slot int, blockRoot string, parentBlockRoot string, eth1BlockHash string) {
+func (dw *DatabaseWriter) prepareSignedBeaconBlockModel(slot int, blockRoot string, parentBlockRoot string, eth1BlockHash string) error {
+	mhKey, err := MultihashKeyFromSSZRoot(dw.rawSignedBeaconBlock)
+	if err != nil {
+		return err
+	}
 	dw.DbSignedBeaconBlock = &DbSignedBeaconBlock{
 		Slot:          strconv.Itoa(slot),
 		BlockRoot:     blockRoot,
 		ParentBlock:   parentBlockRoot,
 		Eth1BlockHash: eth1BlockHash,
-		MhKey:         calculateMhKey(),
+		MhKey:         mhKey,
 	}
 	log.Debug("dw.DbSignedBeaconBlock: ", dw.DbSignedBeaconBlock)
+	return nil
 }
 
 // Create the model for the ethcl.beacon_state table.
-func (dw *DatabaseWriter) prepareBeaconStateModel(slot int, stateRoot string) {
+func (dw *DatabaseWriter) prepareBeaconStateModel(slot int, stateRoot string) error {
+	mhKey, err := MultihashKeyFromSSZRoot(dw.rawSignedBeaconBlock)
+	if err != nil {
+		return err
+	}
 	dw.DbBeaconState = &DbBeaconState{
 		Slot:      strconv.Itoa(slot),
 		StateRoot: stateRoot,
-		MhKey:     calculateMhKey(),
+		MhKey:     mhKey,
 	}
-
 	log.Debug("dw.DbBeaconState: ", dw.DbBeaconState)
+	return nil
 }
 
 // Write all the data for a given slot.
@@ -364,14 +377,6 @@ func writeStartUpGaps(db sql.Database, tableIncrement int, firstSlot int) {
 		}).Fatal("Unable to get convert max block from DB to int. We must close the application or we might have undetected gaps.")
 	}
 	writeKnownGaps(db, tableIncrement, maxSlot, firstSlot, fmt.Errorf(""), "startup")
-}
-
-// Dummy function for calculating the mhKey.
-func calculateMhKey() string {
-	rand.Seed(time.Now().UnixNano())
-	b := make([]byte, 10)
-	rand.Read(b)
-	return fmt.Sprintf("%x", b)[:10]
 }
 
 // A quick helper function to calculate the epoch.
