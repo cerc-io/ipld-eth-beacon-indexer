@@ -6,7 +6,7 @@ import (
 	"github.com/multiformats/go-multihash"
 )
 
-const SSZ_SHA2_256_PREFIX int = 0xb501
+const SSZ_SHA2_256_PREFIX uint64 = 0xb501
 
 // MultihashKeyFromSSZRoot converts a SSZ-SHA2-256 root hash into a blockstore prefixed multihash key
 func MultihashKeyFromSSZRoot(root []byte) (string, error) {
