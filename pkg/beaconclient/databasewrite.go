@@ -95,7 +95,7 @@ func (dw *DatabaseWriter) prepareSlotsModel(slot int, stateRoot string, blockRoo
 
 // Create the model for the ethcl.signed_beacon_block table.
 func (dw *DatabaseWriter) prepareSignedBeaconBlockModel(slot int, blockRoot string, parentBlockRoot string, eth1BlockHash string) error {
-	mhKey, err := MultihashKeyFromSSZRoot(dw.rawSignedBeaconBlock)
+	mhKey, err := MultihashKeyFromSSZRoot([]byte(dw.DbSlots.BlockRoot))
 	if err != nil {
 		return err
 	}
@@ -112,7 +112,7 @@ func (dw *DatabaseWriter) prepareSignedBeaconBlockModel(slot int, blockRoot stri
 
 // Create the model for the ethcl.beacon_state table.
 func (dw *DatabaseWriter) prepareBeaconStateModel(slot int, stateRoot string) error {
-	mhKey, err := MultihashKeyFromSSZRoot(dw.rawSignedBeaconBlock)
+	mhKey, err := MultihashKeyFromSSZRoot([]byte(dw.DbSlots.StateRoot))
 	if err != nil {
 		return err
 	}
@@ -133,13 +133,15 @@ func (dw *DatabaseWriter) writeFullSlot() error {
 	if err != nil {
 		return err
 	}
-	err = dw.writeSignedBeaconBlocks()
-	if err != nil {
-		return err
-	}
-	err = dw.writeBeaconState()
-	if err != nil {
-		return err
+	if dw.DbSlots.Status != "skipped" {
+		err = dw.writeSignedBeaconBlocks()
+		if err != nil {
+			return err
+		}
+		err = dw.writeBeaconState()
+		if err != nil {
+			return err
+		}
 	}
 	dw.Metrics.IncrementHeadTrackingInserts(1)
 	return nil

@@ -56,7 +56,7 @@ var _ = Describe("Capturehead", func() {
 		dbPassword              string = "password"
 		dbDriver                string = "pgx"
 		dummyParentRoot         string = "46f98c08b54a71dfda4d56e29ec3952b8300cd8d6b67a9b6c562ae96a7a25a42"
-		knownGapsTableIncrement int    = 10000
+		knownGapsTableIncrement int    = 100000
 		maxRetry                int    = 30
 	)
 
