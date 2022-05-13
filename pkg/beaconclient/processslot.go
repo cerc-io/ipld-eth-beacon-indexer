@@ -37,7 +37,7 @@ type ProcessSlot struct {
 	StateRoot       string               // The hex encoded string of the StateRoot.
 	ParentBlockRoot string               // The hex encoded string of the parent block.
 	Status          string               // The status of the block
-	HeadOrHistoric  string               // Is this the head or a historic slot. This is critical when trying to analyze errors and missed slots.
+	HeadOrHistoric  string               // Is this the head or a historic slot. This is critical when trying to analyze errors and skipped slots.
 	Db              sql.Database         // The DB object used to write to the DB.
 	Metrics         *BeaconClientMetrics // An object to keep track of the beaconclient metrics
 	// BeaconBlock
@@ -66,26 +66,31 @@ func processFullSlot(db sql.Database, serverAddress string, slot int, blockRoot 
 		Metrics:        metrics,
 	}
 
-	// Get the SignedBeaconBlock.
-	err := ps.getSignedBeaconBlock(serverAddress)
+	// Get the BeaconState.
+	err := ps.getBeaconState(serverAddress)
 	if err != nil {
 		writeKnownGaps(ps.Db, 1, ps.Slot, ps.Slot, err, "processSlot")
 		return err
 	}
 
-	// Get the BeaconState.
-	err = ps.getBeaconState(serverAddress)
+	// Get the SignedBeaconBlock.
+	err = ps.getSignedBeaconBlock(serverAddress)
 	if err != nil {
 		writeKnownGaps(ps.Db, 1, ps.Slot, ps.Slot, err, "processSlot")
 		return err
 	}
+
 	if ps.HeadOrHistoric == "head" && previousSlot == 0 && previousBlockRoot == "" {
 		writeStartUpGaps(db, knownGapsTableIncrement, ps.Slot)
 	}
 
 	// Get this object ready to write
-	dw := ps.createWriteObjects()
-
+	blockRootEndpoint := serverAddress + BcBlockRootEndpoint(strconv.Itoa(ps.Slot))
+	dw, err := ps.createWriteObjects(blockRootEndpoint)
+	if err != nil {
+		writeKnownGaps(ps.Db, 1, ps.Slot, ps.Slot, err, "blockRoot")
+		return err
+	}
 	// Write the object to the DB.
 	err = dw.writeFullSlot()
 	if err != nil {
@@ -97,7 +102,7 @@ func processFullSlot(db sql.Database, serverAddress string, slot int, blockRoot 
 	if headOrHistoric != "head" && headOrHistoric != "historic" {
 		return fmt.Errorf("headOrHistoric must be either historic or head!")
 	}
-	if ps.HeadOrHistoric == "head" && previousSlot != 0 && previousBlockRoot != "" {
+	if ps.HeadOrHistoric == "head" && previousSlot != 0 && previousBlockRoot != "" && ps.Status != "skipped" {
 		ps.checkPreviousSlot(previousSlot, previousBlockRoot, knownGapsTableIncrement)
 	}
 	return nil
@@ -135,7 +140,11 @@ func (ps *ProcessSlot) getSignedBeaconBlock(serverAddress string) error {
 	}
 
 	if rc != 200 {
-		ps.checkMissedSlot()
+		ps.FullSignedBeaconBlock = &st.SignedBeaconBlock{}
+		ps.SszSignedBeaconBlock = []byte{}
+		ps.ParentBlockRoot = ""
+		ps.Status = "skipped"
+		return nil
 	}
 
 	ps.FullSignedBeaconBlock = &st.SignedBeaconBlock{}
@@ -199,8 +208,6 @@ func (ps *ProcessSlot) checkPreviousSlot(previousSlot int, previousBlockRoot str
 			"currentSlot":  ps.FullBeaconState.Slot,
 		}).Error("We skipped a few slots.")
 		writeKnownGaps(ps.Db, knownGapsTableIncrement, previousSlot+1, int(ps.FullBeaconState.Slot)-1, fmt.Errorf("Gaps during head processing"), "headGaps")
-		// Check to see if the slot was skipped.
-		// Call our known_gaps function.
 	} else if previousBlockRoot != parentRoot {
 		log.WithFields(log.Fields{
 			"previousBlockRoot":  previousBlockRoot,
@@ -213,50 +220,37 @@ func (ps *ProcessSlot) checkPreviousSlot(previousSlot int, previousBlockRoot str
 	}
 }
 
-// Add logic for checking a missed Slot
-// IF the state is present but block is not, then it was skipped???
-// If the state and block are both absent, then the block might be missing??
-// IF state is absent but block is not, there might be an issue with the LH client.
-// Check the previous and following slot?
-// Check if head or historic.
-
-// 1. BeaconBlock is 404.
-// 2. check check /lighthouse/database/info to make sure the oldest_block_slot == 0  and anchor == null. This indicates that I don't have any gaps in the DB.
-// 3. I query BeaconState for slot X, and get a BeaconState.
-// 4. Although for good measure you should also check that the head is at a slot >= X using something like /eth/v1/node/syncing/ or /eth/v1/beacon/headers/head
-func (ps *ProcessSlot) checkMissedSlot() {
-
-}
-
 // Transforms all the raw data into DB models that can be written to the DB.
-func (ps *ProcessSlot) createWriteObjects() *DatabaseWriter {
+func (ps *ProcessSlot) createWriteObjects(blockRootEndpoint string) (*DatabaseWriter, error) {
 	var (
-		stateRoot string
-		blockRoot string
-		status    string
+		stateRoot     string
+		blockRoot     string
+		status        string
+		eth1BlockHash string
 	)
 
-	if ps.StateRoot != "" {
-		stateRoot = ps.StateRoot
+	if ps.Status == "skipped" {
+		stateRoot = ""
+		blockRoot = ""
+		eth1BlockHash = ""
 	} else {
-		stateRoot = "0x" + hex.EncodeToString(ps.FullSignedBeaconBlock.Block.StateRoot)
-		log.Debug("StateRoot: ", stateRoot)
-	}
+		if ps.StateRoot != "" {
+			stateRoot = ps.StateRoot
+		} else {
+			stateRoot = "0x" + hex.EncodeToString(ps.FullSignedBeaconBlock.Block.StateRoot)
+			log.Debug("StateRoot: ", stateRoot)
+		}
 
-	// MUST RESOLVE!
-	if ps.BlockRoot != "" {
-		blockRoot = ps.BlockRoot
-	} else {
-		log.Info("We need to add logic")
-		// We need to get the state of Slot + 1, then we can run the below.
-		// WE can query it for each run, or we can leave it blank, and update it.
-		// I just want to avoid getting the same state twice, especially since the state can get heavy.
-		// blockRoot = "0x" + hex.EncodeToString(ps.FullBeaconState.GetBlockRoots()[ps.Slot%bcSlotPerHistoricalVector][:])
-		// log.Debug("Block Root: ", blockRoot)
-		// log.Debug("ps.Slott: ", ps.Slot)
-		// Maybe we can use the helper down the road.
-		//blockRootRaw, _ := helper.BlockRootAtSlot(ps.FullBeaconState, ps.FullSignedBeaconBlock.Block.Slot)
-		//blockRoot = string(blockRootRaw)
+		if ps.BlockRoot != "" {
+			blockRoot = ps.BlockRoot
+		} else {
+			var err error
+			blockRoot, err = queryBlockRoot(blockRootEndpoint, strconv.Itoa(ps.Slot))
+			if err != nil {
+				return nil, err
+			}
+		}
+		eth1BlockHash = "0x" + hex.EncodeToString(ps.FullSignedBeaconBlock.Block.Body.Eth1Data.BlockHash)
 	}
 
 	if ps.Status != "" {
@@ -265,11 +259,9 @@ func (ps *ProcessSlot) createWriteObjects() *DatabaseWriter {
 		status = "proposed"
 	}
 
-	eth1BlockHash := "0x" + hex.EncodeToString(ps.FullSignedBeaconBlock.Block.Body.Eth1Data.BlockHash)
-
 	dw := CreateDatabaseWrite(ps.Db, ps.Slot, stateRoot, blockRoot, ps.ParentBlockRoot, eth1BlockHash, status, ps.Metrics)
 	dw.rawSignedBeaconBlock = ps.SszSignedBeaconBlock
 	dw.rawBeaconState = ps.SszBeaconState
 
-	return dw
+	return dw, nil
 }
