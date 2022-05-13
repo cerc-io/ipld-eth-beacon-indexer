@@ -12,7 +12,8 @@ echo /root/ipld-ethcl-indexer capture ${CAPTURE_MODE} --db.address $DB_ADDRESS \
   --bc.address $BC_ADDRESS \
   --bc.port $BC_PORT \
   --log.level $LOG_LEVEL\
-  --t.skipSync=$SKIP_SYNC
+  --t.skipSync=$SKIP_SYNC \
+  --kg.increment $KNOWN_GAP_INCREMENT
 
 /root/ipld-ethcl-indexer capture ${CAPTURE_MODE} --db.address $DB_ADDRESS \
   --db.password $DB_PASSWORD \
@@ -23,7 +24,8 @@ echo /root/ipld-ethcl-indexer capture ${CAPTURE_MODE} --db.address $DB_ADDRESS \
   --bc.address $BC_ADDRESS \
   --bc.port $BC_PORT \
   --log.level $LOG_LEVEL \
-  --t.skipSync=$SKIP_SYNC
+  --t.skipSync=$SKIP_SYNC \
+  --kg.increment $KNOWN_GAP_INCREMENT
 
 rv=$?
 
