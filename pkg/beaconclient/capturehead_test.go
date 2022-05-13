@@ -56,7 +56,8 @@ var _ = Describe("Capturehead", func() {
 		dbPassword              string = "password"
 		dbDriver                string = "pgx"
 		dummyParentRoot         string = "46f98c08b54a71dfda4d56e29ec3952b8300cd8d6b67a9b6c562ae96a7a25a42"
-		knownGapsTableIncrement int    = 10000
+		knownGapsTableIncrement int    = 100000
+		maxRetry                int    = 30
 	)
 
 	BeforeEach(func() {
@@ -172,13 +173,13 @@ var _ = Describe("Capturehead", func() {
 	Describe("Receiving New Head SSE messages", Label("unit", "behavioral"), func() {
 		Context("Correctly formatted Phase0 Block", func() {
 			It("Should turn it into a struct successfully.", func() {
-				BeaconNodeTester.testProcessBlock(BeaconNodeTester.TestEvents["100"].HeadMessage, 3)
+				BeaconNodeTester.testProcessBlock(BeaconNodeTester.TestEvents["100"].HeadMessage, 3, maxRetry)
 
 			})
 		})
 		Context("Correctly formatted Altair Block", func() {
 			It("Should turn it into a struct successfully.", func() {
-				BeaconNodeTester.testProcessBlock(BeaconNodeTester.TestEvents["2375703"].HeadMessage, 74240)
+				BeaconNodeTester.testProcessBlock(BeaconNodeTester.TestEvents["2375703"].HeadMessage, 74240, maxRetry)
 			})
 		})
 		//Context("A single incorrectly formatted head message", func() {
@@ -209,22 +210,22 @@ var _ = Describe("Capturehead", func() {
 	Describe("ReOrg Scenario", Label("unit", "behavioral"), func() {
 		Context("Altair: Multiple head messages for the same slot.", func() {
 			It("The previous block should be marked as 'forked', the new block should be the only one marked as 'proposed'.", func() {
-				BeaconNodeTester.testMultipleHead(TestEvents["2375703-dummy"].HeadMessage, TestEvents["2375703"].HeadMessage, 74240)
+				BeaconNodeTester.testMultipleHead(TestEvents["2375703-dummy"].HeadMessage, TestEvents["2375703"].HeadMessage, 74240, maxRetry)
 			})
 		})
 		Context("Phase0: Multiple head messages for the same slot.", func() {
 			It("The previous block should be marked as 'forked', the new block should be the only one marked as 'proposed'.", func() {
-				BeaconNodeTester.testMultipleHead(TestEvents["100-dummy"].HeadMessage, TestEvents["100"].HeadMessage, 3)
+				BeaconNodeTester.testMultipleHead(TestEvents["100-dummy"].HeadMessage, TestEvents["100"].HeadMessage, 3, maxRetry)
 			})
 		})
 		Context("Phase 0: Multiple reorgs have occurred on this slot", Label("new"), func() {
 			It("The previous blocks should be marked as 'forked', the new block should be the only one marked as 'proposed'.", func() {
-				BeaconNodeTester.testMultipleReorgs(TestEvents["100-dummy"].HeadMessage, TestEvents["100-dummy-2"].HeadMessage, TestEvents["100"].HeadMessage, 3)
+				BeaconNodeTester.testMultipleReorgs(TestEvents["100-dummy"].HeadMessage, TestEvents["100-dummy-2"].HeadMessage, TestEvents["100"].HeadMessage, 3, maxRetry)
 			})
 		})
 		Context("Altair: Multiple reorgs have occurred on this slot", Label("new"), func() {
 			It("The previous blocks should be marked as 'forked', the new block should be the only one marked as 'proposed'.", func() {
-				BeaconNodeTester.testMultipleReorgs(TestEvents["2375703-dummy"].HeadMessage, TestEvents["2375703-dummy-2"].HeadMessage, TestEvents["2375703"].HeadMessage, 74240)
+				BeaconNodeTester.testMultipleReorgs(TestEvents["2375703-dummy"].HeadMessage, TestEvents["2375703-dummy-2"].HeadMessage, TestEvents["2375703"].HeadMessage, 74240, maxRetry)
 			})
 		})
 		//Context("Reorg slot in not already in the DB", func() {
@@ -280,7 +281,7 @@ func validateSlot(bc *beaconclient.BeaconClient, headMessage *beaconclient.Head,
 }
 
 // Wrapper function to send a head message to the beaconclient
-func sendHeadMessage(bc *beaconclient.BeaconClient, head beaconclient.Head) {
+func sendHeadMessage(bc *beaconclient.BeaconClient, head beaconclient.Head, maxRetry int) {
 
 	data, err := json.Marshal(head)
 	Expect(err).ToNot(HaveOccurred())
@@ -292,8 +293,13 @@ func sendHeadMessage(bc *beaconclient.BeaconClient, head beaconclient.Head) {
 		Event: []byte{},
 		Retry: []byte{},
 	}
+	curRetry := 0
 	for atomic.LoadUint64(&bc.Metrics.HeadTrackingInserts) != startInserts+1 {
 		time.Sleep(1 * time.Second)
+		curRetry = curRetry + 1
+		if curRetry == maxRetry {
+			Fail(" Too many retries have occured.")
+		}
 	}
 }
 
@@ -434,7 +440,7 @@ func (tbc TestBeaconNode) provideSsz(slotIdentifier string, sszIdentifier string
 
 // Helper function to test three reorg messages. There are going to be many functions like this,
 // Because we need to test the same logic for multiple phases.
-func (tbc TestBeaconNode) testMultipleReorgs(firstHead beaconclient.Head, secondHead beaconclient.Head, thirdHead beaconclient.Head, epoch int) {
+func (tbc TestBeaconNode) testMultipleReorgs(firstHead beaconclient.Head, secondHead beaconclient.Head, thirdHead beaconclient.Head, epoch int, maxRetry int) {
 	bc := setUpTest(tbc.TestConfig)
 	tbc.SetupBeaconNodeMock(tbc.TestEvents, tbc.TestConfig.protocol, tbc.TestConfig.address, tbc.TestConfig.port, tbc.TestConfig.dummyParentRoot)
 	defer httpmock.DeactivateAndReset()
@@ -443,12 +449,17 @@ func (tbc TestBeaconNode) testMultipleReorgs(firstHead beaconclient.Head, second
 	time.Sleep(1 * time.Second)
 
 	log.Info("Sending Phase0 Messages to BeaconClient")
-	sendHeadMessage(bc, firstHead)
-	sendHeadMessage(bc, secondHead)
-	sendHeadMessage(bc, thirdHead)
+	sendHeadMessage(bc, firstHead, maxRetry)
+	sendHeadMessage(bc, secondHead, maxRetry)
+	sendHeadMessage(bc, thirdHead, maxRetry)
 
+	curRetry := 0
 	for atomic.LoadUint64(&bc.Metrics.HeadTrackingReorgs) != 2 {
 		time.Sleep(1 * time.Second)
+		curRetry = curRetry + 1
+		if curRetry == maxRetry {
+			Fail(" Too many retries have occured.")
+		}
 	}
 
 	log.Info("Checking Phase0 to make sure the fork was marked properly.")
@@ -473,8 +484,13 @@ func (tbc TestBeaconNode) testMultipleReorgs(firstHead beaconclient.Head, second
 		Data: data,
 	}
 
+	curRetry = 0
 	for atomic.LoadUint64(&bc.Metrics.HeadTrackingReorgs) != 3 {
 		time.Sleep(1 * time.Second)
+		curRetry = curRetry + 1
+		if curRetry == maxRetry {
+			Fail(" Too many retries have occured.")
+		}
 	}
 
 	log.Info("Make sure the forks were properly updated!")
@@ -486,20 +502,20 @@ func (tbc TestBeaconNode) testMultipleReorgs(firstHead beaconclient.Head, second
 }
 
 // A test to validate a single block was processed correctly
-func (tbc TestBeaconNode) testProcessBlock(head beaconclient.Head, epoch int) {
+func (tbc TestBeaconNode) testProcessBlock(head beaconclient.Head, epoch int, maxRetry int) {
 	bc := setUpTest(tbc.TestConfig)
 	tbc.SetupBeaconNodeMock(tbc.TestEvents, tbc.TestConfig.protocol, tbc.TestConfig.address, tbc.TestConfig.port, tbc.TestConfig.dummyParentRoot)
 	defer httpmock.DeactivateAndReset()
 
 	go bc.CaptureHead(tbc.TestConfig.knownGapsTableIncrement)
 	time.Sleep(1 * time.Second)
-	sendHeadMessage(bc, head)
+	sendHeadMessage(bc, head, maxRetry)
 	validateSlot(bc, &head, epoch, "proposed")
 }
 
 // A test that ensures that if two HeadMessages occur for a single slot they are marked
 // as proposed and forked correctly.
-func (tbc TestBeaconNode) testMultipleHead(firstHead beaconclient.Head, secondHead beaconclient.Head, epoch int) {
+func (tbc TestBeaconNode) testMultipleHead(firstHead beaconclient.Head, secondHead beaconclient.Head, epoch int, maxRetry int) {
 	bc := setUpTest(tbc.TestConfig)
 	tbc.SetupBeaconNodeMock(tbc.TestEvents, tbc.TestConfig.protocol, tbc.TestConfig.address, tbc.TestConfig.port, tbc.TestConfig.dummyParentRoot)
 	defer httpmock.DeactivateAndReset()
@@ -507,11 +523,16 @@ func (tbc TestBeaconNode) testMultipleHead(firstHead beaconclient.Head, secondHe
 	go bc.CaptureHead(tbc.TestConfig.knownGapsTableIncrement)
 	time.Sleep(1 * time.Second)
 
-	sendHeadMessage(bc, firstHead)
-	sendHeadMessage(bc, secondHead)
+	sendHeadMessage(bc, firstHead, maxRetry)
+	sendHeadMessage(bc, secondHead, maxRetry)
 
+	curRetry := 0
 	for atomic.LoadUint64(&bc.Metrics.HeadTrackingReorgs) != 1 {
 		time.Sleep(1 * time.Second)
+		curRetry = curRetry + 1
+		if curRetry == maxRetry {
+			Fail(" Too many retries have occured.")
+		}
 	}
 
 	log.Info("Checking Altair to make sure the fork was marked properly.")

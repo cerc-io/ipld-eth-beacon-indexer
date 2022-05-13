@@ -58,6 +58,7 @@ jobs:
           echo vulcanize_ipld_ethcl_indexer=$GITHUB_WORKSPACE/ipld-ethcl-indexer >> ./config.sh
           echo ethcl_capture_mode=boot >> ./config.sh
           echo ethcl_skip_sync=true >> ./config.sh
+          echo ethcl_known_gap_increment=1000000 >> ./config.sh
           cat ./config.sh
 
       - name: Run docker compose
@@ -191,11 +192,6 @@ jobs:
         run: |
           cd ipld-ethcl-indexer
           make integration-test-ci
-
-      - name: Run the tests using Make without race conditions
-        run: |
-          cd ipld-ethcl-indexer
-          make integration-test-local-no-race
 
   golangci:
     runs-on: ubuntu-latest
