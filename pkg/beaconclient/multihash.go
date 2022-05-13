@@ -4,6 +4,7 @@ import (
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	dshelp "github.com/ipfs/go-ipfs-ds-help"
 	"github.com/multiformats/go-multihash"
+	log "github.com/sirupsen/logrus"
 	"github.com/vulcanize/ipld-ethcl-indexer/pkg/loghelper"
 )
 
@@ -17,5 +18,7 @@ func MultihashKeyFromSSZRoot(root []byte) (string, error) {
 		return "", err
 	}
 	dbKey := dshelp.MultihashToDsKey(mh)
-	return blockstore.BlockPrefix.String() + dbKey.String(), nil
+	mhKey := blockstore.BlockPrefix.String() + dbKey.String()
+	log.WithFields(log.Fields{"mhKey": mhKey, "len": len(root)}).Debug("The MHKEY")
+	return mhKey, nil
 }

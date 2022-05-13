@@ -58,10 +58,13 @@ type DatabaseWriter struct {
 	rawSignedBeaconBlock []byte
 }
 
-func CreateDatabaseWrite(db sql.Database, slot int, stateRoot string, blockRoot string, parentBlockRoot string, eth1BlockHash string, status string, metrics *BeaconClientMetrics) (*DatabaseWriter, error) {
+func CreateDatabaseWrite(db sql.Database, slot int, stateRoot string, blockRoot string, parentBlockRoot string,
+	eth1BlockHash string, status string, rawSignedBeaconBlock []byte, rawBeaconState []byte, metrics *BeaconClientMetrics) (*DatabaseWriter, error) {
 	dw := &DatabaseWriter{
-		Db:      db,
-		Metrics: metrics,
+		Db:                   db,
+		rawBeaconState:       rawBeaconState,
+		rawSignedBeaconBlock: rawSignedBeaconBlock,
+		Metrics:              metrics,
 	}
 	dw.prepareSlotsModel(slot, stateRoot, blockRoot, status)
 	err := dw.prepareSignedBeaconBlockModel(slot, blockRoot, parentBlockRoot, eth1BlockHash)

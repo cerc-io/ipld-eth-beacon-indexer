@@ -259,12 +259,10 @@ func (ps *ProcessSlot) createWriteObjects(blockRootEndpoint string) (*DatabaseWr
 		status = "proposed"
 	}
 
-	dw, err := CreateDatabaseWrite(ps.Db, ps.Slot, stateRoot, blockRoot, ps.ParentBlockRoot, eth1BlockHash, status, ps.Metrics)
+	dw, err := CreateDatabaseWrite(ps.Db, ps.Slot, stateRoot, blockRoot, ps.ParentBlockRoot, eth1BlockHash, status, ps.SszSignedBeaconBlock, ps.SszBeaconState, ps.Metrics)
 	if err != nil {
 		return dw, err
 	}
-	dw.rawSignedBeaconBlock = ps.SszSignedBeaconBlock
-	dw.rawBeaconState = ps.SszBeaconState
 
 	return dw, nil
 }
