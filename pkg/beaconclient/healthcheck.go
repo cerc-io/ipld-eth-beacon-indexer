@@ -22,8 +22,8 @@ func (bc BeaconClient) CheckBeaconClient() error {
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		log.Error("We recieved a non 2xx status code when checking the health of the beacon node.")
-		log.Error("Health Endpoint Status Code: ", resp.StatusCode)
+		loghelper.LogEndpoint(bcEndpoint).Error("We recieved a non 2xx status code when checking the health of the beacon node.")
+		loghelper.LogEndpoint(bcEndpoint).Error("Health Endpoint Status Code: ", resp.StatusCode)
 		return fmt.Errorf("beacon Node Provided a non 2xx status code, code provided: %d", resp.StatusCode)
 	}
 
