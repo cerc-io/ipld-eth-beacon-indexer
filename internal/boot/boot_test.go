@@ -30,7 +30,7 @@ var _ = Describe("Boot", func() {
 		})
 		Context("When the DB and BC are both up and running, and we check for a synced head", func() {
 			It("Should not connect successfully", func() {
-				_, db, err := boot.BootApplication(context.Background(), dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver, bcAddress, bcPort, bcConnectionProtocol, false)
+				_, db, err := boot.BootApplicationWithRetry(context.Background(), dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver, bcAddress, bcPort, bcConnectionProtocol, false)
 				defer db.Close()
 				Expect(err).To(HaveOccurred())
 			})
