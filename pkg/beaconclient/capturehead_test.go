@@ -57,7 +57,7 @@ var _ = Describe("Capturehead", func() {
 		dbDriver                string = "pgx"
 		dummyParentRoot         string = "46f98c08b54a71dfda4d56e29ec3952b8300cd8d6b67a9b6c562ae96a7a25a42"
 		knownGapsTableIncrement int    = 100000
-		maxRetry                int    = 30
+		maxRetry                int    = 60
 	)
 
 	BeforeEach(func() {
@@ -105,6 +105,20 @@ var _ = Describe("Capturehead", func() {
 				TestNotes:         "An easy to process Phase 0 block",
 				SignedBeaconBlock: filepath.Join("ssz-data", "100", "signed-beacon-block.ssz"),
 				BeaconState:       filepath.Join("ssz-data", "100", "beacon-state.ssz"),
+			},
+			"101": {
+				HeadMessage: beaconclient.Head{
+					Slot:                      "101",
+					Block:                     "0xabe1a972e512182d04f0d4a5c9c25f9ee57c2e9d0ff3f4c4c82fd42d13d31083",
+					State:                     "0xcb04aa2edbf13c7bb7e7bd9b621ced6832e0075e89147352eac3019a824ce847",
+					CurrentDutyDependentRoot:  "",
+					PreviousDutyDependentRoot: "",
+					EpochTransition:           false,
+					ExecutionOptimistic:       false,
+				},
+				TestNotes:         "An easy to process Phase 0 block",
+				SignedBeaconBlock: filepath.Join("ssz-data", "101", "signed-beacon-block.ssz"),
+				BeaconState:       filepath.Join("ssz-data", "101", "beacon-state.ssz"),
 			},
 			"2375703-dummy": {
 				HeadMessage: beaconclient.Head{
@@ -170,16 +184,27 @@ var _ = Describe("Capturehead", func() {
 	// We might also want to add an integration test that will actually process a single event, then end.
 	// This will help us know that our models match that actual data being served from the beacon node.
 
-	Describe("Receiving New Head SSE messages", Label("unit", "behavioral"), func() {
+	Describe("Receiving New Head SSE messages", Label("unit", "behavioral", "dry"), func() {
 		Context("Correctly formatted Phase0 Block", func() {
 			It("Should turn it into a struct successfully.", func() {
-				BeaconNodeTester.testProcessBlock(BeaconNodeTester.TestEvents["100"].HeadMessage, 3, maxRetry)
+				bc := setUpTest(BeaconNodeTester.TestConfig, "99")
+				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
+				defer httpmock.DeactivateAndReset()
+				BeaconNodeTester.testProcessBlock(bc, BeaconNodeTester.TestEvents["100"].HeadMessage, 3, maxRetry)
 
 			})
 		})
 		Context("Correctly formatted Altair Block", func() {
 			It("Should turn it into a struct successfully.", func() {
-				BeaconNodeTester.testProcessBlock(BeaconNodeTester.TestEvents["2375703"].HeadMessage, 74240, maxRetry)
+				bc := setUpTest(BeaconNodeTester.TestConfig, "2375702")
+				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
+				defer httpmock.DeactivateAndReset()
+				BeaconNodeTester.testProcessBlock(bc, BeaconNodeTester.TestEvents["2375703"].HeadMessage, 74240, maxRetry)
+			})
+		})
+		Context("Two consecutive Block", func() {
+			It("Should handle both blocks correctly, without any reorgs or known_gaps", func() {
+
 			})
 		})
 		//Context("A single incorrectly formatted head message", func() {
@@ -210,22 +235,35 @@ var _ = Describe("Capturehead", func() {
 	Describe("ReOrg Scenario", Label("unit", "behavioral"), func() {
 		Context("Altair: Multiple head messages for the same slot.", func() {
 			It("The previous block should be marked as 'forked', the new block should be the only one marked as 'proposed'.", func() {
-				BeaconNodeTester.testMultipleHead(TestEvents["2375703-dummy"].HeadMessage, TestEvents["2375703"].HeadMessage, 74240, maxRetry)
+				bc := setUpTest(BeaconNodeTester.TestConfig, "2375702")
+				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
+				defer httpmock.DeactivateAndReset()
+				//BeaconNodeTester.testMultipleHead(bc, TestEvents["2375703-dummy"].HeadMessage, TestEvents["2375703"].HeadMessage, 74240, 10)
+				BeaconNodeTester.testMultipleHead(bc, TestEvents["2375703"].HeadMessage, TestEvents["2375703-dummy"].HeadMessage, 74240, maxRetry)
 			})
 		})
 		Context("Phase0: Multiple head messages for the same slot.", func() {
 			It("The previous block should be marked as 'forked', the new block should be the only one marked as 'proposed'.", func() {
-				BeaconNodeTester.testMultipleHead(TestEvents["100-dummy"].HeadMessage, TestEvents["100"].HeadMessage, 3, maxRetry)
+				bc := setUpTest(BeaconNodeTester.TestConfig, "99")
+				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
+				defer httpmock.DeactivateAndReset()
+				BeaconNodeTester.testMultipleHead(bc, TestEvents["100-dummy"].HeadMessage, TestEvents["100"].HeadMessage, 3, maxRetry)
 			})
 		})
-		Context("Phase 0: Multiple reorgs have occurred on this slot", Label("new"), func() {
+		Context("Phase 0: Multiple reorgs have occurred on this slot", func() {
 			It("The previous blocks should be marked as 'forked', the new block should be the only one marked as 'proposed'.", func() {
-				BeaconNodeTester.testMultipleReorgs(TestEvents["100-dummy"].HeadMessage, TestEvents["100-dummy-2"].HeadMessage, TestEvents["100"].HeadMessage, 3, maxRetry)
+				bc := setUpTest(BeaconNodeTester.TestConfig, "99")
+				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
+				defer httpmock.DeactivateAndReset()
+				BeaconNodeTester.testMultipleReorgs(bc, TestEvents["100-dummy"].HeadMessage, TestEvents["100-dummy-2"].HeadMessage, TestEvents["100"].HeadMessage, 3, maxRetry)
 			})
 		})
 		Context("Altair: Multiple reorgs have occurred on this slot", Label("new"), func() {
 			It("The previous blocks should be marked as 'forked', the new block should be the only one marked as 'proposed'.", func() {
-				BeaconNodeTester.testMultipleReorgs(TestEvents["2375703-dummy"].HeadMessage, TestEvents["2375703-dummy-2"].HeadMessage, TestEvents["2375703"].HeadMessage, 74240, maxRetry)
+				bc := setUpTest(BeaconNodeTester.TestConfig, "2375702")
+				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
+				defer httpmock.DeactivateAndReset()
+				BeaconNodeTester.testMultipleReorgs(bc, TestEvents["2375703-dummy"].HeadMessage, TestEvents["2375703-dummy-2"].HeadMessage, TestEvents["2375703"].HeadMessage, 74240, maxRetry)
 			})
 		})
 		//Context("Reorg slot in not already in the DB", func() {
@@ -256,13 +294,16 @@ type Config struct {
 
 // Must run before each test. We can't use the beforeEach because of the way
 // Gingko treats race conditions.
-func setUpTest(config Config) *beaconclient.BeaconClient {
+func setUpTest(config Config, maxSlot string) *beaconclient.BeaconClient {
 	bc := *beaconclient.CreateBeaconClient(context.Background(), config.protocol, config.address, config.port)
 	db, err := postgres.SetupPostgresDb(config.dbHost, config.dbPort, config.dbName, config.dbUser, config.dbPassword, config.dbDriver)
 	Expect(err).ToNot(HaveOccurred())
 
 	// Drop all records from the DB.
 	clearEthclDbTables(db)
+
+	// Add an slot to the ethcl.slots table so it we can control how known_gaps are handled.
+	writeSlot(db, maxSlot)
 	bc.Db = db
 
 	return &bc
@@ -298,7 +339,11 @@ func sendHeadMessage(bc *beaconclient.BeaconClient, head beaconclient.Head, maxR
 		time.Sleep(1 * time.Second)
 		curRetry = curRetry + 1
 		if curRetry == maxRetry {
-			Fail(" Too many retries have occured.")
+			log.WithFields(log.Fields{
+				"startInsert":  startInserts,
+				"currentValue": atomic.LoadUint64(&bc.Metrics.HeadTrackingInserts),
+			}).Error("HeadTracking Insert wasnt incremented properly.")
+			Fail("Too many retries have occurred.")
 		}
 	}
 }
@@ -321,7 +366,12 @@ func clearEthclDbTables(db sql.Database) {
 		_, err := db.Exec(context.Background(), queries)
 		Expect(err).ToNot(HaveOccurred())
 	}
+}
 
+// Write an entry to the ethcl.slots table with just a slot number
+func writeSlot(db sql.Database, slot string) {
+	_, err := db.Exec(context.Background(), beaconclient.UpsertSlotsStmt, "0", slot, "", "", "")
+	Expect(err).ToNot(HaveOccurred())
 }
 
 // An object that is used to aggregate test functions. Test functions are needed because we need to
@@ -440,11 +490,7 @@ func (tbc TestBeaconNode) provideSsz(slotIdentifier string, sszIdentifier string
 
 // Helper function to test three reorg messages. There are going to be many functions like this,
 // Because we need to test the same logic for multiple phases.
-func (tbc TestBeaconNode) testMultipleReorgs(firstHead beaconclient.Head, secondHead beaconclient.Head, thirdHead beaconclient.Head, epoch int, maxRetry int) {
-	bc := setUpTest(tbc.TestConfig)
-	tbc.SetupBeaconNodeMock(tbc.TestEvents, tbc.TestConfig.protocol, tbc.TestConfig.address, tbc.TestConfig.port, tbc.TestConfig.dummyParentRoot)
-	defer httpmock.DeactivateAndReset()
-
+func (tbc TestBeaconNode) testMultipleReorgs(bc *beaconclient.BeaconClient, firstHead beaconclient.Head, secondHead beaconclient.Head, thirdHead beaconclient.Head, epoch int, maxRetry int) {
 	go bc.CaptureHead(tbc.TestConfig.knownGapsTableIncrement)
 	time.Sleep(1 * time.Second)
 
@@ -458,11 +504,11 @@ func (tbc TestBeaconNode) testMultipleReorgs(firstHead beaconclient.Head, second
 		time.Sleep(1 * time.Second)
 		curRetry = curRetry + 1
 		if curRetry == maxRetry {
-			Fail(" Too many retries have occured.")
+			Fail(" Too many retries have occurred.")
 		}
 	}
 
-	log.Info("Checking Phase0 to make sure the fork was marked properly.")
+	log.Info("Checking to make sure the fork was marked properly.")
 	validateSlot(bc, &firstHead, epoch, "forked")
 	validateSlot(bc, &secondHead, epoch, "forked")
 	validateSlot(bc, &thirdHead, epoch, "proposed")
@@ -489,8 +535,12 @@ func (tbc TestBeaconNode) testMultipleReorgs(firstHead beaconclient.Head, second
 		time.Sleep(1 * time.Second)
 		curRetry = curRetry + 1
 		if curRetry == maxRetry {
-			Fail(" Too many retries have occured.")
+			Fail("Too many retries have occured.")
 		}
+	}
+
+	if bc.Metrics.HeadTrackingKnownGaps != 0 {
+		Fail("We found gaps when processing a single block")
 	}
 
 	log.Info("Make sure the forks were properly updated!")
@@ -502,37 +552,42 @@ func (tbc TestBeaconNode) testMultipleReorgs(firstHead beaconclient.Head, second
 }
 
 // A test to validate a single block was processed correctly
-func (tbc TestBeaconNode) testProcessBlock(head beaconclient.Head, epoch int, maxRetry int) {
-	bc := setUpTest(tbc.TestConfig)
-	tbc.SetupBeaconNodeMock(tbc.TestEvents, tbc.TestConfig.protocol, tbc.TestConfig.address, tbc.TestConfig.port, tbc.TestConfig.dummyParentRoot)
-	defer httpmock.DeactivateAndReset()
+func (tbc TestBeaconNode) testProcessBlock(bc *beaconclient.BeaconClient, head beaconclient.Head, epoch int, maxRetry int) {
 
 	go bc.CaptureHead(tbc.TestConfig.knownGapsTableIncrement)
 	time.Sleep(1 * time.Second)
 	sendHeadMessage(bc, head, maxRetry)
+	if bc.Metrics.HeadTrackingKnownGaps != 0 {
+		Fail("We found gaps when processing a single block")
+	}
+	if bc.Metrics.HeadTrackingReorgs != 0 {
+		Fail("We found reorgs when processing a single block")
+	}
 	validateSlot(bc, &head, epoch, "proposed")
 }
 
 // A test that ensures that if two HeadMessages occur for a single slot they are marked
 // as proposed and forked correctly.
-func (tbc TestBeaconNode) testMultipleHead(firstHead beaconclient.Head, secondHead beaconclient.Head, epoch int, maxRetry int) {
-	bc := setUpTest(tbc.TestConfig)
-	tbc.SetupBeaconNodeMock(tbc.TestEvents, tbc.TestConfig.protocol, tbc.TestConfig.address, tbc.TestConfig.port, tbc.TestConfig.dummyParentRoot)
-	defer httpmock.DeactivateAndReset()
-
+func (tbc TestBeaconNode) testMultipleHead(bc *beaconclient.BeaconClient, firstHead beaconclient.Head, secondHead beaconclient.Head, epoch int, maxRetry int) {
 	go bc.CaptureHead(tbc.TestConfig.knownGapsTableIncrement)
 	time.Sleep(1 * time.Second)
 
 	sendHeadMessage(bc, firstHead, maxRetry)
+	log.Info("First Head has been processed.")
 	sendHeadMessage(bc, secondHead, maxRetry)
+	log.Info("Second Head has been processed.")
 
 	curRetry := 0
 	for atomic.LoadUint64(&bc.Metrics.HeadTrackingReorgs) != 1 {
 		time.Sleep(1 * time.Second)
 		curRetry = curRetry + 1
 		if curRetry == maxRetry {
-			Fail(" Too many retries have occured.")
+			Fail(" Too many retries have occurred.")
 		}
+	}
+
+	if bc.Metrics.HeadTrackingKnownGaps != 0 {
+		Fail("We found gaps when processing a single block")
 	}
 
 	log.Info("Checking Altair to make sure the fork was marked properly.")

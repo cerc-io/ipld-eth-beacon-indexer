@@ -43,7 +43,7 @@ func (bc *BeaconClient) handleHead() {
 				"lastProcessedSlot": bc.PreviousSlot,
 				"errorMessages":     errorSlots,
 			}).Warn("We added slots to the knownGaps table because we got bad head messages.")
-			writeKnownGaps(bc.Db, bc.KnownGapTableIncrement, bc.PreviousSlot, bcSlotsPerEpoch+errorSlots, fmt.Errorf("Bad Head Messages"), "headProcessing")
+			writeKnownGaps(bc.Db, bc.KnownGapTableIncrement, bc.PreviousSlot, bcSlotsPerEpoch+errorSlots, fmt.Errorf("Bad Head Messages"), "headProcessing", bc.Metrics)
 		}
 
 		log.WithFields(log.Fields{"head": head}).Debug("We are going to start processing the slot.")

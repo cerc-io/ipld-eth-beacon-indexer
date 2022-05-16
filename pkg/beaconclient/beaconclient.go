@@ -27,8 +27,9 @@ var (
 
 // A structure utilized for keeping track of various metrics. Currently, mostly used in testing.
 type BeaconClientMetrics struct {
-	HeadTrackingInserts uint64 // Number of head events we wrote to the DB.
-	HeadTrackingReorgs  uint64 // The number of reorg events written to the DB.
+	HeadTrackingInserts   uint64 // Number of head events we successfully wrote to the DB.
+	HeadTrackingReorgs    uint64 // Number of reorg events we successfully wrote to the DB.
+	HeadTrackingKnownGaps uint64 // Number of known_gaps we successfully wrote to the DB.
 }
 
 // A struct that capture the Beacon Server that the Beacon Client will be interacting with and querying.

@@ -89,24 +89,25 @@ func processFullSlot(db sql.Database, serverAddress string, slot int, blockRoot 
 	})
 
 	if err := g.Wait(); err != nil {
-		writeKnownGaps(ps.Db, 1, ps.Slot, ps.Slot, err, "processSlot")
+		writeKnownGaps(ps.Db, 1, ps.Slot, ps.Slot, err, "processSlot", ps.Metrics)
 	}
 
 	if ps.HeadOrHistoric == "head" && previousSlot == 0 && previousBlockRoot == "" {
-		writeStartUpGaps(db, knownGapsTableIncrement, ps.Slot)
+		writeStartUpGaps(db, knownGapsTableIncrement, ps.Slot, ps.Metrics)
 	}
 
 	// Get this object ready to write
 	blockRootEndpoint := serverAddress + BcBlockRootEndpoint(strconv.Itoa(ps.Slot))
 	dw, err := ps.createWriteObjects(blockRootEndpoint)
 	if err != nil {
-		writeKnownGaps(ps.Db, 1, ps.Slot, ps.Slot, err, "blockRoot")
+		writeKnownGaps(ps.Db, 1, ps.Slot, ps.Slot, err, "blockRoot", ps.Metrics)
 		return err
 	}
 	// Write the object to the DB.
 	err = dw.writeFullSlot()
 	if err != nil {
-		writeKnownGaps(ps.Db, 1, ps.Slot, ps.Slot, err, "processSlot")
+		writeKnownGaps(ps.Db, 1, ps.Slot, ps.Slot, err, "processSlot", ps.Metrics)
+		return err
 	}
 
 	// Handle any reorgs or skipped slots.
@@ -221,14 +222,14 @@ func (ps *ProcessSlot) checkPreviousSlot(previousSlot int, previousBlockRoot str
 			"previousSlot": previousSlot,
 			"currentSlot":  ps.FullBeaconState.Slot,
 		}).Error("We skipped a few slots.")
-		writeKnownGaps(ps.Db, knownGapsTableIncrement, previousSlot+1, int(ps.FullBeaconState.Slot)-1, fmt.Errorf("Gaps during head processing"), "headGaps")
+		writeKnownGaps(ps.Db, knownGapsTableIncrement, previousSlot+1, int(ps.FullBeaconState.Slot)-1, fmt.Errorf("Gaps during head processing"), "headGaps", ps.Metrics)
 	} else if previousBlockRoot != parentRoot {
 		log.WithFields(log.Fields{
 			"previousBlockRoot":  previousBlockRoot,
 			"currentBlockParent": parentRoot,
 		}).Error("The previousBlockRoot does not match the current blocks parent, an unprocessed fork might have occurred.")
 		writeReorgs(ps.Db, strconv.Itoa(previousSlot), parentRoot, ps.Metrics)
-		writeKnownGaps(ps.Db, 1, ps.Slot-1, ps.Slot-1, fmt.Errorf("Incorrect Parent"), "processSlot")
+		writeKnownGaps(ps.Db, 1, ps.Slot-1, ps.Slot-1, fmt.Errorf("Incorrect Parent"), "processSlot", ps.Metrics)
 	} else {
 		log.Debug("Previous Slot and Current Slot are one distance from each other.")
 	}
