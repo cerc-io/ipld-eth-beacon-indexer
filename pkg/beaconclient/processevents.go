@@ -8,7 +8,9 @@ import (
 	"strconv"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/vulcanize/ipld-ethcl-indexer/pkg/database/sql"
 	"github.com/vulcanize/ipld-ethcl-indexer/pkg/loghelper"
+	"golang.org/x/sync/errgroup"
 )
 
 // This function will perform the necessary steps to handle a reorg.
@@ -44,11 +46,23 @@ func (bc *BeaconClient) handleHead() {
 			writeKnownGaps(bc.Db, bc.KnownGapTableIncrement, bc.PreviousSlot, bcSlotsPerEpoch+errorSlots, fmt.Errorf("Bad Head Messages"), "headProcessing")
 		}
 
-		err = processHeadSlot(bc.Db, bc.ServerEndpoint, slot, head.Block, head.State, bc.PreviousSlot, bc.PreviousBlockRoot, bc.Metrics, bc.KnownGapTableIncrement)
-		if err != nil {
-			loghelper.LogSlotError(head.Slot, err).Error("Unable to process a slot")
-		}
-		log.WithFields(log.Fields{"head": head}).Debug("Received a new head event.")
+		log.WithFields(log.Fields{"head": head}).Debug("We are going to start processing the slot.")
+
+		go func(db sql.Database, serverAddress string, slot int, blockRoot string, stateRoot string, previousSlot int, previousBlockRoot string, metrics *BeaconClientMetrics, knownGapsTableIncrement int) {
+			errG := new(errgroup.Group)
+			errG.Go(func() error {
+				err = processHeadSlot(db, serverAddress, slot, blockRoot, stateRoot, previousSlot, previousBlockRoot, metrics, knownGapsTableIncrement)
+				if err != nil {
+					return err
+				}
+				return nil
+			})
+			if err := errG.Wait(); err != nil {
+				loghelper.LogSlotError(strconv.Itoa(slot), err).Error("Unable to process a slot")
+			}
+		}(bc.Db, bc.ServerEndpoint, slot, head.Block, head.State, bc.PreviousSlot, bc.PreviousBlockRoot, bc.Metrics, bc.KnownGapTableIncrement)
+
+		log.WithFields(log.Fields{"head": head.Slot}).Debug("We finished calling processHeadSlot.")
 
 		// Update the previous block
 		bc.PreviousSlot = slot

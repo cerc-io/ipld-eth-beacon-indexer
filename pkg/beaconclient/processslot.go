@@ -5,6 +5,7 @@
 package beaconclient
 
 import (
+	"context"
 	"encoding/hex"
 	"fmt"
 	"strconv"
@@ -17,6 +18,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/vulcanize/ipld-ethcl-indexer/pkg/database/sql"
 	"github.com/vulcanize/ipld-ethcl-indexer/pkg/loghelper"
+	"golang.org/x/sync/errgroup"
 )
 
 var (
@@ -66,18 +68,28 @@ func processFullSlot(db sql.Database, serverAddress string, slot int, blockRoot 
 		Metrics:        metrics,
 	}
 
+	g, _ := errgroup.WithContext(context.Background())
+
 	// Get the BeaconState.
-	err := ps.getBeaconState(serverAddress)
-	if err != nil {
-		writeKnownGaps(ps.Db, 1, ps.Slot, ps.Slot, err, "processSlot")
-		return err
-	}
+	g.Go(func() error {
+		err := ps.getBeaconState(serverAddress)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
 
 	// Get the SignedBeaconBlock.
-	err = ps.getSignedBeaconBlock(serverAddress)
-	if err != nil {
+	g.Go(func() error {
+		err := ps.getSignedBeaconBlock(serverAddress)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+
+	if err := g.Wait(); err != nil {
 		writeKnownGaps(ps.Db, 1, ps.Slot, ps.Slot, err, "processSlot")
-		return err
 	}
 
 	if ps.HeadOrHistoric == "head" && previousSlot == 0 && previousBlockRoot == "" {
@@ -151,6 +163,7 @@ func (ps *ProcessSlot) getSignedBeaconBlock(serverAddress string) error {
 	err = ps.FullSignedBeaconBlock.UnmarshalSSZ(ps.SszSignedBeaconBlock)
 
 	if err != nil {
+		loghelper.LogError(err).Debug("We are getting an error message when unmarshalling the SignedBeaconBlock.")
 		if ps.FullSignedBeaconBlock.Block.Slot == 0 {
 			loghelper.LogSlotError(strconv.Itoa(ps.Slot), err).Error(SlotUnmarshalError("SignedBeaconBlock"))
 			return fmt.Errorf(SlotUnmarshalError("SignedBeaconBlock"))
@@ -185,6 +198,7 @@ func (ps *ProcessSlot) getBeaconState(serverEndpoint string) error {
 	err := ps.FullBeaconState.UnmarshalSSZ(ps.SszBeaconState)
 
 	if err != nil {
+		loghelper.LogError(err).Debug("We are getting an error message when unmarshalling the BeaconState")
 		if ps.FullBeaconState.Slot == 0 {
 			loghelper.LogSlotError(strconv.Itoa(ps.Slot), err).Error(SlotUnmarshalError("BeaconState"))
 			return fmt.Errorf(SlotUnmarshalError("BeaconState"))

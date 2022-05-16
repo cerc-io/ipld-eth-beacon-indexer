@@ -322,31 +322,32 @@ func writeKnownGaps(db sql.Database, tableIncrement int, startSlot int, endSlot 
 			EntryProcess:      entryProcess,
 		}
 		upsertKnownGaps(db, kgModel)
-	}
-	totalSlots := endSlot - startSlot
-	var chunks int
-	chunks = totalSlots / tableIncrement
-	if totalSlots%tableIncrement != 0 {
-		chunks = chunks + 1
-	}
+	} else {
+		totalSlots := endSlot - startSlot
+		var chunks int
+		chunks = totalSlots / tableIncrement
+		if totalSlots%tableIncrement != 0 {
+			chunks = chunks + 1
+		}
 
-	for i := 0; i < chunks; i++ {
-		var tempStart, tempEnd int
-		tempStart = startSlot + (i * tableIncrement)
-		if i+1 == chunks {
-			tempEnd = endSlot
-		} else {
-			tempEnd = startSlot + ((i + 1) * tableIncrement)
+		for i := 0; i < chunks; i++ {
+			var tempStart, tempEnd int
+			tempStart = startSlot + (i * tableIncrement)
+			if i+1 == chunks {
+				tempEnd = endSlot
+			} else {
+				tempEnd = startSlot + ((i + 1) * tableIncrement)
+			}
+			kgModel := DbKnownGaps{
+				StartSlot:         strconv.Itoa(tempStart),
+				EndSlot:           strconv.Itoa(tempEnd),
+				CheckedOut:        false,
+				ReprocessingError: "",
+				EntryError:        entryError.Error(),
+				EntryProcess:      entryProcess,
+			}
+			upsertKnownGaps(db, kgModel)
 		}
-		kgModel := DbKnownGaps{
-			StartSlot:         strconv.Itoa(tempStart),
-			EndSlot:           strconv.Itoa(tempEnd),
-			CheckedOut:        false,
-			ReprocessingError: "",
-			EntryError:        entryError.Error(),
-			EntryProcess:      entryProcess,
-		}
-		upsertKnownGaps(db, kgModel)
 	}
 
 }
