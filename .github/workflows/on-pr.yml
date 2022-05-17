@@ -50,6 +50,7 @@ jobs:
           ref: ${{ env.ipld-ethcl-db-ref }}
           repository: vulcanize/ipld-ethcl-db
           path: "./ipld-ethcl-db/"
+          token: ${{ secrets.GH_PAT }}
           fetch-depth: 0
 
       - name: Create config file
@@ -203,4 +204,4 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3
         with:
-          args: --disable errcheck
+          args: --timeout 90s
