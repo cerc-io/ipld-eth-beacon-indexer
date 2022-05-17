@@ -127,8 +127,10 @@ func (dw *DatabaseWriter) prepareBeaconStateModel(slot int, stateRoot string) er
 
 // Write all the data for a given slot.
 func (dw *DatabaseWriter) writeFullSlot() error {
-	// Add errors for each function call
 	// If an error occurs, write to knownGaps table.
+	log.WithFields(log.Fields{
+		"slot": dw.DbSlots.Slot,
+	}).Debug("Starting to write to the DB.")
 	err := dw.writeSlots()
 	if err != nil {
 		return err
@@ -231,12 +233,12 @@ func writeReorgs(db sql.Database, slot string, latestBlockRoot string, metrics *
 	forkCount, err := updateForked(db, slot, latestBlockRoot)
 	if err != nil {
 		loghelper.LogReorgError(slot, latestBlockRoot, err).Error("We ran into some trouble while updating all forks.")
-		writeKnownGaps(db, 1, slotNum, slotNum, err, "reorg")
+		writeKnownGaps(db, 1, slotNum, slotNum, err, "reorg", metrics)
 	}
 	proposedCount, err := updateProposed(db, slot, latestBlockRoot)
 	if err != nil {
 		loghelper.LogReorgError(slot, latestBlockRoot, err).Error("We ran into some trouble while trying to update the proposed slot.")
-		writeKnownGaps(db, 1, slotNum, slotNum, err, "reorg")
+		writeKnownGaps(db, 1, slotNum, slotNum, err, "reorg", metrics)
 	}
 
 	if forkCount > 0 {
@@ -257,19 +259,18 @@ func writeReorgs(db sql.Database, slot string, latestBlockRoot string, metrics *
 		loghelper.LogReorg(slot, latestBlockRoot).WithFields(log.Fields{
 			"proposedCount": proposedCount,
 		}).Error("Too many rows were marked as proposed!")
-		writeKnownGaps(db, 1, slotNum, slotNum, err, "reorg")
+		writeKnownGaps(db, 1, slotNum, slotNum, err, "reorg", metrics)
 	} else if proposedCount == 0 {
 		var count int
 		err := db.QueryRow(context.Background(), CheckProposedStmt, slot, latestBlockRoot).Scan(count)
 		if err != nil {
 			loghelper.LogReorgError(slot, latestBlockRoot, err).Error("Unable to query proposed rows after reorg.")
-			writeKnownGaps(db, 1, slotNum, slotNum, err, "reorg")
-		}
-		if count != 1 {
+			writeKnownGaps(db, 1, slotNum, slotNum, err, "reorg", metrics)
+		} else if count != 1 {
 			loghelper.LogReorg(slot, latestBlockRoot).WithFields(log.Fields{
 				"proposedCount": count,
 			}).Warn("The proposed block was not marked as proposed...")
-			writeKnownGaps(db, 1, slotNum, slotNum, err, "reorg")
+			writeKnownGaps(db, 1, slotNum, slotNum, err, "reorg", metrics)
 		} else {
 			loghelper.LogReorg(slot, latestBlockRoot).Info("Updated the row that should have been marked as proposed.")
 		}
@@ -311,7 +312,7 @@ func updateProposed(db sql.Database, slot string, latestBlockRoot string) (int64
 // A wrapper function to call upsertKnownGaps. This function will break down the range of known_gaos into
 // smaller chunks. For example, instead of having an entry of 1-101, if we increment the entries by 10 slots, we would
 // have 10 entries as follows: 1-10, 11-20, etc...
-func writeKnownGaps(db sql.Database, tableIncrement int, startSlot int, endSlot int, entryError error, entryProcess string) {
+func writeKnownGaps(db sql.Database, tableIncrement int, startSlot int, endSlot int, entryError error, entryProcess string, metric *BeaconClientMetrics) {
 	if endSlot-startSlot <= tableIncrement {
 		kgModel := DbKnownGaps{
 			StartSlot:         strconv.Itoa(startSlot),
@@ -321,38 +322,39 @@ func writeKnownGaps(db sql.Database, tableIncrement int, startSlot int, endSlot 
 			EntryError:        entryError.Error(),
 			EntryProcess:      entryProcess,
 		}
-		upsertKnownGaps(db, kgModel)
-	}
-	totalSlots := endSlot - startSlot
-	var chunks int
-	chunks = totalSlots / tableIncrement
-	if totalSlots%tableIncrement != 0 {
-		chunks = chunks + 1
-	}
+		upsertKnownGaps(db, kgModel, metric)
+	} else {
+		totalSlots := endSlot - startSlot
+		var chunks int
+		chunks = totalSlots / tableIncrement
+		if totalSlots%tableIncrement != 0 {
+			chunks = chunks + 1
+		}
 
-	for i := 0; i < chunks; i++ {
-		var tempStart, tempEnd int
-		tempStart = startSlot + (i * tableIncrement)
-		if i+1 == chunks {
-			tempEnd = endSlot
-		} else {
-			tempEnd = startSlot + ((i + 1) * tableIncrement)
+		for i := 0; i < chunks; i++ {
+			var tempStart, tempEnd int
+			tempStart = startSlot + (i * tableIncrement)
+			if i+1 == chunks {
+				tempEnd = endSlot
+			} else {
+				tempEnd = startSlot + ((i + 1) * tableIncrement)
+			}
+			kgModel := DbKnownGaps{
+				StartSlot:         strconv.Itoa(tempStart),
+				EndSlot:           strconv.Itoa(tempEnd),
+				CheckedOut:        false,
+				ReprocessingError: "",
+				EntryError:        entryError.Error(),
+				EntryProcess:      entryProcess,
+			}
+			upsertKnownGaps(db, kgModel, metric)
 		}
-		kgModel := DbKnownGaps{
-			StartSlot:         strconv.Itoa(tempStart),
-			EndSlot:           strconv.Itoa(tempEnd),
-			CheckedOut:        false,
-			ReprocessingError: "",
-			EntryError:        entryError.Error(),
-			EntryProcess:      entryProcess,
-		}
-		upsertKnownGaps(db, kgModel)
 	}
 
 }
 
 // A function to upsert a single entry to the ethcl.known_gaps table.
-func upsertKnownGaps(db sql.Database, knModel DbKnownGaps) {
+func upsertKnownGaps(db sql.Database, knModel DbKnownGaps, metric *BeaconClientMetrics) {
 	_, err := db.Exec(context.Background(), UpsertKnownGapsStmt, knModel.StartSlot, knModel.EndSlot,
 		knModel.CheckedOut, knModel.ReprocessingError, knModel.EntryError, knModel.EntryProcess)
 	if err != nil {
@@ -366,10 +368,11 @@ func upsertKnownGaps(db sql.Database, knModel DbKnownGaps) {
 		"startSlot": knModel.StartSlot,
 		"endSlot":   knModel.EndSlot,
 	}).Warn("A new gap has been added to the ethcl.known_gaps table.")
+	metric.IncrementHeadTrackingKnownGaps(1)
 }
 
 // A function to write the gap between the highest slot in the DB and the first processed slot.
-func writeStartUpGaps(db sql.Database, tableIncrement int, firstSlot int) {
+func writeStartUpGaps(db sql.Database, tableIncrement int, firstSlot int, metric *BeaconClientMetrics) {
 	var maxSlot int
 	err := db.QueryRow(context.Background(), QueryHighestSlotStmt).Scan(&maxSlot)
 	if err != nil {
@@ -381,7 +384,9 @@ func writeStartUpGaps(db sql.Database, tableIncrement int, firstSlot int) {
 			"maxSlot": maxSlot,
 		}).Fatal("Unable to get convert max block from DB to int. We must close the application or we might have undetected gaps.")
 	}
-	writeKnownGaps(db, tableIncrement, maxSlot, firstSlot, fmt.Errorf(""), "startup")
+	if maxSlot != firstSlot-1 {
+		writeKnownGaps(db, tableIncrement, maxSlot+1, firstSlot-1, fmt.Errorf(""), "startup", metric)
+	}
 }
 
 // A quick helper function to calculate the epoch.
