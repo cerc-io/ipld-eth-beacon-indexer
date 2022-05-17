@@ -22,12 +22,12 @@ To run the application, do as follows:
 
 1. Setup the prerequisite applications.
    a. Run a beacon client (such as lighthouse).
-   b. Run a postgres DB.
+   b. Run a postgres DB for ethcl.
    c. You can utilize the `stack-orchestrator` [repository](https://github.com/vulcanize/stack-orchestrato).
 
    ```
    ./wrapper.sh -e skip \
-   -d ../docker/local/docker-compose-db.yml \
+   -d ../docker/local/docker-compose-ethcl-db.yml \
    -d ../docker/latest/docker-compose-lighthouse.yml \
    -v remove \
    -p ../local-config.sh
@@ -39,7 +39,7 @@ To run the application, do as follows:
 ```
 go run -race main.go capture head --db.address localhost \
   --db.password password \
-  --db.port 8077 \
+  --db.port 8076 \
   --db.username vdbm \
   --db.name vulcanize_testing \
   --db.driver PGX \

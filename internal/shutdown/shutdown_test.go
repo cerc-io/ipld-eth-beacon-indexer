@@ -23,7 +23,7 @@ import (
 var _ = Describe("Shutdown", func() {
 	var (
 		dbAddress              string        = "localhost"
-		dbPort                 int           = 8077
+		dbPort                 int           = 8076
 		dbName                 string        = "vulcanize_testing"
 		dbUsername             string        = "vdbm"
 		dbPassword             string        = "password"

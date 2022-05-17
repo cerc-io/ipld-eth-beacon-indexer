@@ -54,7 +54,7 @@ var _ = Describe("Capturehead", func() {
 		protocol                string = "http"
 		TestEvents              map[string]Message
 		dbHost                  string = "localhost"
-		dbPort                  int    = 8077
+		dbPort                  int    = 8076
 		dbName                  string = "vulcanize_testing"
 		dbUser                  string = "vdbm"
 		dbPassword              string = "password"
@@ -657,7 +657,8 @@ func (tbc TestBeaconNode) provideSsz(slotIdentifier string, sszIdentifier string
 			}
 			slot, err := strconv.ParseUint(Message.HeadMessage.Slot, 10, 64)
 			Expect(err).ToNot(HaveOccurred())
-			state.SetSlot(types.Slot(slot))
+			err = state.SetSlot(types.Slot(slot))
+			Expect(err).ToNot(HaveOccurred())
 			return state.MarshalSSZ()
 		}
 	}
@@ -780,6 +781,7 @@ func (tbc TestBeaconNode) testMultipleHead(bc *beaconclient.BeaconClient, firstH
 // This function will make sure we are properly able to get the SszRoot of the SignedBeaconBlock and the BeaconState.
 func testSszRoot(msg Message) {
 	state, vm, err := readBeaconState(msg.BeaconState)
+	Expect(err).ToNot(HaveOccurred())
 	stateRoot, err := state.HashTreeRoot(context.Background())
 	Expect(err).ToNot(HaveOccurred())
 	Expect(msg.HeadMessage.State).To(Equal("0x" + hex.EncodeToString(stateRoot[:])))
