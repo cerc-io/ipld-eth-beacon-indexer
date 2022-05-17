@@ -30,6 +30,8 @@ type BeaconClientMetrics struct {
 	HeadTrackingInserts   uint64 // Number of head events we successfully wrote to the DB.
 	HeadTrackingReorgs    uint64 // Number of reorg events we successfully wrote to the DB.
 	HeadTrackingKnownGaps uint64 // Number of known_gaps we successfully wrote to the DB.
+	HeadError             uint64 // Number of errors that occurred when decoding the head message.
+	HeadReorgError        uint64 // Number of errors that occurred when decoding the reorg message.
 }
 
 // A struct that capture the Beacon Server that the Beacon Client will be interacting with and querying.

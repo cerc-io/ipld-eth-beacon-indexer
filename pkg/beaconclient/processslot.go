@@ -96,6 +96,7 @@ func processFullSlot(db sql.Database, serverAddress string, slot int, blockRoot 
 
 	if err := g.Wait(); err != nil {
 		writeKnownGaps(ps.Db, 1, ps.Slot, ps.Slot, err, "processSlot", ps.Metrics)
+		return err
 	}
 
 	if ps.HeadOrHistoric == "head" && previousSlot == 0 && previousBlockRoot == "" {
@@ -234,7 +235,7 @@ func (ps *ProcessSlot) checkPreviousSlot(previousSlot int, previousBlockRoot str
 	} else if previousSlot+1 != int(ps.FullBeaconState.Slot()) {
 		log.WithFields(log.Fields{
 			"previousSlot": previousSlot,
-			"currentSlot":  ps.FullBeaconState.Slot,
+			"currentSlot":  ps.FullBeaconState.Slot(),
 		}).Error("We skipped a few slots.")
 		writeKnownGaps(ps.Db, knownGapsTableIncrement, previousSlot+1, int(ps.FullBeaconState.Slot())-1, fmt.Errorf("Gaps during head processing"), "headGaps", ps.Metrics)
 	} else if previousBlockRoot != parentRoot {
