@@ -266,8 +266,7 @@ func writeReorgs(db sql.Database, slot string, latestBlockRoot string, metrics *
 		if err != nil {
 			loghelper.LogReorgError(slot, latestBlockRoot, err).Error("Unable to query proposed rows after reorg.")
 			writeKnownGaps(db, 1, slotNum, slotNum, err, "reorg", metrics)
-		}
-		if count != 1 {
+		} else if count != 1 {
 			loghelper.LogReorg(slot, latestBlockRoot).WithFields(log.Fields{
 				"proposedCount": count,
 			}).Warn("The proposed block was not marked as proposed...")

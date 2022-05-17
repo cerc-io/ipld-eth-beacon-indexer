@@ -2,14 +2,11 @@ package beaconclient
 
 import (
 	"sync/atomic"
-
-	log "github.com/sirupsen/logrus"
 )
 
 // Wrapper function to increment inserts. If we want to use mutexes later we can easily update all
 // occurrences here.
 func (m *BeaconClientMetrics) IncrementHeadTrackingInserts(inc uint64) {
-	log.Info("Updating the insert ")
 	atomic.AddUint64(&m.HeadTrackingInserts, inc)
 }
 
