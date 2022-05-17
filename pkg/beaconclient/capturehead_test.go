@@ -760,8 +760,8 @@ func (tbc TestBeaconNode) testMultipleReorgs(bc *beaconclient.BeaconClient, firs
 
 	log.Info("Sending Phase0 Messages to BeaconClient")
 	sendHeadMessage(bc, firstHead, maxRetry, 1)
-	sendHeadMessage(bc, secondHead, maxRetry, 2)
-	sendHeadMessage(bc, thirdHead, maxRetry, 2)
+	sendHeadMessage(bc, secondHead, maxRetry, 1)
+	sendHeadMessage(bc, thirdHead, maxRetry, 1)
 
 	curRetry := 0
 	for atomic.LoadUint64(&bc.Metrics.HeadTrackingReorgs) != 2 {
