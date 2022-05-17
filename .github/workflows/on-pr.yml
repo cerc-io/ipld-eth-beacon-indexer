@@ -76,7 +76,7 @@ jobs:
         run: |
           until $(docker compose -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-ipld-ethcl-indexer.yml" cp ipld-ethcl-indexer:/root/HEALTH ./HEALTH) ; do sleep 10; done
           cat ./HEALTH
-          if [[ "$(cat ./HEALTH)" -eq "0" ]]; then echo "Application boot successful" && (exit 0); else cp ipld-ethcl-indexer:/root/ipld-ethcl-indexer.log . && cat ipld-ethcl-indexer.log && (exit 1); fi
+          if [[ "$(cat ./HEALTH)" -eq "0" ]]; then echo "Application boot successful" && (exit 0); else docker compose -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-ipld-ethcl-indexer.yml" cp ipld-ethcl-indexer:/root/ipld-ethcl-indexer.log . && cat ipld-ethcl-indexer.log && (exit 1); fi
 
   unit-test:
     name: Run Unit Tests
