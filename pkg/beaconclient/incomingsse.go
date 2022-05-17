@@ -18,7 +18,7 @@ var (
 // This function will capture all the SSE events for a given SseEvents object.
 // When new messages come in, it will ensure that they are decoded into JSON.
 // If any errors occur, it log the error information.
-func handleIncomingSseEvent[P ProcessedEvents](eventHandler *SseEvents[P]) {
+func handleIncomingSseEvent[P ProcessedEvents](eventHandler *SseEvents[P], errMetricInc func(uint64)) {
 	go func() {
 		errG := new(errgroup.Group)
 		errG.Go(func() error {
@@ -44,6 +44,7 @@ func handleIncomingSseEvent[P ProcessedEvents](eventHandler *SseEvents[P]) {
 		case message := <-eventHandler.MessagesCh:
 			// Message can be nil if its a keep-alive message
 			if len(message.Data) != 0 {
+				log.WithFields(log.Fields{"msg": string(message.Data)}).Debug("We are going to send the following message to be processed.")
 				go processMsg(message.Data, eventHandler.ProcessCh, eventHandler.ErrorCh)
 			}
 
@@ -54,9 +55,7 @@ func handleIncomingSseEvent[P ProcessedEvents](eventHandler *SseEvents[P]) {
 				"msg":      headErr.msg,
 			},
 			).Error("Unable to handle event.")
-
-		case process := <-eventHandler.ProcessCh:
-			log.WithFields(log.Fields{"processed": process}).Debug("Processesing a Message")
+			errMetricInc(1)
 		}
 	}
 }
@@ -79,6 +78,6 @@ func processMsg[P ProcessedEvents](msg []byte, processCh chan<- *P, errorCh chan
 // Capture all of the event topics.
 func (bc *BeaconClient) captureEventTopic() {
 	log.Info("We are capturing all SSE events")
-	go handleIncomingSseEvent(bc.HeadTracking)
-	go handleIncomingSseEvent(bc.ReOrgTracking)
+	go handleIncomingSseEvent(bc.HeadTracking, bc.Metrics.IncrementHeadError)
+	go handleIncomingSseEvent(bc.ReOrgTracking, bc.Metrics.IncrementHeadReorgError)
 }

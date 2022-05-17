@@ -18,7 +18,7 @@ const (
 // DefaultConfig are default parameters for connecting to a Postgres sql
 var DefaultConfig = Config{
 	Hostname:     "localhost",
-	Port:         8077,
+	Port:         8076,
 	DatabaseName: "vulcanize_testing",
 	Username:     "vdbm",
 	Password:     "password",
