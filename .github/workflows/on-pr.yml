@@ -26,7 +26,7 @@ on:
 
 env:
   stack-orchestrator-ref: ${{ github.event.inputs.stack-orchestrator-ref  || 'main'}}
-  ipld-ethcl-db-ref: ${{ github.event.inputs.ipld-ethcl-db-ref  || 'feature/schema-ipld-ethcl-indexer' }}
+  ipld-ethcl-db-ref: ${{ github.event.inputs.ipld-ethcl-db-ref  || 'main' }}
   ssz-data-ref: ${{ github.event.inputs.ssz-data-ref  || 'main' }}
   GOPATH: /tmp/go
 jobs:

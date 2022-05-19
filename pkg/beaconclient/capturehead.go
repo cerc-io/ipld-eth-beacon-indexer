@@ -25,12 +25,9 @@ import (
 )
 
 // This function will perform all the heavy lifting for tracking the head of the chain.
-func (bc *BeaconClient) CaptureHead(knownGapsTableIncrement int) {
-	bc.KnownGapTableIncrement = knownGapsTableIncrement
+func (bc *BeaconClient) CaptureHead() {
 	log.Info("We are tracking the head of the chain.")
-	//bc.tempHelper()
 	go bc.handleHead()
-	//go bc.handleFinalizedCheckpoint()
 	go bc.handleReorg()
 	bc.captureEventTopic()
 }

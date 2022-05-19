@@ -254,7 +254,7 @@ var _ = Describe("Capturehead", func() {
 				validateBeaconState(bc, BeaconNodeTester.TestEvents["2375703"].HeadMessage, "/blocks/QHVAEQRQPBRDMMRRGVRDKNRQGI3TGYLGGYZWKYZXMUYDCMJVG4ZGENRQMVRTCY3BGBRDAMRTGJTDQZTGGQ2GMY3EGRSWINJVMM3TKMRWMU4TMNDF")
 			})
 		})
-		Context("Correctly formatted Altair Test Blocks", func() {
+		Context("Correctly formatted Altair Test Blocks", Label("now"), func() {
 			It("Should turn it into a struct successfully.", func() {
 				bc := setUpTest(BeaconNodeTester.TestConfig, "2375702")
 				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
@@ -315,7 +315,7 @@ var _ = Describe("Capturehead", func() {
 
 		//	})
 		//})
-		Context("When the proper SSZ objects are not served", Label("now"), func() {
+		Context("When the proper SSZ objects are not served", func() {
 			It("Should return an error, and add the slot to the knownGaps table.", func() {
 				bc := setUpTest(BeaconNodeTester.TestConfig, "101")
 				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
@@ -435,7 +435,7 @@ type Config struct {
 // Must run before each test. We can't use the beforeEach because of the way
 // Gingko treats race conditions.
 func setUpTest(config Config, maxSlot string) *beaconclient.BeaconClient {
-	bc := *beaconclient.CreateBeaconClient(context.Background(), config.protocol, config.address, config.port)
+	bc := *beaconclient.CreateBeaconClient(context.Background(), config.protocol, config.address, config.port, config.knownGapsTableIncrement)
 	db, err := postgres.SetupPostgresDb(config.dbHost, config.dbPort, config.dbName, config.dbUser, config.dbPassword, config.dbDriver)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -770,7 +770,7 @@ func (tbc TestBeaconNode) provideSsz(slotIdentifier string, sszIdentifier string
 // Helper function to test three reorg messages. There are going to be many functions like this,
 // Because we need to test the same logic for multiple phases.
 func (tbc TestBeaconNode) testMultipleReorgs(bc *beaconclient.BeaconClient, firstHead beaconclient.Head, secondHead beaconclient.Head, thirdHead beaconclient.Head, epoch int, maxRetry int) {
-	go bc.CaptureHead(tbc.TestConfig.knownGapsTableIncrement)
+	go bc.CaptureHead()
 	time.Sleep(1 * time.Second)
 
 	log.Info("Sending Phase0 Messages to BeaconClient")
@@ -832,7 +832,7 @@ func (tbc TestBeaconNode) testMultipleReorgs(bc *beaconclient.BeaconClient, firs
 
 // A test to validate a single block was processed correctly
 func (tbc TestBeaconNode) testProcessBlock(bc *beaconclient.BeaconClient, head beaconclient.Head, epoch int, maxRetry int, expectedSuccessInsert uint64, expectedKnownGaps uint64, expectedReorgs uint64) {
-	go bc.CaptureHead(tbc.TestConfig.knownGapsTableIncrement)
+	go bc.CaptureHead()
 	time.Sleep(1 * time.Second)
 	sendHeadMessage(bc, head, maxRetry, expectedSuccessInsert)
 
@@ -862,7 +862,7 @@ func (tbc TestBeaconNode) testProcessBlock(bc *beaconclient.BeaconClient, head b
 // A test that ensures that if two HeadMessages occur for a single slot they are marked
 // as proposed and forked correctly.
 func (tbc TestBeaconNode) testMultipleHead(bc *beaconclient.BeaconClient, firstHead beaconclient.Head, secondHead beaconclient.Head, epoch int, maxRetry int) {
-	go bc.CaptureHead(tbc.TestConfig.knownGapsTableIncrement)
+	go bc.CaptureHead()
 	time.Sleep(1 * time.Second)
 
 	sendHeadMessage(bc, firstHead, maxRetry, 1)
@@ -889,7 +889,8 @@ func (tbc TestBeaconNode) testMultipleHead(bc *beaconclient.BeaconClient, firstH
 // A test that ensures that if two HeadMessages occur for a single slot they are marked
 // as proposed and forked correctly.
 func (tbc TestBeaconNode) testKnownGapsMessages(bc *beaconclient.BeaconClient, tableIncrement int, expectedEntries uint64, maxRetry int, msg ...beaconclient.Head) {
-	go bc.CaptureHead(tableIncrement)
+	bc.KnownGapTableIncrement = tableIncrement
+	go bc.CaptureHead()
 	time.Sleep(1 * time.Second)
 
 	for _, headMsg := range msg {

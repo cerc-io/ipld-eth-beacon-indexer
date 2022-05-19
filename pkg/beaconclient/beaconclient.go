@@ -43,12 +43,11 @@ var (
 
 // A struct that capture the Beacon Server that the Beacon Client will be interacting with and querying.
 type BeaconClient struct {
-	Context                     context.Context      // A context generic context with multiple uses.
-	ServerEndpoint              string               // What is the endpoint of the beacon server.
-	PerformHistoricalProcessing bool                 // Should we perform historical processing?
-	Db                          sql.Database         // Database object used for reads and writes.
-	Metrics                     *BeaconClientMetrics // An object used to keep track of certain BeaconClient Metrics.
-	KnownGapTableIncrement      int                  // The max number of slots within a single known_gaps table entry.
+	Context                context.Context      // A context generic context with multiple uses.
+	ServerEndpoint         string               // What is the endpoint of the beacon server.
+	Db                     sql.Database         // Database object used for reads and writes.
+	Metrics                *BeaconClientMetrics // An object used to keep track of certain BeaconClient Metrics.
+	KnownGapTableIncrement int                  // The max number of slots within a single known_gaps table entry.
 
 	// Used for Head Tracking
 
@@ -65,7 +64,8 @@ type BeaconClient struct {
 
 	// The latest available slot within the Beacon Server. We can't query any slot greater than this.
 	// This value is lazily updated. Therefore at times it will be outdated.
-	LatestSlotInBeaconServer int64
+	LatestSlotInBeaconServer    int64
+	PerformHistoricalProcessing bool // Should we perform historical processing?
 }
 
 // A struct to keep track of relevant the head event topic.
@@ -84,14 +84,15 @@ type SseError struct {
 }
 
 // A Function to create the BeaconClient.
-func CreateBeaconClient(ctx context.Context, connectionProtocol string, bcAddress string, bcPort int) *BeaconClient {
+func CreateBeaconClient(ctx context.Context, connectionProtocol string, bcAddress string, bcPort int, bcKgTableIncrement int) *BeaconClient {
 	endpoint := fmt.Sprintf("%s://%s:%d", connectionProtocol, bcAddress, bcPort)
 	log.Info("Creating the BeaconClient")
 	return &BeaconClient{
-		Context:        ctx,
-		ServerEndpoint: endpoint,
-		HeadTracking:   createSseEvent[Head](endpoint, BcHeadTopicEndpoint),
-		ReOrgTracking:  createSseEvent[ChainReorg](endpoint, bcReorgTopicEndpoint),
+		Context:                ctx,
+		ServerEndpoint:         endpoint,
+		KnownGapTableIncrement: bcKgTableIncrement,
+		HeadTracking:           createSseEvent[Head](endpoint, BcHeadTopicEndpoint),
+		ReOrgTracking:          createSseEvent[ChainReorg](endpoint, bcReorgTopicEndpoint),
 		Metrics: &BeaconClientMetrics{
 			HeadTrackingInserts:   0,
 			HeadTrackingReorgs:    0,

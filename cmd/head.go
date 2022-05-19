@@ -18,7 +18,6 @@ package cmd
 
 import (
 	"context"
-	"os"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -48,18 +47,15 @@ func startHeadTracking() {
 	log.Info("Starting the application in head tracking mode.")
 	ctx := context.Background()
 
-	BC, DB, err := boot.BootApplicationWithRetry(ctx, dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver, bcAddress, bcPort, bcConnectionProtocol, bcType, bcBootRetryInterval, bcBootMaxRetry, "historic", testDisregardSync)
+	BC, DB, err := boot.BootApplicationWithRetry(ctx, dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver,
+		bcAddress, bcPort, bcConnectionProtocol, bcType, bcBootRetryInterval, bcBootMaxRetry, kgTableIncrement, "historic", testDisregardSync)
 	if err != nil {
-		loghelper.LogError(err).Error("Unable to Start application")
-		if DB != nil {
-			DB.Close()
-		}
-		os.Exit(1)
+		StopApplicationPreBoot(err, DB)
 	}
 
 	log.Info("The Beacon Client has booted successfully!")
 	// Capture head blocks
-	go BC.CaptureHead(kgTableIncrement)
+	go BC.CaptureHead()
 
 	// Shutdown when the time is right.
 	err = shutdown.ShutdownServices(ctx, notifierCh, maxWaitSecondsShutdown, DB, BC)
