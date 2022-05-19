@@ -48,7 +48,7 @@ func startHeadTracking() {
 	log.Info("Starting the application in head tracking mode.")
 	ctx := context.Background()
 
-	BC, DB, err := boot.BootApplicationWithRetry(ctx, dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver, bcAddress, bcPort, bcConnectionProtocol, testDisregardSync)
+	BC, DB, err := boot.BootApplicationWithRetry(ctx, dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver, bcAddress, bcPort, bcConnectionProtocol, bcType, bcBootRetryInterval, bcBootMaxRetry, "historic", testDisregardSync)
 	if err != nil {
 		loghelper.LogError(err).Error("Unable to Start application")
 		if DB != nil {

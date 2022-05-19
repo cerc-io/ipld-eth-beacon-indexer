@@ -19,6 +19,15 @@ import (
 	"sync/atomic"
 )
 
+// A structure utilized for keeping track of various metrics. Currently, mostly used in testing.
+type BeaconClientMetrics struct {
+	HeadTrackingInserts   uint64 // Number of head events we successfully wrote to the DB.
+	HeadTrackingReorgs    uint64 // Number of reorg events we successfully wrote to the DB.
+	HeadTrackingKnownGaps uint64 // Number of known_gaps we successfully wrote to the DB.
+	HeadError             uint64 // Number of errors that occurred when decoding the head message.
+	HeadReorgError        uint64 // Number of errors that occurred when decoding the reorg message.
+}
+
 // Wrapper function to increment inserts. If we want to use mutexes later we can easily update all
 // occurrences here.
 func (m *BeaconClientMetrics) IncrementHeadTrackingInserts(inc uint64) {

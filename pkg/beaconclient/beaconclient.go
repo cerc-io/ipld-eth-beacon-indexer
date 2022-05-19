@@ -31,7 +31,8 @@ var (
 	bcReorgTopicEndpoint = "/eth/v1/events?topics=chain_reorg" // Endpoint used to subscribe to the head of the chain
 	BcBlockQueryEndpoint = "/eth/v2/beacon/blocks/"            // Endpoint to query individual Blocks
 	BcStateQueryEndpoint = "/eth/v2/debug/beacon/states/"      // Endpoint to query individual States
-	BcSyncStatusEndpoint = "/eth/v1/node/syncing"
+	BcSyncStatusEndpoint = "/eth/v1/node/syncing"              // The endpoint to check to see if the beacon server is still trying to sync to head.
+	LhDbInfoEndpoint     = "/lighthouse/database/info"         // The endpoint for the LIGHTHOUSE server to get the database information.
 	BcBlockRootEndpoint  = func(slot string) string {
 		return "/eth/v1/beacon/blocks/" + slot + "/root"
 	}
@@ -39,15 +40,6 @@ var (
 	//bcSlotPerHistoricalVector = 8192                                // The number of slots in a historic vector.
 	//bcFinalizedTopicEndpoint  = "/eth/v1/events?topics=finalized_checkpoint" // Endpoint used to subscribe to the head of the chain
 )
-
-// A structure utilized for keeping track of various metrics. Currently, mostly used in testing.
-type BeaconClientMetrics struct {
-	HeadTrackingInserts   uint64 // Number of head events we successfully wrote to the DB.
-	HeadTrackingReorgs    uint64 // Number of reorg events we successfully wrote to the DB.
-	HeadTrackingKnownGaps uint64 // Number of known_gaps we successfully wrote to the DB.
-	HeadError             uint64 // Number of errors that occurred when decoding the head message.
-	HeadReorgError        uint64 // Number of errors that occurred when decoding the reorg message.
-}
 
 // A struct that capture the Beacon Server that the Beacon Client will be interacting with and querying.
 type BeaconClient struct {
@@ -59,6 +51,7 @@ type BeaconClient struct {
 	KnownGapTableIncrement      int                  // The max number of slots within a single known_gaps table entry.
 
 	// Used for Head Tracking
+
 	PerformHeadTracking bool                   // Should we track head?
 	StartingSlot        int                    // If we're performing head tracking. What is the first slot we processed.
 	PreviousSlot        int                    // Whats the previous slot we processed
@@ -67,6 +60,12 @@ type BeaconClient struct {
 	HeadTracking        *SseEvents[Head]       // Track the head block
 	ReOrgTracking       *SseEvents[ChainReorg] // Track all Reorgs
 	//FinalizationTracking        *SseEvents[FinalizedCheckpoint] // Track all finalization checkpoints
+
+	// Used for Historical Processing
+
+	// The latest available slot within the Beacon Server. We can't query any slot greater than this.
+	// This value is lazily updated. Therefore at times it will be outdated.
+	LatestSlotInBeaconServer int64
 }
 
 // A struct to keep track of relevant the head event topic.
@@ -94,8 +93,11 @@ func CreateBeaconClient(ctx context.Context, connectionProtocol string, bcAddres
 		HeadTracking:   createSseEvent[Head](endpoint, BcHeadTopicEndpoint),
 		ReOrgTracking:  createSseEvent[ChainReorg](endpoint, bcReorgTopicEndpoint),
 		Metrics: &BeaconClientMetrics{
-			HeadTrackingInserts: 0,
-			HeadTrackingReorgs:  0,
+			HeadTrackingInserts:   0,
+			HeadTrackingReorgs:    0,
+			HeadTrackingKnownGaps: 0,
+			HeadError:             0,
+			HeadReorgError:        0,
 		},
 		//FinalizationTracking: createSseEvent[FinalizedCheckpoint](endpoint, bcFinalizedTopicEndpoint),
 	}

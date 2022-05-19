@@ -18,6 +18,7 @@ package boot
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -27,10 +28,8 @@ import (
 )
 
 var (
-	maxRetry                                 = 5  // Max times to try to connect to the DB or BC at boot.
-	retryInterval                            = 30 // The time to wait between each try.
-	DB            sql.Database               = &postgres.DB{}
-	BC            *beaconclient.BeaconClient = &beaconclient.BeaconClient{}
+	DB sql.Database               = &postgres.DB{}
+	BC *beaconclient.BeaconClient = &beaconclient.BeaconClient{}
 )
 
 // This function will perform some boot operations. If any steps fail, the application will fail to start.
@@ -81,19 +80,33 @@ func BootApplication(ctx context.Context, dbHostname string, dbPort int, dbName 
 }
 
 // Add retry logic to ensure that we are give the Beacon Client and the DB time to start.
-func BootApplicationWithRetry(ctx context.Context, dbHostname string, dbPort int, dbName string, dbUsername string, dbPassword string, driverName string, bcAddress string, bcPort int, bcConnectionProtocol string, disregardSync bool) (*beaconclient.BeaconClient, sql.Database, error) {
+func BootApplicationWithRetry(ctx context.Context, dbHostname string, dbPort int, dbName string, dbUsername string, dbPassword string, driverName string,
+	bcAddress string, bcPort int, bcConnectionProtocol string, bcType string, bcRetryInterval int, bcMaxRetry int, startUpMode string, disregardSync bool) (*beaconclient.BeaconClient, sql.Database, error) {
 	var err error
-	for i := 0; i < maxRetry; i++ {
+	for i := 0; i < bcMaxRetry; i++ {
 		BC, DB, err = BootApplication(ctx, dbHostname, dbPort, dbName, dbUsername, dbPassword, driverName, bcAddress, bcPort, bcConnectionProtocol, disregardSync)
 		if err != nil {
 			log.WithFields(log.Fields{
 				"retryNumber": i,
 				"err":         err,
 			}).Warn("Unable to boot application. Going to try again")
-			time.Sleep(time.Duration(retryInterval) * time.Second)
+			time.Sleep(time.Duration(bcRetryInterval) * time.Second)
 			continue
 		}
 		break
+	}
+
+	switch strings.ToLower(startUpMode) {
+	case "head":
+		log.Debug("No further actions needed to boot the application at this phase.")
+	case "historic":
+		log.Debug("Performing additional boot steps for historical processing")
+		headSlot, err := BC.GetLatestSlotInBeaconServer(bcType)
+		if err != nil {
+			return BC, DB, err
+		}
+		BC.UpdateLatestSlotInBeaconServer(int64(headSlot))
+		// Add another switch case for bcType if its ever needed.
 	}
 	return BC, DB, err
 }

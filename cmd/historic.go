@@ -17,9 +17,14 @@
 package cmd
 
 import (
-	"fmt"
+	"context"
+	"os"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/vulcanize/ipld-ethcl-indexer/internal/boot"
+	"github.com/vulcanize/ipld-ethcl-indexer/pkg/database/sql"
+	"github.com/vulcanize/ipld-ethcl-indexer/pkg/loghelper"
 )
 
 // historicCmd represents the historic command
@@ -28,8 +33,20 @@ var historicCmd = &cobra.Command{
 	Short: "Capture the historic blocks and states.",
 	Long:  `Capture the historic blocks and states.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("historic called")
+		startHistoricProcessing()
 	},
+}
+
+// Start the application to process historical slots.
+func startHistoricProcessing() {
+	// Boot the application
+	log.Info("Starting the application in head tracking mode.")
+	ctx := context.Background()
+
+	_, DB, err := boot.BootApplicationWithRetry(ctx, dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver, bcAddress, bcPort, bcConnectionProtocol, bcType, bcBootRetryInterval, bcBootMaxRetry, "historic", testDisregardSync)
+	if err != nil {
+		StopApplicationPreBoot(err, DB)
+	}
 }
 
 func init() {
@@ -44,4 +61,13 @@ func init() {
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
 	// historicCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+}
+
+// Stop the application during its initial boot phases.
+func StopApplicationPreBoot(startErr error, db sql.Database) {
+	loghelper.LogError(startErr).Error("Unable to Start application")
+	if db != nil {
+		db.Close()
+	}
+	os.Exit(1)
 }

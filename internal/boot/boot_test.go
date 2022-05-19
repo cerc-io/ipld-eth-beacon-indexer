@@ -34,18 +34,28 @@ var _ = Describe("Boot", func() {
 		bcAddress            string = "localhost"
 		bcPort               int    = 5052
 		bcConnectionProtocol string = "http"
+		bcType               string = "lighthouse"
+		bcBootRetryInterval  int    = 1
+		bcBootMaxRetry       int    = 5
 	)
 	Describe("Booting the application", Label("integration"), func() {
-		Context("When the DB and BC are both up and running, and we skip checking for a synced head", func() {
+		Context("When the DB and BC are both up and running, we skip checking for a synced head, and we are processing head", func() {
 			It("Should connect successfully", func() {
-				_, db, err := boot.BootApplicationWithRetry(context.Background(), dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver, bcAddress, bcPort, bcConnectionProtocol, true)
+				_, db, err := boot.BootApplicationWithRetry(context.Background(), dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver, bcAddress, bcPort, bcConnectionProtocol, bcType, bcBootRetryInterval, bcBootMaxRetry, "head", true)
+				defer db.Close()
+				Expect(err).ToNot(HaveOccurred())
+			})
+		})
+		Context("When the DB and BC are both up and running, we skip checking for a synced head, and we are processing historic ", func() {
+			It("Should connect successfully", func() {
+				_, db, err := boot.BootApplicationWithRetry(context.Background(), dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver, bcAddress, bcPort, bcConnectionProtocol, bcType, bcBootRetryInterval, bcBootMaxRetry, "historic", true)
 				defer db.Close()
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 		Context("When the DB and BC are both up and running, and we check for a synced head", func() {
 			It("Should not connect successfully", func() {
-				_, db, err := boot.BootApplicationWithRetry(context.Background(), dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver, bcAddress, bcPort, bcConnectionProtocol, false)
+				_, db, err := boot.BootApplicationWithRetry(context.Background(), dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver, bcAddress, bcPort, bcConnectionProtocol, bcType, bcBootRetryInterval, bcBootMaxRetry, "head", false)
 				defer db.Close()
 				Expect(err).To(HaveOccurred())
 			})
