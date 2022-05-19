@@ -33,6 +33,8 @@ var (
 	dbPort                 int
 	bcAddress              string
 	bcPort                 int
+	bcBootRetryInterval    int
+	bcBootMaxRetry         int
 	bcConnectionProtocol   string
 	bcType                 string
 	maxWaitSecondsShutdown time.Duration  = time.Duration(5) * time.Second
@@ -80,6 +82,8 @@ func init() {
 	captureCmd.PersistentFlags().StringVarP(&bcType, "bc.type", "", "lighthouse", "The beacon client we are using, options are prysm and lighthouse.")
 	captureCmd.PersistentFlags().IntVarP(&bcPort, "bc.port", "r", 0, "Port to connect to beacon node (required )")
 	captureCmd.PersistentFlags().StringVarP(&bcConnectionProtocol, "bc.connectionProtocol", "", "http", "protocol for connecting to the beacon node.")
+	captureCmd.PersistentFlags().IntVarP(&bcBootRetryInterval, "bc.bootRetryInterval", "", 30, "The amount of time to wait between retries while booting the application")
+	captureCmd.PersistentFlags().IntVarP(&bcBootMaxRetry, "bc.bootMaxRetry", "", 5, "The amount of time to wait between retries while booting the application")
 	err = captureCmd.MarkPersistentFlagRequired("bc.address")
 	exitErr(err)
 	err = captureCmd.MarkPersistentFlagRequired("bc.port")
@@ -115,6 +119,10 @@ func init() {
 	err = viper.BindPFlag("bc.port", captureCmd.PersistentFlags().Lookup("bc.port"))
 	exitErr(err)
 	err = viper.BindPFlag("bc.connectionProtocol", captureCmd.PersistentFlags().Lookup("bc.connectionProtocol"))
+	exitErr(err)
+	err = viper.BindPFlag("bc.bootRetryInterval", captureCmd.PersistentFlags().Lookup("bc.bootRetryInterval"))
+	exitErr(err)
+	err = viper.BindPFlag("bc.bootMaxRetry", captureCmd.PersistentFlags().Lookup("bc.bootMaxRetry"))
 	exitErr(err)
 	// Here you will define your flags and configuration settings.
 

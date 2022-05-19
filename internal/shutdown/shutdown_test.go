@@ -46,6 +46,9 @@ var _ = Describe("Shutdown", func() {
 		bcAddress              string        = "localhost"
 		bcPort                 int           = 5052
 		bcConnectionProtocol   string        = "http"
+		bcType                 string        = "lighthouse"
+		bcBootRetryInterval    int           = 1
+		bcBootMaxRetry         int           = 5
 		maxWaitSecondsShutdown time.Duration = time.Duration(1) * time.Second
 		DB                     sql.Database
 		BC                     *beaconclient.BeaconClient
@@ -55,7 +58,7 @@ var _ = Describe("Shutdown", func() {
 	)
 	BeforeEach(func() {
 		ctx = context.Background()
-		BC, DB, err = boot.BootApplicationWithRetry(ctx, dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver, bcAddress, bcPort, bcConnectionProtocol, true)
+		BC, DB, err = boot.BootApplicationWithRetry(ctx, dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver, bcAddress, bcPort, bcConnectionProtocol, bcType, bcBootRetryInterval, bcBootMaxRetry, "head", true)
 		notifierCh = make(chan os.Signal, 1)
 		Expect(err).To(BeNil())
 	})
