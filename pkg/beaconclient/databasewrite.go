@@ -23,6 +23,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/vulcanize/ipld-ethcl-indexer/pkg/database/sql"
 	"github.com/vulcanize/ipld-ethcl-indexer/pkg/loghelper"
+	"golang.org/x/sync/errgroup"
 )
 
 var (
@@ -148,21 +149,24 @@ func (dw *DatabaseWriter) writeFullSlot() error {
 	}).Debug("Starting to write to the DB.")
 	err := dw.writeSlots()
 	if err != nil {
-		loghelper.LogSlotError(dw.DbSlots.Slot, err).Debug("We couldnt write to the ethcl.slots table...")
+		loghelper.LogSlotError(dw.DbSlots.Slot, err).Error("We couldn't write to the ethcl.slots table...")
 		return err
 	}
 	log.Debug("We finished writing to the ethcl.slots table.")
 	if dw.DbSlots.Status != "skipped" {
-		err = dw.writeSignedBeaconBlocks()
-		if err != nil {
-			return err
-		}
-		err = dw.writeBeaconState()
-		if err != nil {
+		errG, _ := errgroup.WithContext(context.Background())
+		errG.Go(func() error {
+			return dw.writeSignedBeaconBlocks()
+		})
+		errG.Go(func() error {
+			return dw.writeBeaconState()
+		})
+		if err := errG.Wait(); err != nil {
+			loghelper.LogSlotError(dw.DbSlots.Slot, err).Error("We couldn't write to the ethcl block or state table...")
 			return err
 		}
 	}
-	dw.Metrics.IncrementHeadTrackingInserts(1)
+	dw.Metrics.IncrementSlotInserts(1)
 	return nil
 }
 
@@ -293,7 +297,7 @@ func writeReorgs(db sql.Database, slot string, latestBlockRoot string, metrics *
 		}
 	}
 
-	metrics.IncrementHeadTrackingReorgs(1)
+	metrics.IncrementReorgsInsert(1)
 }
 
 // Update the slots table by marking the old slot's as forked.
@@ -385,7 +389,7 @@ func upsertKnownGaps(db sql.Database, knModel DbKnownGaps, metric *BeaconClientM
 		"startSlot": knModel.StartSlot,
 		"endSlot":   knModel.EndSlot,
 	}).Warn("A new gap has been added to the ethcl.known_gaps table.")
-	metric.IncrementHeadTrackingKnownGaps(1)
+	metric.IncrementKnownGapsInserts(1)
 }
 
 // A function to write the gap between the highest slot in the DB and the first processed slot.

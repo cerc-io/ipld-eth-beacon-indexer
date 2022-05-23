@@ -155,6 +155,7 @@ func getBatchProcessRow(db sql.Database, getStartEndSlotStmt string, checkOutRow
 func removeRowPostProcess(db sql.Database, processCh <-chan slotsToProcess, removeStmt string) error {
 	for {
 		slots := <-processCh
+		// Make sure the start and end slot exist in the slots table.
 		_, err := db.Exec(context.Background(), removeStmt, strconv.Itoa(slots.startSlot), slots.endSlot)
 		if err != nil {
 			return err

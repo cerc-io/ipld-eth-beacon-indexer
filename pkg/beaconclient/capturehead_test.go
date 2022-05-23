@@ -56,7 +56,7 @@ var (
 	dbDriver                string = "pgx"
 	dummyParentRoot         string = "46f98c08b54a71dfda4d56e29ec3952b8300cd8d6b67a9b6c562ae96a7a25a42"
 	knownGapsTableIncrement int    = 100000
-	maxRetry                int    = 60
+	maxRetry                int    = 120
 
 	TestEvents = map[string]Message{
 		"100-dummy": {
@@ -398,7 +398,7 @@ var _ = Describe("Capturehead", func() {
 				BeaconNodeTester.testMultipleReorgs(bc, TestEvents["100-dummy"].HeadMessage, TestEvents["100-dummy-2"].HeadMessage, TestEvents["100"].HeadMessage, 3, maxRetry)
 			})
 		})
-		Context("Altair: Multiple reorgs have occurred on this slot", Label("new"), func() {
+		Context("Altair: Multiple reorgs have occurred on this slot", func() {
 			It("The previous blocks should be marked as 'forked', the new block should be the only one marked as 'proposed'.", func() {
 				bc := setUpTest(BeaconNodeTester.TestConfig, "2375702")
 				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
@@ -499,8 +499,9 @@ func sendHeadMessage(bc *beaconclient.BeaconClient, head beaconclient.Head, maxR
 		curRetry = curRetry + 1
 		if curRetry == maxRetry {
 			log.WithFields(log.Fields{
-				"startInsert":  startInserts,
-				"currentValue": atomic.LoadUint64(&bc.Metrics.SlotInserts),
+				"startInsert":               startInserts,
+				"expectedSuccessfulInserts": expectedSuccessfulInserts,
+				"currentValue":              atomic.LoadUint64(&bc.Metrics.SlotInserts),
 			}).Error("HeadTracking Insert wasn't incremented properly.")
 			Fail("Too many retries have occurred.")
 		}
@@ -564,7 +565,7 @@ func queryKnownGaps(db sql.Database, queryStartGap string, QueryEndGap string) (
 
 // A function that will remove all entries from the ethcl tables for you.
 func clearEthclDbTables(db sql.Database) {
-	deleteQueries := []string{"DELETE FROM ethcl.slots;", "DELETE FROM ethcl.signed_beacon_block;", "DELETE FROM ethcl.beacon_state;", "DELETE FROM ethcl.known_gaps;", "DELETE FROM ethcl.historic_process"}
+	deleteQueries := []string{"DELETE FROM ethcl.slots;", "DELETE FROM ethcl.signed_beacon_block;", "DELETE FROM ethcl.beacon_state;", "DELETE FROM ethcl.known_gaps;", "DELETE FROM ethcl.historic_process;"}
 	for _, queries := range deleteQueries {
 		_, err := db.Exec(context.Background(), queries)
 		Expect(err).ToNot(HaveOccurred())
@@ -795,7 +796,7 @@ func (tbc TestBeaconNode) testMultipleReorgs(bc *beaconclient.BeaconClient, firs
 	go bc.CaptureHead()
 	time.Sleep(1 * time.Second)
 
-	log.Info("Sending Phase0 Messages to BeaconClient")
+	log.Info("Sending Messages to BeaconClient")
 	sendHeadMessage(bc, firstHead, maxRetry, 1)
 	sendHeadMessage(bc, secondHead, maxRetry, 1)
 	sendHeadMessage(bc, thirdHead, maxRetry, 1)

@@ -94,5 +94,5 @@ func processMsg[P ProcessedEvents](msg []byte, processCh chan<- *P, errorCh chan
 func (bc *BeaconClient) captureEventTopic() {
 	log.Info("We are capturing all SSE events")
 	go handleIncomingSseEvent(bc.HeadTracking, bc.Metrics.IncrementHeadError)
-	go handleIncomingSseEvent(bc.ReOrgTracking, bc.Metrics.IncrementHeadReorgError)
+	go handleIncomingSseEvent(bc.ReOrgTracking, bc.Metrics.IncrementReorgError)
 }

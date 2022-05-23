@@ -244,7 +244,7 @@ func (ps *ProcessSlot) checkPreviousSlot(previousSlot int, previousBlockRoot str
 	parentRoot := "0x" + hex.EncodeToString(ps.FullSignedBeaconBlock.Block().ParentRoot())
 	if previousSlot == int(ps.FullBeaconState.Slot()) {
 		log.WithFields(log.Fields{
-			"slot": ps.FullBeaconState.Slot,
+			"slot": ps.FullBeaconState.Slot(),
 			"fork": true,
 		}).Warn("A fork occurred! The previous slot and current slot match.")
 		writeReorgs(ps.Db, strconv.Itoa(ps.Slot), ps.BlockRoot, ps.Metrics)

@@ -30,19 +30,19 @@ type BeaconClientMetrics struct {
 
 // Wrapper function to increment inserts. If we want to use mutexes later we can easily update all
 // occurrences here.
-func (m *BeaconClientMetrics) IncrementHeadTrackingInserts(inc uint64) {
+func (m *BeaconClientMetrics) IncrementSlotInserts(inc uint64) {
 	atomic.AddUint64(&m.SlotInserts, inc)
 }
 
 // Wrapper function to increment reorgs. If we want to use mutexes later we can easily update all
 // occurrences here.
-func (m *BeaconClientMetrics) IncrementHeadTrackingReorgs(inc uint64) {
+func (m *BeaconClientMetrics) IncrementReorgsInsert(inc uint64) {
 	atomic.AddUint64(&m.ReorgInserts, inc)
 }
 
 // Wrapper function to increment known gaps. If we want to use mutexes later we can easily update all
 // occurrences here.
-func (m *BeaconClientMetrics) IncrementHeadTrackingKnownGaps(inc uint64) {
+func (m *BeaconClientMetrics) IncrementKnownGapsInserts(inc uint64) {
 	atomic.AddUint64(&m.KnownGapsInserts, inc)
 }
 
@@ -54,6 +54,6 @@ func (m *BeaconClientMetrics) IncrementHeadError(inc uint64) {
 
 // Wrapper function to increment reorg errors. If we want to use mutexes later we can easily update all
 // occurrences here.
-func (m *BeaconClientMetrics) IncrementHeadReorgError(inc uint64) {
+func (m *BeaconClientMetrics) IncrementReorgError(inc uint64) {
 	atomic.AddUint64(&m.HeadReorgError, inc)
 }
