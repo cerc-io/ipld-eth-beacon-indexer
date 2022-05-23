@@ -54,6 +54,10 @@ VALUES ($1, $2) ON CONFLICT (key) DO NOTHING`
 	CheckProposedStmt string = `SELECT slot, block_root
 	FROM ethcl.slots
 	WHERE slot=$1 AND block_root=$2;`
+	// Used to get a single slot from the table if it exists
+	QueryBySlotStmt string = `SELECT slot
+	FROM ethcl.slots
+	WHERE slot=$1`
 	// Statement to insert known_gaps. We don't pass in timestamp, we let the server take care of that one.
 	UpsertKnownGapsStmt string = `
 INSERT INTO ethcl.known_gaps (start_slot, end_slot, checked_out, reprocessing_error, entry_error, entry_process)

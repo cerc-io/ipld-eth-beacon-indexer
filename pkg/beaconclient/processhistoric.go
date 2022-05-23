@@ -32,11 +32,14 @@ import (
 
 var (
 	// Get a single highest priority and non-checked out row.
-	getBpEntryStmt string = `SELECT start_slot, end_slot FROM ethcl.historic_process
+	getHpEntryStmt string = `SELECT start_slot, end_slot FROM ethcl.historic_process
 	WHERE checked_out=false
 	ORDER BY priority ASC
 	LIMIT 1;`
-	lockBpEntryStmt string = `UPDATE ethcl.historic_process
+	// Used to periodically check to see if there is a new entry in the ethcl_historic_process table.
+	checkHpEntryStmt string = `INSERT INTO ethcl.historic_process (start_slot, end_slot) VALUES ($1, $2) ON CONFLICT (start_slot, end_slot) DO NOTHING;`
+	// Used to get the highest priority row that is not checked out, and to check it out within the ethcl.historic_process table.
+	lockHpEntryStmt string = `UPDATE ethcl.historic_process
 	SET checked_out=true
 	WHERE start_slot=$1 AND end_slot=$2;`
 	deleteSlotsEntryStmt string = `DELETE FROM ethcl.historic_process
@@ -50,18 +53,19 @@ type historicProcessing struct {
 
 // Get a single row of historical slots from the table.
 func (hp historicProcessing) getSlotRange(slotCh chan<- slotsToProcess) []error {
-	return getBatchProcessRow(hp.db, getBpEntryStmt, lockBpEntryStmt, slotCh)
+	return getBatchProcessRow(hp.db, getHpEntryStmt, checkHpEntryStmt, lockHpEntryStmt, slotCh)
 }
 
 // Remove the table entry.
 func (hp historicProcessing) removeTableEntry(processCh <-chan slotsToProcess) error {
-	return removeRowPostProcess(hp.db, processCh, deleteSlotsEntryStmt)
+	return removeRowPostProcess(hp.db, processCh, QueryBySlotStmt, deleteSlotsEntryStmt)
 }
 
 // Remove the table entry.
 func (hp historicProcessing) handleProcessingErrors(errMessages <-chan batchHistoricError) {
 	for {
 		errMs := <-errMessages
+		loghelper.LogSlotError(strconv.Itoa(errMs.slot), errMs.err)
 		writeKnownGaps(hp.db, 1, errMs.slot, errMs.slot, errMs.err, errMs.errProcess, hp.metrics)
 	}
 }
@@ -86,19 +90,42 @@ func processSlotRangeWorker(workCh <-chan int, errCh chan<- batchHistoricError, 
 // It also locks the row by updating the checked_out column.
 // The statement for getting the start_slot and end_slot must be provided.
 // The statement for "locking" the row must also be provided.
-func getBatchProcessRow(db sql.Database, getStartEndSlotStmt string, checkOutRowStmt string, slotCh chan<- slotsToProcess) []error {
+func getBatchProcessRow(db sql.Database, getStartEndSlotStmt string, checkNewRowsStmt string, checkOutRowStmt string, slotCh chan<- slotsToProcess) []error {
 	errCount := make([]error, 0)
 
 	for len(errCount) < 5 {
+		processRow, err := db.Exec(context.Background(), checkNewRowsStmt)
+		if err != nil {
+			errCount = append(errCount, err)
+		}
+		row, err := processRow.RowsAffected()
+		if err != nil {
+			errCount = append(errCount, err)
+		}
+		if row < 1 {
+			time.Sleep(100 * time.Millisecond)
+			continue
+		}
+		log.Debug("Found a row, going to start processing.")
+		log.WithFields(log.Fields{
+			"ErrCount": errCount,
+		}).Debug("The ErrCounter")
 		ctx := context.Background()
 
 		// Setup TX
 		tx, err := db.Begin(ctx)
 		if err != nil {
+			loghelper.LogError(err).Error("We are unable to Begin a SQL transaction")
 			errCount = append(errCount, err)
 			continue
 		}
-		defer tx.Rollback(ctx)
+		defer func() {
+			err := tx.Rollback(ctx)
+			if err != nil {
+				loghelper.LogError(err).Error("We were unable to Rollback a transaction")
+				errCount = append(errCount, err)
+			}
+		}()
 
 		// Query the DB for slots.
 		sp := slotsToProcess{}
@@ -148,17 +175,59 @@ func getBatchProcessRow(db sql.Database, getStartEndSlotStmt string, checkOutRow
 		}
 		slotCh <- sp
 	}
+	log.WithFields(log.Fields{
+		"ErrCount": errCount,
+	}).Error("The ErrCounter")
 	return errCount
 }
 
 // After a row has been processed it should be removed from its appropriate table.
-func removeRowPostProcess(db sql.Database, processCh <-chan slotsToProcess, removeStmt string) error {
+func removeRowPostProcess(db sql.Database, processCh <-chan slotsToProcess, checkProcessedStmt, removeStmt string) error {
+	errCh := make(chan error, 0)
 	for {
 		slots := <-processCh
 		// Make sure the start and end slot exist in the slots table.
-		_, err := db.Exec(context.Background(), removeStmt, strconv.Itoa(slots.startSlot), slots.endSlot)
-		if err != nil {
-			return err
+		go func() {
+			finishedProcess := false
+			for finishedProcess == false {
+				isStartProcess, err := isSlotProcessed(db, checkProcessedStmt, strconv.Itoa(slots.startSlot))
+				if err != nil {
+					errCh <- err
+				}
+				isEndProcess, err := isSlotProcessed(db, checkProcessedStmt, strconv.Itoa(slots.endSlot))
+				if err != nil {
+					errCh <- err
+				}
+				if isStartProcess && isEndProcess {
+					finishedProcess = true
+				}
+			}
+
+			_, err := db.Exec(context.Background(), removeStmt, strconv.Itoa(slots.startSlot), strconv.Itoa(slots.endSlot))
+			if err != nil {
+				errCh <- err
+			}
+
+		}()
+		if len(errCh) != 0 {
+			return <-errCh
 		}
 	}
+}
+
+// A helper function to check to see if the slot is processed.
+func isSlotProcessed(db sql.Database, checkProcessStmt string, slot string) (bool, error) {
+	processRow, err := db.Exec(context.Background(), checkProcessStmt, slot)
+	if err != nil {
+		return false, err
+	}
+	row, err := processRow.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+
+	if row > 0 {
+		return true, nil
+	}
+	return false, nil
 }

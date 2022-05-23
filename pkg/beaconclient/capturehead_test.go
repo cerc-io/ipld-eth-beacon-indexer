@@ -514,10 +514,9 @@ func queryDbSlotAndBlock(db sql.Database, querySlot string, queryBlockRoot strin
 	var epoch, slot int
 	var blockRoot, stateRoot, status string
 	log.Debug("Starting to query the ethcl.slots table, ", querySlot, " ", queryBlockRoot)
-	row := db.QueryRow(context.Background(), sqlStatement, querySlot, queryBlockRoot)
-	log.Debug("Querying the ethcl.slots table complete")
-	err := row.Scan(&epoch, &slot, &blockRoot, &stateRoot, &status)
+	err := db.QueryRow(context.Background(), sqlStatement, querySlot, queryBlockRoot).Scan(&epoch, &slot, &blockRoot, &stateRoot, &status)
 	Expect(err).ToNot(HaveOccurred())
+	log.Debug("Querying the ethcl.slots table complete")
 	return epoch, slot, blockRoot, stateRoot, status
 }
 
@@ -668,6 +667,7 @@ func (tbc TestBeaconNode) SetupBeaconNodeMock(TestEvents map[string]Message, pro
 			return httpmock.NewBytesResponse(200, dat), nil
 		},
 	)
+	// Not needed but could be useful to have.
 	blockRootUrl := `=~^` + protocol + "://" + address + ":" + strconv.Itoa(port) + "/eth/v1/beacon/blocks/" + `([^/]+)` + "/root"
 	httpmock.RegisterResponder("GET", blockRootUrl,
 		func(req *http.Request) (*http.Response, error) {
@@ -683,6 +683,7 @@ func (tbc TestBeaconNode) SetupBeaconNodeMock(TestEvents map[string]Message, pro
 	)
 }
 
+// Provide the Block root
 func (tbc TestBeaconNode) provideBlockRoot(slot string) ([]byte, error) {
 
 	for _, val := range tbc.TestEvents {
@@ -702,12 +703,12 @@ func (tbc TestBeaconNode) provideSsz(slotIdentifier string, sszIdentifier string
 
 	for _, val := range tbc.TestEvents {
 		if sszIdentifier == "state" {
-			if val.HeadMessage.Slot == slotIdentifier || val.HeadMessage.State == slotIdentifier {
+			if (val.HeadMessage.Slot == slotIdentifier && val.MimicConfig == nil) || val.HeadMessage.State == slotIdentifier {
 				slotFile = val.BeaconState
 				Message = val
 			}
 		} else if sszIdentifier == "block" {
-			if val.HeadMessage.Slot == slotIdentifier || val.HeadMessage.Block == slotIdentifier {
+			if (val.HeadMessage.Slot == slotIdentifier && val.MimicConfig == nil) || val.HeadMessage.Block == slotIdentifier {
 				slotFile = val.SignedBeaconBlock
 				Message = val
 			}
