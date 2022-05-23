@@ -145,7 +145,9 @@ func processFullSlot(db sql.Database, serverAddress string, slot int, blockRoot 
 // Handle a slot that is at head. A wrapper function for calling `handleFullSlot`.
 func processHeadSlot(db sql.Database, serverAddress string, slot int, blockRoot string, stateRoot string, previousSlot int, previousBlockRoot string, metrics *BeaconClientMetrics, knownGapsTableIncrement int) {
 	err, errReason := processFullSlot(db, serverAddress, slot, blockRoot, stateRoot, previousSlot, previousBlockRoot, "head", metrics, knownGapsTableIncrement)
-	writeKnownGaps(db, knownGapsTableIncrement, slot, slot, err, errReason, metrics)
+	if err != nil {
+		writeKnownGaps(db, knownGapsTableIncrement, slot, slot, err, errReason, metrics)
+	}
 }
 
 // Handle a historic slot. A wrapper function for calling `handleFullSlot`.
