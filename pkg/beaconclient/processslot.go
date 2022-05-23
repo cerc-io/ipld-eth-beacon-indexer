@@ -45,7 +45,6 @@ var (
 		return fmt.Sprintf("Unable to properly unmarshal the Slot field in the %s.", obj)
 	}
 	ParentRootUnmarshalError  = "Unable to properly unmarshal the ParentRoot field in the SignedBeaconBlock."
-	MissingIdentifiedError    = "Can't query state without a set slot or block_root"
 	MissingEth1Data           = "Can't get the Eth1 block_hash"
 	VersionedUnmarshalerError = "Unable to create a versioned unmarshaler"
 )
@@ -160,11 +159,8 @@ func (ps *ProcessSlot) getSignedBeaconBlock(serverAddress string, vmCh <-chan *d
 	var blockIdentifier string // Used to query the block
 	if ps.BlockRoot != "" {
 		blockIdentifier = ps.BlockRoot
-	} else if ps.Slot != 0 {
-		blockIdentifier = strconv.Itoa(ps.Slot)
 	} else {
-		log.Error(MissingIdentifiedError)
-		return fmt.Errorf(MissingIdentifiedError)
+		blockIdentifier = strconv.Itoa(ps.Slot)
 	}
 	blockEndpoint := serverAddress + BcBlockQueryEndpoint + blockIdentifier
 	var err error
@@ -209,11 +205,8 @@ func (ps *ProcessSlot) getBeaconState(serverEndpoint string, vmCh chan<- *dt.Ver
 	var stateIdentifier string // Used to query the state
 	if ps.StateRoot != "" {
 		stateIdentifier = ps.StateRoot
-	} else if ps.Slot != 0 {
-		stateIdentifier = strconv.Itoa(ps.Slot)
 	} else {
-		log.Error(MissingIdentifiedError)
-		return fmt.Errorf(MissingIdentifiedError)
+		stateIdentifier = strconv.Itoa(ps.Slot)
 	}
 	stateEndpoint := serverEndpoint + BcStateQueryEndpoint + stateIdentifier
 	ps.SszBeaconState, _, _ = querySsz(stateEndpoint, strconv.Itoa(ps.Slot))

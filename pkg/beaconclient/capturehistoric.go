@@ -18,6 +18,8 @@
 package beaconclient
 
 import (
+	"fmt"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/vulcanize/ipld-ethcl-indexer/pkg/database/sql"
 	"golang.org/x/sync/errgroup"
@@ -85,10 +87,24 @@ func handleBatchProcess(maxWorkers int, bp BatchProcessing, db sql.Database, ser
 	// Process all ranges and send each individual slot to the worker.
 	go func() {
 		for slots := range slotsCh {
-			for i := slots.startSlot; i <= slots.endSlot; i++ {
-				workCh <- i
+			if slots.startSlot > slots.endSlot {
+				log.Error("We received a batch process request where the startSlot is greater than the end slot.")
+				errCh <- batchHistoricError{
+					err:        fmt.Errorf("We received a startSlot where the start was greater than the end."),
+					errProcess: "RangeOrder",
+					slot:       slots.startSlot,
+				}
+				errCh <- batchHistoricError{
+					err:        fmt.Errorf("We received a endSlot where the start was greater than the end."),
+					errProcess: "RangeOrder",
+					slot:       slots.endSlot,
+				}
+			} else {
+				for i := slots.startSlot; i <= slots.endSlot; i++ {
+					workCh <- i
+				}
+				processedCh <- slots
 			}
-			processedCh <- slots
 		}
 	}()
 
