@@ -206,4 +206,4 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3
         with:
-          args: --timeout 90s
+          args: --timeout 90s --disable deadcode

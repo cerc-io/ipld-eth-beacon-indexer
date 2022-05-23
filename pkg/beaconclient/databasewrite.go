@@ -419,3 +419,20 @@ func calculateEpoch(slot int, slotPerEpoch int) string {
 	epoch := slot / slotPerEpoch
 	return strconv.Itoa(epoch)
 }
+
+// A helper function to check to see if the slot is processed.
+func isSlotProcessed(db sql.Database, checkProcessStmt string, slot string) (bool, error) {
+	processRow, err := db.Exec(context.Background(), checkProcessStmt, slot)
+	if err != nil {
+		return false, err
+	}
+	row, err := processRow.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+
+	if row > 0 {
+		return true, nil
+	}
+	return false, nil
+}

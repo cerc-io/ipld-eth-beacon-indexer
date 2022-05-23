@@ -25,21 +25,24 @@ import (
 )
 
 var (
-	dbUsername             string
-	dbPassword             string
-	dbName                 string
-	dbAddress              string
-	dbDriver               string
-	dbPort                 int
-	bcAddress              string
-	bcPort                 int
-	bcBootRetryInterval    int
-	bcBootMaxRetry         int
-	bcConnectionProtocol   string
-	bcType                 string
-	maxWaitSecondsShutdown time.Duration  = time.Duration(5) * time.Second
-	notifierCh             chan os.Signal = make(chan os.Signal, 1)
-	testDisregardSync      bool
+	dbUsername                 string
+	dbPassword                 string
+	dbName                     string
+	dbAddress                  string
+	dbDriver                   string
+	dbPort                     int
+	bcAddress                  string
+	bcPort                     int
+	bcBootRetryInterval        int
+	bcBootMaxRetry             int
+	bcConnectionProtocol       string
+	bcType                     string
+	bcIsProcessKnownGaps       bool
+	bcMaxHistoricProcessWorker int
+	bcMaxKnownGapsWorker       int
+	maxWaitSecondsShutdown     time.Duration  = time.Duration(5) * time.Second
+	notifierCh                 chan os.Signal = make(chan os.Signal, 1)
+	testDisregardSync          bool
 )
 
 // captureCmd represents the capture command
@@ -84,6 +87,9 @@ func init() {
 	captureCmd.PersistentFlags().StringVarP(&bcConnectionProtocol, "bc.connectionProtocol", "", "http", "protocol for connecting to the beacon node.")
 	captureCmd.PersistentFlags().IntVarP(&bcBootRetryInterval, "bc.bootRetryInterval", "", 30, "The amount of time to wait between retries while booting the application")
 	captureCmd.PersistentFlags().IntVarP(&bcBootMaxRetry, "bc.bootMaxRetry", "", 5, "The amount of time to wait between retries while booting the application")
+	captureCmd.PersistentFlags().IntVarP(&bcMaxHistoricProcessWorker, "bc.maxHistoricProcessWorker", "", 30, "The number of workers that should be actively processing slots from the ethcl.historic_process table. Be careful of system memory.")
+	captureCmd.PersistentFlags().IntVarP(&bcMaxKnownGapsWorker, "bc.maxKnownGapsWorker", "", 30, "The number of workers that should be actively processing slots from the ethcl.historic_process table. Be careful of system memory.")
+	captureCmd.PersistentFlags().BoolVar(&bcIsProcessKnownGaps, "bc.knownGapsProcess", false, "Should we process entries from the knownGaps table as they occur?")
 	err = captureCmd.MarkPersistentFlagRequired("bc.address")
 	exitErr(err)
 	err = captureCmd.MarkPersistentFlagRequired("bc.port")
@@ -104,10 +110,10 @@ func init() {
 	exitErr(err)
 	err = viper.BindPFlag("db.name", captureCmd.PersistentFlags().Lookup("db.name"))
 	exitErr(err)
-	err = viper.BindPFlag("t.skipSync", captureCmd.PersistentFlags().Lookup("t.skipSync"))
-	exitErr(err)
 
 	// Testing Specific
+	err = viper.BindPFlag("t.skipSync", captureCmd.PersistentFlags().Lookup("t.skipSync"))
+	exitErr(err)
 	err = viper.BindPFlag("t.driver", captureCmd.PersistentFlags().Lookup("db.driver"))
 	exitErr(err)
 
@@ -123,6 +129,14 @@ func init() {
 	err = viper.BindPFlag("bc.bootRetryInterval", captureCmd.PersistentFlags().Lookup("bc.bootRetryInterval"))
 	exitErr(err)
 	err = viper.BindPFlag("bc.bootMaxRetry", captureCmd.PersistentFlags().Lookup("bc.bootMaxRetry"))
+	exitErr(err)
+	err = viper.BindPFlag("bc.bootMaxRetry", captureCmd.PersistentFlags().Lookup("bc.bootMaxRetry"))
+	exitErr(err)
+	err = viper.BindPFlag("bc.knownGapsProcess", captureCmd.PersistentFlags().Lookup("bc.knownGapsProcess"))
+	exitErr(err)
+	err = viper.BindPFlag("bc.maxHistoricProcessWorker", captureCmd.PersistentFlags().Lookup("bc.maxHistoricProcessWorker"))
+	exitErr(err)
+	err = viper.BindPFlag("bc.maxKnownGapsWorker", captureCmd.PersistentFlags().Lookup("bc.maxKnownGapsWorker"))
 	exitErr(err)
 	// Here you will define your flags and configuration settings.
 

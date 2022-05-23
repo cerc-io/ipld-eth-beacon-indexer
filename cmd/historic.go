@@ -18,6 +18,7 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 	"os"
 
 	log "github.com/sirupsen/logrus"
@@ -26,6 +27,7 @@ import (
 	"github.com/vulcanize/ipld-ethcl-indexer/internal/shutdown"
 	"github.com/vulcanize/ipld-ethcl-indexer/pkg/database/sql"
 	"github.com/vulcanize/ipld-ethcl-indexer/pkg/loghelper"
+	"golang.org/x/sync/errgroup"
 )
 
 // historicCmd represents the historic command
@@ -49,12 +51,35 @@ func startHistoricProcessing() {
 	if err != nil {
 		StopApplicationPreBoot(err, Db)
 	}
-	errs := Bc.CaptureHistoric(2)
-	if errs != nil {
-		log.WithFields(log.Fields{
-			"TotalErrors": errs,
-		}).Error("The historical processing service ended after receiving too many errors.")
+
+	errG, _ := errgroup.WithContext(context.Background())
+
+	errG.Go(func() error {
+		errs := Bc.CaptureHistoric(bcMaxHistoricProcessWorker)
+		if len(errs) != 0 {
+			if len(errs) != 0 {
+				log.WithFields(log.Fields{"errs": errs}).Error("All errors when processing historic events")
+				return fmt.Errorf("Application ended because there were too many error when attempting to process historic")
+			}
+		}
+		return nil
+	})
+
+	if bcIsProcessKnownGaps {
+		errG.Go(func() error {
+			errs := Bc.ProcessKnownGaps(bcMaxKnownGapsWorker)
+			if len(errs) != 0 {
+				log.WithFields(log.Fields{"errs": errs}).Error("All errors when processing knownGaps")
+				return fmt.Errorf("Application ended because there were too many error when attempting to process knownGaps")
+			}
+			return nil
+		})
 	}
+	if err := errG.Wait(); err != nil {
+		loghelper.LogError(err).Error("Error with knownGaps processing")
+	}
+
+	log.Debug("WE ARE AT CHECKPOINT")
 
 	// Shutdown when the time is right.
 	err = shutdown.ShutdownServices(ctx, notifierCh, maxWaitSecondsShutdown, Db, Bc)

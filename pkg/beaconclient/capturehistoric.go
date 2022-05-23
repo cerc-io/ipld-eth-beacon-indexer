@@ -78,7 +78,7 @@ func handleBatchProcess(maxWorkers int, bp BatchProcessing, db sql.Database, ser
 
 	// Start workers
 	for w := 1; w <= maxWorkers; w++ {
-		log.WithFields(log.Fields{"maxWorkers": maxWorkers}).Debug("Starting historic processing workers")
+		log.WithFields(log.Fields{"maxWorkers": maxWorkers}).Debug("Starting batch  processing workers")
 		go processSlotRangeWorker(workCh, errCh, db, serverEndpoint, metrics)
 	}
 

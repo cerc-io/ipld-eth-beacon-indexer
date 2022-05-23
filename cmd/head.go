@@ -18,6 +18,7 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -25,6 +26,7 @@ import (
 	"github.com/vulcanize/ipld-ethcl-indexer/internal/boot"
 	"github.com/vulcanize/ipld-ethcl-indexer/internal/shutdown"
 	"github.com/vulcanize/ipld-ethcl-indexer/pkg/loghelper"
+	"golang.org/x/sync/errgroup"
 )
 
 var (
@@ -56,6 +58,20 @@ func startHeadTracking() {
 	log.Info("The Beacon Client has booted successfully!")
 	// Capture head blocks
 	go Bc.CaptureHead()
+	if bcIsProcessKnownGaps {
+		errG := new(errgroup.Group)
+		errG.Go(func() error {
+			errs := Bc.ProcessKnownGaps(bcMaxKnownGapsWorker)
+			if len(errs) != 0 {
+				log.WithFields(log.Fields{"errs": errs}).Error("All errors when processing knownGaps")
+				return fmt.Errorf("Application ended because there were too many error when attempting to process knownGaps")
+			}
+			return nil
+		})
+		if err := errG.Wait(); err != nil {
+			loghelper.LogError(err).Error("Error with knownGaps processing")
+		}
+	}
 
 	// Shutdown when the time is right.
 	err = shutdown.ShutdownServices(ctx, notifierCh, maxWaitSecondsShutdown, Db, Bc)
