@@ -94,11 +94,11 @@ func CreateBeaconClient(ctx context.Context, connectionProtocol string, bcAddres
 		HeadTracking:           createSseEvent[Head](endpoint, BcHeadTopicEndpoint),
 		ReOrgTracking:          createSseEvent[ChainReorg](endpoint, bcReorgTopicEndpoint),
 		Metrics: &BeaconClientMetrics{
-			HeadTrackingInserts:   0,
-			HeadTrackingReorgs:    0,
-			HeadTrackingKnownGaps: 0,
-			HeadError:             0,
-			HeadReorgError:        0,
+			SlotInserts:      0,
+			ReorgInserts:     0,
+			KnownGapsInserts: 0,
+			HeadError:        0,
+			HeadReorgError:   0,
 		},
 		//FinalizationTracking: createSseEvent[FinalizedCheckpoint](endpoint, bcFinalizedTopicEndpoint),
 	}

@@ -23,6 +23,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/vulcanize/ipld-ethcl-indexer/internal/boot"
+	"github.com/vulcanize/ipld-ethcl-indexer/internal/shutdown"
 	"github.com/vulcanize/ipld-ethcl-indexer/pkg/database/sql"
 	"github.com/vulcanize/ipld-ethcl-indexer/pkg/loghelper"
 )
@@ -43,10 +44,24 @@ func startHistoricProcessing() {
 	log.Info("Starting the application in head tracking mode.")
 	ctx := context.Background()
 
-	_, DB, err := boot.BootApplicationWithRetry(ctx, dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver,
+	Bc, Db, err := boot.BootApplicationWithRetry(ctx, dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver,
 		bcAddress, bcPort, bcConnectionProtocol, bcType, bcBootRetryInterval, bcBootMaxRetry, kgTableIncrement, "historic", testDisregardSync)
 	if err != nil {
-		StopApplicationPreBoot(err, DB)
+		StopApplicationPreBoot(err, Db)
+	}
+	errs := Bc.CaptureHistoric(2)
+	if errs != nil {
+		log.WithFields(log.Fields{
+			"TotalErrors": errs,
+		}).Error("The historical processing service ended after receiving too many errors.")
+	}
+
+	// Shutdown when the time is right.
+	err = shutdown.ShutdownServices(ctx, notifierCh, maxWaitSecondsShutdown, Db, Bc)
+	if err != nil {
+		loghelper.LogError(err).Error("Ungracefully Shutdown ipld-ethcl-indexer!")
+	} else {
+		log.Info("Gracefully shutdown ipld-ethcl-indexer")
 	}
 }
 

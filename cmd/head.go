@@ -47,18 +47,18 @@ func startHeadTracking() {
 	log.Info("Starting the application in head tracking mode.")
 	ctx := context.Background()
 
-	BC, DB, err := boot.BootApplicationWithRetry(ctx, dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver,
-		bcAddress, bcPort, bcConnectionProtocol, bcType, bcBootRetryInterval, bcBootMaxRetry, kgTableIncrement, "historic", testDisregardSync)
+	Bc, Db, err := boot.BootApplicationWithRetry(ctx, dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver,
+		bcAddress, bcPort, bcConnectionProtocol, bcType, bcBootRetryInterval, bcBootMaxRetry, kgTableIncrement, "head", testDisregardSync)
 	if err != nil {
-		StopApplicationPreBoot(err, DB)
+		StopApplicationPreBoot(err, Db)
 	}
 
 	log.Info("The Beacon Client has booted successfully!")
 	// Capture head blocks
-	go BC.CaptureHead()
+	go Bc.CaptureHead()
 
 	// Shutdown when the time is right.
-	err = shutdown.ShutdownServices(ctx, notifierCh, maxWaitSecondsShutdown, DB, BC)
+	err = shutdown.ShutdownServices(ctx, notifierCh, maxWaitSecondsShutdown, Db, Bc)
 	if err != nil {
 		loghelper.LogError(err).Error("Ungracefully Shutdown ipld-ethcl-indexer!")
 	} else {

@@ -148,8 +148,10 @@ func (dw *DatabaseWriter) writeFullSlot() error {
 	}).Debug("Starting to write to the DB.")
 	err := dw.writeSlots()
 	if err != nil {
+		loghelper.LogSlotError(dw.DbSlots.Slot, err).Debug("We couldnt write to the ethcl.slots table...")
 		return err
 	}
+	log.Debug("We finished writing to the ethcl.slots table.")
 	if dw.DbSlots.Status != "skipped" {
 		err = dw.writeSignedBeaconBlocks()
 		if err != nil {
