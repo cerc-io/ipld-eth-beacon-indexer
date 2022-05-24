@@ -84,18 +84,37 @@ func BootApplication(ctx context.Context, dbHostname string, dbPort int, dbName 
 func BootApplicationWithRetry(ctx context.Context, dbHostname string, dbPort int, dbName string, dbUsername string, dbPassword string, driverName string,
 	bcAddress string, bcPort int, bcConnectionProtocol string, bcType string, bcRetryInterval int, bcMaxRetry int, bcKgTableIncrement int, startUpMode string, disregardSync bool) (*beaconclient.BeaconClient, sql.Database, error) {
 	var err error
-	for i := 0; i < bcMaxRetry; i++ {
-		BC, DB, err = BootApplication(ctx, dbHostname, dbPort, dbName, dbUsername, dbPassword, driverName,
-			bcAddress, bcPort, bcConnectionProtocol, bcKgTableIncrement, disregardSync)
-		if err != nil {
-			log.WithFields(log.Fields{
-				"retryNumber": i,
-				"err":         err,
-			}).Warn("Unable to boot application. Going to try again")
-			time.Sleep(time.Duration(bcRetryInterval) * time.Second)
-			continue
+
+	if bcMaxRetry < 0 {
+		i := 0
+		for {
+			BC, DB, err = BootApplication(ctx, dbHostname, dbPort, dbName, dbUsername, dbPassword, driverName,
+				bcAddress, bcPort, bcConnectionProtocol, bcKgTableIncrement, disregardSync)
+			if err != nil {
+				log.WithFields(log.Fields{
+					"retryNumber": i,
+					"err":         err,
+				}).Warn("Unable to boot application. Going to try again")
+				time.Sleep(time.Duration(bcRetryInterval) * time.Second)
+				i = i + 1
+				continue
+			}
+			break
 		}
-		break
+	} else {
+		for i := 0; i < bcMaxRetry; i++ {
+			BC, DB, err = BootApplication(ctx, dbHostname, dbPort, dbName, dbUsername, dbPassword, driverName,
+				bcAddress, bcPort, bcConnectionProtocol, bcKgTableIncrement, disregardSync)
+			if err != nil {
+				log.WithFields(log.Fields{
+					"retryNumber": i,
+					"err":         err,
+				}).Warn("Unable to boot application. Going to try again")
+				time.Sleep(time.Duration(bcRetryInterval) * time.Second)
+				continue
+			}
+			break
+		}
 	}
 
 	switch strings.ToLower(startUpMode) {
@@ -104,6 +123,13 @@ func BootApplicationWithRetry(ctx context.Context, dbHostname string, dbPort int
 	case "historic":
 		log.Debug("Performing additional boot steps for historical processing")
 		BC.PerformHistoricalProcessing = true
+		// This field is not currently used.
+		// The idea is, that if we are doing historially processing and we get a slot
+		// greater than this slot, then we would rerun this function.
+		// this would ensure that we have the slots necessary for processing
+		// within the beacon server.
+
+		// We can implement this feature if we notice any errors.
 		headSlot, err := BC.GetLatestSlotInBeaconServer(bcType)
 		if err != nil {
 			return BC, DB, err

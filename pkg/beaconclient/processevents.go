@@ -68,5 +68,4 @@ func (bc *BeaconClient) handleHead() {
 		bc.PreviousSlot = slot
 		bc.PreviousBlockRoot = head.Block
 	}
-
 }

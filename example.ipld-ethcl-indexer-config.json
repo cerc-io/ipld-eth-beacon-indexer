@@ -1,0 +1,33 @@
+{
+  "db": {
+    "address": "localhost",
+    "password": "password",
+    "port": 8076,
+    "username": "vdbm",
+    "name": "vulcanize_testing",
+    "driver": "PGX"
+  },
+  "bc": {
+    "address": "10.203.8.51",
+    "port": 5052,
+    "type": "lighthouse",
+    "bootRetryInterval": 30,
+    "bootMaxRetry": 5,
+    "maxHistoricProcessWorker": 2,
+    "connectionProtocol": "http"
+  },
+  "t": {
+    "skipSync": false
+  },
+  "log": {
+    "level": "debug",
+    "output": true,
+    "file": "./ipld-ethcl-indexer.log",
+    "format": "json"
+  },
+  "kg": {
+    "increment": 10000,
+    "processKnownGaps": true,
+    "maxKnownGapsWorker": 2
+  }
+}

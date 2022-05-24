@@ -19,6 +19,7 @@
 package beaconclient
 
 import (
+	"context"
 	"strconv"
 
 	log "github.com/sirupsen/logrus"
@@ -39,6 +40,9 @@ var (
 	WHERE start_slot=$1 AND end_slot=$2;`
 	// Used to delete an entry from the knownGaps table
 	deleteKgEntryStmt string = `DELETE FROM ethcl.known_gaps
+	WHERE start_slot=$1 AND end_slot=$2;`
+	// Used to check to see if a single slot exists in the known_gaps table.
+	checkKgSingleSlotStmt string = `SELECT start_slot, end_slot FROM ethcl.known_gaps
 	WHERE start_slot=$1 AND end_slot=$2;`
 )
 
@@ -70,7 +74,28 @@ func (kgp knownGapsProcessing) removeTableEntry(processCh <-chan slotsToProcess)
 func (kgp knownGapsProcessing) handleProcessingErrors(errMessages <-chan batchHistoricError) {
 	for {
 		errMs := <-errMessages
-		loghelper.LogSlotError(strconv.Itoa(errMs.slot), errMs.err)
-		writeKnownGaps(kgp.db, 1, errMs.slot, errMs.slot, errMs.err, errMs.errProcess, kgp.metrics)
+
+		// Check to see if this if this entry already exists.
+		res, err := kgp.db.Exec(context.Background(), checkKgSingleSlotStmt, errMs.slot, errMs.slot)
+		if err != nil {
+			loghelper.LogSlotError(strconv.Itoa(errMs.slot), err).Error("Unable to see if this slot is in the ethcl.known_gaps table")
+		}
+
+		rows, err := res.RowsAffected()
+		if err != nil {
+			loghelper.LogSlotError(strconv.Itoa(errMs.slot), err).WithFields(log.Fields{
+				"queryStatement": checkKgSingleSlotStmt,
+			}).Error("Unable to get the number of rows affected by this statement.")
+		}
+
+		if rows > 0 {
+			loghelper.LogSlotError(strconv.Itoa(errMs.slot), errMs.err).Error("We received an error when processing a knownGap")
+			err = updateKnownGapErrors(kgp.db, errMs.slot, errMs.slot, errMs.err, kgp.metrics)
+			if err != nil {
+				loghelper.LogSlotError(strconv.Itoa(errMs.slot), err).Error("Error processing known gap")
+			}
+		} else {
+			writeKnownGaps(kgp.db, 1, errMs.slot, errMs.slot, errMs.err, errMs.errProcess, kgp.metrics)
+		}
 	}
 }

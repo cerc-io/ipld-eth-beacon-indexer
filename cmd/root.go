@@ -47,6 +47,7 @@ It can either do this will keeping track of head, or backfilling historic data.`
 func Execute() {
 	err := rootCmd.Execute()
 	if err != nil {
+		fmt.Println("Err when executing rootCmd", err)
 		os.Exit(1)
 	}
 }

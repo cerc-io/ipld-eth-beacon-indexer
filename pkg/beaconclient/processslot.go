@@ -114,13 +114,8 @@ func processFullSlot(db sql.Database, serverAddress string, slot int, blockRoot 
 		return err, "processSlot"
 	}
 
-	if ps.HeadOrHistoric == "head" && previousSlot == 0 && previousBlockRoot == "" {
-		writeStartUpGaps(db, knownGapsTableIncrement, ps.Slot, ps.Metrics)
-	}
-
 	// Get this object ready to write
-	blockRootEndpoint := serverAddress + BcBlockRootEndpoint(strconv.Itoa(ps.Slot))
-	dw, err := ps.createWriteObjects(blockRootEndpoint)
+	dw, err := ps.createWriteObjects()
 	if err != nil {
 		return err, "blockRoot"
 	}
@@ -143,6 +138,10 @@ func processFullSlot(db sql.Database, serverAddress string, slot int, blockRoot 
 
 // Handle a slot that is at head. A wrapper function for calling `handleFullSlot`.
 func processHeadSlot(db sql.Database, serverAddress string, slot int, blockRoot string, stateRoot string, previousSlot int, previousBlockRoot string, metrics *BeaconClientMetrics, knownGapsTableIncrement int) {
+	// Get the knownGaps at startUp.
+	if previousSlot == 0 && previousBlockRoot == "" {
+		writeStartUpGaps(db, knownGapsTableIncrement, slot, metrics)
+	}
 	err, errReason := processFullSlot(db, serverAddress, slot, blockRoot, stateRoot, previousSlot, previousBlockRoot, "head", metrics, knownGapsTableIncrement)
 	if err != nil {
 		writeKnownGaps(db, knownGapsTableIncrement, slot, slot, err, errReason, metrics)
@@ -241,6 +240,11 @@ func (ps *ProcessSlot) checkPreviousSlot(previousSlot int, previousBlockRoot str
 			"fork": true,
 		}).Warn("A fork occurred! The previous slot and current slot match.")
 		writeReorgs(ps.Db, strconv.Itoa(ps.Slot), ps.BlockRoot, ps.Metrics)
+	} else if previousSlot > int(ps.FullBeaconState.Slot()) {
+		log.WithFields(log.Fields{
+			"previousSlot": previousSlot,
+			"curSlot":      int(ps.FullBeaconState.Slot()),
+		}).Warn("We noticed the previous slot is greater than the current slot.")
 	} else if previousSlot+1 != int(ps.FullBeaconState.Slot()) {
 		log.WithFields(log.Fields{
 			"previousSlot": previousSlot,
@@ -259,7 +263,7 @@ func (ps *ProcessSlot) checkPreviousSlot(previousSlot int, previousBlockRoot str
 }
 
 // Transforms all the raw data into DB models that can be written to the DB.
-func (ps *ProcessSlot) createWriteObjects(blockRootEndpoint string) (*DatabaseWriter, error) {
+func (ps *ProcessSlot) createWriteObjects() (*DatabaseWriter, error) {
 	var (
 		stateRoot     string
 		blockRoot     string

@@ -29,10 +29,6 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-var (
-	kgTableIncrement int
-)
-
 // headCmd represents the head command
 var headCmd = &cobra.Command{
 	Use:   "head",
@@ -49,8 +45,9 @@ func startHeadTracking() {
 	log.Info("Starting the application in head tracking mode.")
 	ctx := context.Background()
 
-	Bc, Db, err := boot.BootApplicationWithRetry(ctx, dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver,
-		bcAddress, bcPort, bcConnectionProtocol, bcType, bcBootRetryInterval, bcBootMaxRetry, kgTableIncrement, "head", testDisregardSync)
+	Bc, Db, err := boot.BootApplicationWithRetry(ctx, viper.GetString("db.address"), viper.GetInt("db.port"), viper.GetString("db.name"), viper.GetString("db.username"), viper.GetString("db.password"), viper.GetString("db.driver"),
+		viper.GetString("bc.address"), viper.GetInt("bc.port"), viper.GetString("bc.connectionProtocol"), viper.GetString("bc.type"), viper.GetInt("bc.bootRetryInterval"), viper.GetInt("bc.bootMaxRetry"),
+		viper.GetInt("kg.increment"), "head", viper.GetBool("t.skipSync"))
 	if err != nil {
 		StopApplicationPreBoot(err, Db)
 	}
@@ -58,19 +55,21 @@ func startHeadTracking() {
 	log.Info("The Beacon Client has booted successfully!")
 	// Capture head blocks
 	go Bc.CaptureHead()
-	if bcIsProcessKnownGaps {
-		errG := new(errgroup.Group)
-		errG.Go(func() error {
-			errs := Bc.ProcessKnownGaps(bcMaxKnownGapsWorker)
-			if len(errs) != 0 {
-				log.WithFields(log.Fields{"errs": errs}).Error("All errors when processing knownGaps")
-				return fmt.Errorf("Application ended because there were too many error when attempting to process knownGaps")
+	if viper.GetBool("kg.processKnownGaps") {
+		go func() {
+			errG := new(errgroup.Group)
+			errG.Go(func() error {
+				errs := Bc.ProcessKnownGaps(viper.GetInt("kg.maxKnownGapsWorker"))
+				if len(errs) != 0 {
+					log.WithFields(log.Fields{"errs": errs}).Error("All errors when processing knownGaps")
+					return fmt.Errorf("Application ended because there were too many error when attempting to process knownGaps")
+				}
+				return nil
+			})
+			if err := errG.Wait(); err != nil {
+				loghelper.LogError(err).Error("Error with knownGaps processing")
 			}
-			return nil
-		})
-		if err := errG.Wait(); err != nil {
-			loghelper.LogError(err).Error("Error with knownGaps processing")
-		}
+		}()
 	}
 
 	// Shutdown when the time is right.
@@ -85,9 +84,4 @@ func startHeadTracking() {
 
 func init() {
 	captureCmd.AddCommand(headCmd)
-
-	// Known Gaps specific
-	captureCmd.PersistentFlags().IntVarP(&kgTableIncrement, "kg.increment", "", 10000, "The max slots within a single entry to the known_gaps table.")
-	err := viper.BindPFlag("kg.increment", captureCmd.PersistentFlags().Lookup("kg.increment"))
-	exitErr(err)
 }

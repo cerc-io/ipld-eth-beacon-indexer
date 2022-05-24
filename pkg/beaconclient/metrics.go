@@ -21,11 +21,13 @@ import (
 
 // A structure utilized for keeping track of various metrics. Currently, mostly used in testing.
 type BeaconClientMetrics struct {
-	SlotInserts      uint64 // Number of head events we successfully wrote to the DB.
-	ReorgInserts     uint64 // Number of reorg events we successfully wrote to the DB.
-	KnownGapsInserts uint64 // Number of known_gaps we successfully wrote to the DB.
-	HeadError        uint64 // Number of errors that occurred when decoding the head message.
-	HeadReorgError   uint64 // Number of errors that occurred when decoding the reorg message.
+	SlotInserts              uint64 // Number of head events we successfully wrote to the DB.
+	ReorgInserts             uint64 // Number of reorg events we successfully wrote to the DB.
+	KnownGapsInserts         uint64 // Number of known_gaps we successfully wrote to the DB.
+	knownGapsProcessed       uint64 // Number of knownGaps processed.
+	KnownGapsProcessingError uint64 // Number of errors that occurred while processing a knownGap
+	HeadError                uint64 // Number of errors that occurred when decoding the head message.
+	HeadReorgError           uint64 // Number of errors that occurred when decoding the reorg message.
 }
 
 // Wrapper function to increment inserts. If we want to use mutexes later we can easily update all
@@ -44,6 +46,18 @@ func (m *BeaconClientMetrics) IncrementReorgsInsert(inc uint64) {
 // occurrences here.
 func (m *BeaconClientMetrics) IncrementKnownGapsInserts(inc uint64) {
 	atomic.AddUint64(&m.KnownGapsInserts, inc)
+}
+
+// Wrapper function to increment known gaps processed. If we want to use mutexes later we can easily update all
+// occurrences here.
+func (m *BeaconClientMetrics) IncrementKnownGapsProcessed(inc uint64) {
+	atomic.AddUint64(&m.knownGapsProcessed, inc)
+}
+
+// Wrapper function to increment known gaps processing error. If we want to use mutexes later we can easily update all
+// occurrences here.
+func (m *BeaconClientMetrics) IncrementKnownGapsProcessingError(inc uint64) {
+	atomic.AddUint64(&m.KnownGapsProcessingError, inc)
 }
 
 // Wrapper function to increment head errors. If we want to use mutexes later we can easily update all

@@ -62,6 +62,11 @@ VALUES ($1, $2) ON CONFLICT (key) DO NOTHING`
 	UpsertKnownGapsStmt string = `
 INSERT INTO ethcl.known_gaps (start_slot, end_slot, checked_out, reprocessing_error, entry_error, entry_process)
 VALUES ($1, $2, $3, $4, $5, $6) on CONFLICT (start_slot, end_slot) DO NOTHING`
+	UpsertKnownGapsErrorStmt string = `
+	UPDATE ethcl.known_gaps
+	SET reprocessing_error=$3
+	WHERE start_slot=$1 AND end_slot=$2;`
+	// Get the highest slot if one exists
 	QueryHighestSlotStmt string = "SELECT COALESCE(MAX(slot), 0) FROM ethcl.slots"
 )
 
@@ -412,6 +417,31 @@ func writeStartUpGaps(db sql.Database, tableIncrement int, firstSlot int, metric
 	if maxSlot != firstSlot-1 {
 		writeKnownGaps(db, tableIncrement, maxSlot+1, firstSlot-1, fmt.Errorf(""), "startup", metric)
 	}
+}
+
+// A function to update a knownGap range with a reprocessing error.
+func updateKnownGapErrors(db sql.Database, startSlot int, endSlot int, reprocessingErr error, metric *BeaconClientMetrics) error {
+	res, err := db.Exec(context.Background(), UpsertKnownGapsErrorStmt, startSlot, endSlot, reprocessingErr.Error())
+	if err != nil {
+		loghelper.LogSlotRangeError(strconv.Itoa(startSlot), strconv.Itoa(endSlot), err).Error("Unable to update reprocessing_error")
+		metric.IncrementKnownGapsProcessingError(1)
+		return err
+	}
+	row, err := res.RowsAffected()
+	if err != nil {
+		loghelper.LogSlotRangeError(strconv.Itoa(startSlot), strconv.Itoa(endSlot), err).Error("Unable to count rows affected when trying to update reprocessing_error.")
+		metric.IncrementKnownGapsProcessingError(1)
+		return err
+	}
+	if row != 1 {
+		loghelper.LogSlotRangeError(strconv.Itoa(startSlot), strconv.Itoa(endSlot), err).WithFields(log.Fields{
+			"rowCount": row,
+		}).Error("The rows affected by the upsert for reprocessing_error is not 1.")
+		metric.IncrementKnownGapsProcessingError(1)
+		return err
+	}
+	metric.IncrementKnownGapsProcessed(1)
+	return nil
 }
 
 // A quick helper function to calculate the epoch.

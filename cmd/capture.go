@@ -17,6 +17,7 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 	"time"
 
@@ -39,8 +40,10 @@ var (
 	bcType                     string
 	bcIsProcessKnownGaps       bool
 	bcMaxHistoricProcessWorker int
-	bcMaxKnownGapsWorker       int
-	maxWaitSecondsShutdown     time.Duration  = time.Duration(5) * time.Second
+	kgMaxWorker                int
+	kgTableIncrement           int
+	kgProcessGaps              bool
+	maxWaitSecondsShutdown     time.Duration  = time.Duration(20) * time.Second
 	notifierCh                 chan os.Signal = make(chan os.Signal, 1)
 	testDisregardSync          bool
 )
@@ -67,18 +70,18 @@ func init() {
 	captureCmd.PersistentFlags().StringVarP(&dbName, "db.name", "n", "", "Database name connect to DB(required)")
 	captureCmd.PersistentFlags().StringVarP(&dbDriver, "db.driver", "", "", "Database Driver to connect to DB(required)")
 	captureCmd.PersistentFlags().IntVarP(&dbPort, "db.port", "", 0, "Port to connect to DB(required)")
-	err := captureCmd.MarkPersistentFlagRequired("db.username")
-	exitErr(err)
-	err = captureCmd.MarkPersistentFlagRequired("db.password")
-	exitErr(err)
-	err = captureCmd.MarkPersistentFlagRequired("db.address")
-	exitErr(err)
-	err = captureCmd.MarkPersistentFlagRequired("db.port")
-	exitErr(err)
-	err = captureCmd.MarkPersistentFlagRequired("db.name")
-	exitErr(err)
-	err = captureCmd.MarkPersistentFlagRequired("db.driver")
-	exitErr(err)
+	//err := captureCmd.MarkPersistentFlagRequired("db.username")
+	// exitErr(err)
+	// err = captureCmd.MarkPersistentFlagRequired("db.password")
+	// exitErr(err)
+	// err = captureCmd.MarkPersistentFlagRequired("db.address")
+	// exitErr(err)
+	// err = captureCmd.MarkPersistentFlagRequired("db.port")
+	// exitErr(err)
+	// err = captureCmd.MarkPersistentFlagRequired("db.name")
+	// exitErr(err)
+	// err = captureCmd.MarkPersistentFlagRequired("db.driver")
+	// exitErr(err)
 
 	//// Beacon Client Specific
 	captureCmd.PersistentFlags().StringVarP(&bcAddress, "bc.address", "l", "", "Address to connect to beacon node (required)")
@@ -88,19 +91,22 @@ func init() {
 	captureCmd.PersistentFlags().IntVarP(&bcBootRetryInterval, "bc.bootRetryInterval", "", 30, "The amount of time to wait between retries while booting the application")
 	captureCmd.PersistentFlags().IntVarP(&bcBootMaxRetry, "bc.bootMaxRetry", "", 5, "The amount of time to wait between retries while booting the application")
 	captureCmd.PersistentFlags().IntVarP(&bcMaxHistoricProcessWorker, "bc.maxHistoricProcessWorker", "", 30, "The number of workers that should be actively processing slots from the ethcl.historic_process table. Be careful of system memory.")
-	captureCmd.PersistentFlags().IntVarP(&bcMaxKnownGapsWorker, "bc.maxKnownGapsWorker", "", 30, "The number of workers that should be actively processing slots from the ethcl.historic_process table. Be careful of system memory.")
-	captureCmd.PersistentFlags().BoolVar(&bcIsProcessKnownGaps, "bc.knownGapsProcess", false, "Should we process entries from the knownGaps table as they occur?")
-	err = captureCmd.MarkPersistentFlagRequired("bc.address")
-	exitErr(err)
-	err = captureCmd.MarkPersistentFlagRequired("bc.port")
-	exitErr(err)
+	// err = captureCmd.MarkPersistentFlagRequired("bc.address")
+	// exitErr(err)
+	// err = captureCmd.MarkPersistentFlagRequired("bc.port")
+	// exitErr(err)
+
+	//// Known Gaps specific
+	captureCmd.PersistentFlags().BoolVarP(&kgProcessGaps, "kg.processKnownGaps", "", true, "Should we process the slots within the ethcl.known_gaps table.")
+	captureCmd.PersistentFlags().IntVarP(&kgTableIncrement, "kg.increment", "", 10000, "The max slots within a single entry to the known_gaps table.")
+	captureCmd.PersistentFlags().IntVarP(&kgMaxWorker, "kg.maxKnownGapsWorker", "", 30, "The number of workers that should be actively processing slots from the ethcl.known_gaps table. Be careful of system memory.")
 
 	//// Testing Specific
 	captureCmd.PersistentFlags().BoolVar(&testDisregardSync, "t.skipSync", false, "Should we disregard the head sync?")
 
 	// Bind Flags with Viper
 	//// DB Flags
-	err = viper.BindPFlag("db.username", captureCmd.PersistentFlags().Lookup("db.username"))
+	err := viper.BindPFlag("db.username", captureCmd.PersistentFlags().Lookup("db.username"))
 	exitErr(err)
 	err = viper.BindPFlag("db.password", captureCmd.PersistentFlags().Lookup("db.password"))
 	exitErr(err)
@@ -111,13 +117,11 @@ func init() {
 	err = viper.BindPFlag("db.name", captureCmd.PersistentFlags().Lookup("db.name"))
 	exitErr(err)
 
-	// Testing Specific
+	//// Testing Specific
 	err = viper.BindPFlag("t.skipSync", captureCmd.PersistentFlags().Lookup("t.skipSync"))
 	exitErr(err)
-	err = viper.BindPFlag("t.driver", captureCmd.PersistentFlags().Lookup("db.driver"))
-	exitErr(err)
 
-	// LH specific
+	//// LH specific
 	err = viper.BindPFlag("bc.address", captureCmd.PersistentFlags().Lookup("bc.address"))
 	exitErr(err)
 	err = viper.BindPFlag("bc.type", captureCmd.PersistentFlags().Lookup("bc.type"))
@@ -130,15 +134,17 @@ func init() {
 	exitErr(err)
 	err = viper.BindPFlag("bc.bootMaxRetry", captureCmd.PersistentFlags().Lookup("bc.bootMaxRetry"))
 	exitErr(err)
-	err = viper.BindPFlag("bc.bootMaxRetry", captureCmd.PersistentFlags().Lookup("bc.bootMaxRetry"))
-	exitErr(err)
-	err = viper.BindPFlag("bc.knownGapsProcess", captureCmd.PersistentFlags().Lookup("bc.knownGapsProcess"))
-	exitErr(err)
 	err = viper.BindPFlag("bc.maxHistoricProcessWorker", captureCmd.PersistentFlags().Lookup("bc.maxHistoricProcessWorker"))
 	exitErr(err)
-	err = viper.BindPFlag("bc.maxKnownGapsWorker", captureCmd.PersistentFlags().Lookup("bc.maxKnownGapsWorker"))
-	exitErr(err)
 	// Here you will define your flags and configuration settings.
+
+	//// Known Gap Specific
+	err = viper.BindPFlag("kg.processKnownGaps", captureCmd.PersistentFlags().Lookup("kg.processKnownGaps"))
+	exitErr(err)
+	err = viper.BindPFlag("kg.increment", captureCmd.PersistentFlags().Lookup("kg.increment"))
+	exitErr(err)
+	err = viper.BindPFlag("kg.processKnownGaps", captureCmd.PersistentFlags().Lookup("kg.maxKnownGapsWorker"))
+	exitErr(err)
 
 }
 
@@ -146,6 +152,7 @@ func init() {
 // We need to capture these errors for the linter.
 func exitErr(err error) {
 	if err != nil {
+		fmt.Println("Error: ", err)
 		os.Exit(1)
 	}
 }
