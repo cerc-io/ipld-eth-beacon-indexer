@@ -42,6 +42,9 @@ var (
 	kgMaxWorker                int
 	kgTableIncrement           int
 	kgProcessGaps              bool
+	pmMetrics                  bool
+	pmAddress                  string
+	pmPort                     int
 	maxWaitSecondsShutdown     time.Duration  = time.Duration(20) * time.Second
 	notifierCh                 chan os.Signal = make(chan os.Signal, 1)
 	testDisregardSync          bool
@@ -100,6 +103,11 @@ func init() {
 	captureCmd.PersistentFlags().IntVarP(&kgTableIncrement, "kg.increment", "", 10000, "The max slots within a single entry to the known_gaps table.")
 	captureCmd.PersistentFlags().IntVarP(&kgMaxWorker, "kg.maxKnownGapsWorker", "", 30, "The number of workers that should be actively processing slots from the ethcl.known_gaps table. Be careful of system memory.")
 
+	// Prometheus Specific
+	captureCmd.PersistentFlags().BoolVarP(&pmMetrics, "pm.metrics", "", true, "Should we capture prometheus metrics.")
+	captureCmd.PersistentFlags().StringVarP(&pmAddress, "pm.address", "", "localhost", "Address to send the prometheus metrics.")
+	captureCmd.PersistentFlags().IntVarP(&pmPort, "pm.port", "", 9000, "The port to send prometheus metrics.")
+
 	//// Testing Specific
 	captureCmd.PersistentFlags().BoolVar(&testDisregardSync, "t.skipSync", false, "Should we disregard the head sync?")
 
@@ -145,6 +153,13 @@ func init() {
 	err = viper.BindPFlag("kg.processKnownGaps", captureCmd.PersistentFlags().Lookup("kg.maxKnownGapsWorker"))
 	exitErr(err)
 
+	// Prometheus Specific
+	err = viper.BindPFlag("pm.metrics", captureCmd.PersistentFlags().Lookup("pm.metrics"))
+	exitErr(err)
+	err = viper.BindPFlag("pm.address", captureCmd.PersistentFlags().Lookup("pm.address"))
+	exitErr(err)
+	err = viper.BindPFlag("pm.port", captureCmd.PersistentFlags().Lookup("pm.port"))
+	exitErr(err)
 }
 
 // Helper function to catch any errors.

@@ -17,7 +17,42 @@ package beaconclient
 
 import (
 	"sync/atomic"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sirupsen/logrus"
 )
+
+//Create a metric struct and register each channel with prometheus
+func CreateBeaconClientMetrics() *BeaconClientMetrics {
+	metrics := &BeaconClientMetrics{
+		SlotInserts:              0,
+		ReorgInserts:             0,
+		KnownGapsInserts:         0,
+		knownGapsProcessed:       0,
+		KnownGapsProcessingError: 0,
+		HeadError:                0,
+		HeadReorgError:           0,
+	}
+	prometheusRegisterHelper("slot_inserts", "Keeps track of the number of slots we have inserted.", &metrics.SlotInserts)
+	prometheusRegisterHelper("reorg_inserts", "Keeps track of the number of reorgs we have inserted.", &metrics.ReorgInserts)
+	prometheusRegisterHelper("known_gaps_inserts", "Keeps track of the number of known gaps we have inserted.", &metrics.KnownGapsInserts)
+	prometheusRegisterHelper("known_gaps_processed", "Keeps track of the number of known gaps we processed.", &metrics.knownGapsProcessed)
+	prometheusRegisterHelper("known_gaps_processing_error", "Keeps track of the number of known gaps we had errors processing.", &metrics.KnownGapsProcessingError)
+	prometheusRegisterHelper("head_error", "Keeps track of the number of errors we had processing head messages.", &metrics.HeadError)
+	prometheusRegisterHelper("head_reorg_error", "Keeps track of the number of errors we had processing reorg messages.", &metrics.HeadReorgError)
+	return metrics
+}
+
+func prometheusRegisterHelper(name string, help string, varPointer *uint64) {
+	prometheus.MustRegister(prometheus.NewCounterFunc(
+		prometheus.CounterOpts{
+			Name: name,
+			Help: help,
+		},
+		func() float64 {
+			return float64(atomic.LoadUint64(varPointer))
+		}))
+}
 
 // A structure utilized for keeping track of various metrics. Currently, mostly used in testing.
 type BeaconClientMetrics struct {
@@ -33,6 +68,7 @@ type BeaconClientMetrics struct {
 // Wrapper function to increment inserts. If we want to use mutexes later we can easily update all
 // occurrences here.
 func (m *BeaconClientMetrics) IncrementSlotInserts(inc uint64) {
+	logrus.Debug("Incrementing Slot Insert")
 	atomic.AddUint64(&m.SlotInserts, inc)
 }
 

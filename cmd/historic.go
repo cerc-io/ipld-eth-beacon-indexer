@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -52,6 +53,11 @@ func startHistoricProcessing() {
 		viper.GetInt("kg.increment"), "head", viper.GetBool("t.skipSync"))
 	if err != nil {
 		StopApplicationPreBoot(err, Db)
+	}
+
+	if viper.GetBool("pm.metrics") {
+		addr := viper.GetString("pm.address") + ":" + strconv.Itoa(viper.GetInt("pm.port"))
+		serveProm(addr)
 	}
 
 	errG, _ := errgroup.WithContext(context.Background())

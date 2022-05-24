@@ -29,5 +29,10 @@
     "increment": 10000,
     "processKnownGaps": true,
     "maxKnownGapsWorker": 2
+  },
+  "pm": {
+    "address": "localhost",
+    "port": 9000,
+    "metrics": true
   }
 }

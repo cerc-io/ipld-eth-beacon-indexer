@@ -19,7 +19,10 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"strconv"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -50,6 +53,11 @@ func startHeadTracking() {
 		viper.GetInt("kg.increment"), "head", viper.GetBool("t.skipSync"))
 	if err != nil {
 		StopApplicationPreBoot(err, Db)
+	}
+
+	if viper.GetBool("pm.metrics") {
+		addr := viper.GetString("pm.address") + ":" + strconv.Itoa(viper.GetInt("pm.port"))
+		serveProm(addr)
 	}
 
 	log.Info("The Beacon Client has booted successfully!")
@@ -84,4 +92,19 @@ func startHeadTracking() {
 
 func init() {
 	captureCmd.AddCommand(headCmd)
+}
+
+func serveProm(addr string) {
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", promhttp.Handler())
+
+	srv := http.Server{
+		Addr:    addr,
+		Handler: mux,
+	}
+	go func() {
+		if err := srv.ListenAndServe(); err != nil {
+			loghelper.LogError(err).WithField("endpoint", addr).Error("Error with prometheus")
+		}
+	}()
 }
