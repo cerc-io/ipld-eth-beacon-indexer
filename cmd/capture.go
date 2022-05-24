@@ -38,7 +38,6 @@ var (
 	bcBootMaxRetry             int
 	bcConnectionProtocol       string
 	bcType                     string
-	bcIsProcessKnownGaps       bool
 	bcMaxHistoricProcessWorker int
 	kgMaxWorker                int
 	kgTableIncrement           int
