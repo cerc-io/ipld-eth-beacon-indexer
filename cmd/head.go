@@ -18,7 +18,7 @@ package cmd
 
 import (
 	"context"
-	"os"
+	"fmt"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -26,10 +26,7 @@ import (
 	"github.com/vulcanize/ipld-ethcl-indexer/internal/boot"
 	"github.com/vulcanize/ipld-ethcl-indexer/internal/shutdown"
 	"github.com/vulcanize/ipld-ethcl-indexer/pkg/loghelper"
-)
-
-var (
-	kgTableIncrement int
+	"golang.org/x/sync/errgroup"
 )
 
 // headCmd represents the head command
@@ -48,21 +45,35 @@ func startHeadTracking() {
 	log.Info("Starting the application in head tracking mode.")
 	ctx := context.Background()
 
-	BC, DB, err := boot.BootApplicationWithRetry(ctx, dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver, bcAddress, bcPort, bcConnectionProtocol, bcType, bcBootRetryInterval, bcBootMaxRetry, "historic", testDisregardSync)
+	Bc, Db, err := boot.BootApplicationWithRetry(ctx, viper.GetString("db.address"), viper.GetInt("db.port"), viper.GetString("db.name"), viper.GetString("db.username"), viper.GetString("db.password"), viper.GetString("db.driver"),
+		viper.GetString("bc.address"), viper.GetInt("bc.port"), viper.GetString("bc.connectionProtocol"), viper.GetString("bc.type"), viper.GetInt("bc.bootRetryInterval"), viper.GetInt("bc.bootMaxRetry"),
+		viper.GetInt("kg.increment"), "head", viper.GetBool("t.skipSync"))
 	if err != nil {
-		loghelper.LogError(err).Error("Unable to Start application")
-		if DB != nil {
-			DB.Close()
-		}
-		os.Exit(1)
+		StopApplicationPreBoot(err, Db)
 	}
 
 	log.Info("The Beacon Client has booted successfully!")
 	// Capture head blocks
-	go BC.CaptureHead(kgTableIncrement)
+	go Bc.CaptureHead()
+	if viper.GetBool("kg.processKnownGaps") {
+		go func() {
+			errG := new(errgroup.Group)
+			errG.Go(func() error {
+				errs := Bc.ProcessKnownGaps(viper.GetInt("kg.maxKnownGapsWorker"))
+				if len(errs) != 0 {
+					log.WithFields(log.Fields{"errs": errs}).Error("All errors when processing knownGaps")
+					return fmt.Errorf("Application ended because there were too many error when attempting to process knownGaps")
+				}
+				return nil
+			})
+			if err := errG.Wait(); err != nil {
+				loghelper.LogError(err).Error("Error with knownGaps processing")
+			}
+		}()
+	}
 
 	// Shutdown when the time is right.
-	err = shutdown.ShutdownServices(ctx, notifierCh, maxWaitSecondsShutdown, DB, BC)
+	err = shutdown.ShutdownServices(ctx, notifierCh, maxWaitSecondsShutdown, Db, Bc)
 	if err != nil {
 		loghelper.LogError(err).Error("Ungracefully Shutdown ipld-ethcl-indexer!")
 	} else {
@@ -73,9 +84,4 @@ func startHeadTracking() {
 
 func init() {
 	captureCmd.AddCommand(headCmd)
-
-	// Known Gaps specific
-	captureCmd.PersistentFlags().IntVarP(&kgTableIncrement, "kg.increment", "", 10000, "The max slots within a single entry to the known_gaps table.")
-	err := viper.BindPFlag("kg.increment", captureCmd.PersistentFlags().Lookup("kg.increment"))
-	exitErr(err)
 }

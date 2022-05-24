@@ -37,44 +37,45 @@ var _ = Describe("Boot", func() {
 		bcType               string = "lighthouse"
 		bcBootRetryInterval  int    = 1
 		bcBootMaxRetry       int    = 5
+		bcKgTableIncrement   int    = 10
 	)
 	Describe("Booting the application", Label("integration"), func() {
 		Context("When the DB and BC are both up and running, we skip checking for a synced head, and we are processing head", func() {
 			It("Should connect successfully", func() {
-				_, db, err := boot.BootApplicationWithRetry(context.Background(), dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver, bcAddress, bcPort, bcConnectionProtocol, bcType, bcBootRetryInterval, bcBootMaxRetry, "head", true)
+				_, db, err := boot.BootApplicationWithRetry(context.Background(), dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver, bcAddress, bcPort, bcConnectionProtocol, bcType, bcBootRetryInterval, bcBootMaxRetry, bcKgTableIncrement, "head", true)
 				defer db.Close()
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 		Context("When the DB and BC are both up and running, we skip checking for a synced head, and we are processing historic ", func() {
 			It("Should connect successfully", func() {
-				_, db, err := boot.BootApplicationWithRetry(context.Background(), dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver, bcAddress, bcPort, bcConnectionProtocol, bcType, bcBootRetryInterval, bcBootMaxRetry, "historic", true)
+				_, db, err := boot.BootApplicationWithRetry(context.Background(), dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver, bcAddress, bcPort, bcConnectionProtocol, bcType, bcBootRetryInterval, bcBootMaxRetry, bcKgTableIncrement, "historic", true)
 				defer db.Close()
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 		Context("When the DB and BC are both up and running, and we check for a synced head", func() {
 			It("Should not connect successfully", func() {
-				_, db, err := boot.BootApplicationWithRetry(context.Background(), dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver, bcAddress, bcPort, bcConnectionProtocol, bcType, bcBootRetryInterval, bcBootMaxRetry, "head", false)
+				_, db, err := boot.BootApplicationWithRetry(context.Background(), dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver, bcAddress, bcPort, bcConnectionProtocol, bcType, bcBootRetryInterval, bcBootMaxRetry, bcKgTableIncrement, "head", false)
 				defer db.Close()
 				Expect(err).To(HaveOccurred())
 			})
 		})
 		Context("When the DB is running but not the BC", func() {
 			It("Should not connect successfully", func() {
-				_, _, err := boot.BootApplication(context.Background(), dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver, "hi", 100, bcConnectionProtocol, true)
+				_, _, err := boot.BootApplication(context.Background(), dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver, "hi", 100, bcConnectionProtocol, bcKgTableIncrement, true)
 				Expect(err).To(HaveOccurred())
 			})
 		})
 		Context("When the BC is running but not the DB", func() {
 			It("Should not connect successfully", func() {
-				_, _, err := boot.BootApplication(context.Background(), "hi", 10, dbName, dbUsername, dbPassword, dbDriver, bcAddress, bcPort, bcConnectionProtocol, true)
+				_, _, err := boot.BootApplication(context.Background(), "hi", 10, dbName, dbUsername, dbPassword, dbDriver, bcAddress, bcPort, bcConnectionProtocol, bcKgTableIncrement, true)
 				Expect(err).To(HaveOccurred())
 			})
 		})
 		Context("When neither the BC or DB are running", func() {
 			It("Should not connect successfully", func() {
-				_, _, err := boot.BootApplication(context.Background(), "hi", 10, dbName, dbUsername, dbPassword, dbDriver, "hi", 100, bcConnectionProtocol, true)
+				_, _, err := boot.BootApplication(context.Background(), "hi", 10, dbName, dbUsername, dbPassword, dbDriver, "hi", 100, bcConnectionProtocol, bcKgTableIncrement, true)
 				Expect(err).To(HaveOccurred())
 			})
 		})

@@ -37,7 +37,7 @@ To run the application, do as follows:
 2. Run the start up command.
 
 ```
-go run -race main.go capture head --db.address localhost \
+go run -race main.go capture historic --db.address localhost \
   --db.password password \
   --db.port 8076 \
   --db.username vdbm \
@@ -45,11 +45,14 @@ go run -race main.go capture head --db.address localhost \
   --db.driver PGX \
   --bc.address localhost \
   --bc.port 5052 \
+  --bc.maxHistoricProcessWorker 2 \
+  --bc.maxKnownGapsWorker 2 \
+  --bc.knownGapsProcess=true \
   --bc.connectionProtocol http \
-  --t.skipSync=true \
-  --log.level info \
+  --t.skipSync=false \
+  --log.level debug \
   --log.output=true \
-  --kg.increment 100
+  --kg.increment 1000000
 ```
 
 ## Running Tests

@@ -18,13 +18,17 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 	"os"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"github.com/vulcanize/ipld-ethcl-indexer/internal/boot"
+	"github.com/vulcanize/ipld-ethcl-indexer/internal/shutdown"
 	"github.com/vulcanize/ipld-ethcl-indexer/pkg/database/sql"
 	"github.com/vulcanize/ipld-ethcl-indexer/pkg/loghelper"
+	"golang.org/x/sync/errgroup"
 )
 
 // historicCmd represents the historic command
@@ -43,9 +47,49 @@ func startHistoricProcessing() {
 	log.Info("Starting the application in head tracking mode.")
 	ctx := context.Background()
 
-	_, DB, err := boot.BootApplicationWithRetry(ctx, dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver, bcAddress, bcPort, bcConnectionProtocol, bcType, bcBootRetryInterval, bcBootMaxRetry, "historic", testDisregardSync)
+	Bc, Db, err := boot.BootApplicationWithRetry(ctx, viper.GetString("db.address"), viper.GetInt("db.port"), viper.GetString("db.name"), viper.GetString("db.username"), viper.GetString("db.password"), viper.GetString("db.driver"),
+		viper.GetString("bc.address"), viper.GetInt("bc.port"), viper.GetString("bc.connectionProtocol"), viper.GetString("bc.type"), viper.GetInt("bc.bootRetryInterval"), viper.GetInt("bc.bootMaxRetry"),
+		viper.GetInt("kg.increment"), "head", viper.GetBool("t.skipSync"))
 	if err != nil {
-		StopApplicationPreBoot(err, DB)
+		StopApplicationPreBoot(err, Db)
+	}
+
+	errG, _ := errgroup.WithContext(context.Background())
+
+	errG.Go(func() error {
+		errs := Bc.CaptureHistoric(viper.GetInt("bc.maxHistoricProcessWorker"))
+		if len(errs) != 0 {
+			if len(errs) != 0 {
+				log.WithFields(log.Fields{"errs": errs}).Error("All errors when processing historic events")
+				return fmt.Errorf("Application ended because there were too many error when attempting to process historic")
+			}
+		}
+		return nil
+	})
+
+	if viper.GetBool("kg.processKnownGaps") {
+		go func() {
+			errG := new(errgroup.Group)
+			errG.Go(func() error {
+				errs := Bc.ProcessKnownGaps(viper.GetInt("kg.maxKnownGapsWorker"))
+				if len(errs) != 0 {
+					log.WithFields(log.Fields{"errs": errs}).Error("All errors when processing knownGaps")
+					return fmt.Errorf("Application ended because there were too many error when attempting to process knownGaps")
+				}
+				return nil
+			})
+			if err := errG.Wait(); err != nil {
+				loghelper.LogError(err).Error("Error with knownGaps processing")
+			}
+		}()
+	}
+
+	// Shutdown when the time is right.
+	err = shutdown.ShutdownServices(ctx, notifierCh, maxWaitSecondsShutdown, Db, Bc)
+	if err != nil {
+		loghelper.LogError(err).Error("Ungracefully Shutdown ipld-ethcl-indexer!")
+	} else {
+		log.Info("Gracefully shutdown ipld-ethcl-indexer")
 	}
 }
 

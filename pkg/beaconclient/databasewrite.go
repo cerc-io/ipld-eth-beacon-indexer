@@ -23,6 +23,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/vulcanize/ipld-ethcl-indexer/pkg/database/sql"
 	"github.com/vulcanize/ipld-ethcl-indexer/pkg/loghelper"
+	"golang.org/x/sync/errgroup"
 )
 
 var (
@@ -53,10 +54,19 @@ VALUES ($1, $2) ON CONFLICT (key) DO NOTHING`
 	CheckProposedStmt string = `SELECT slot, block_root
 	FROM ethcl.slots
 	WHERE slot=$1 AND block_root=$2;`
+	// Used to get a single slot from the table if it exists
+	QueryBySlotStmt string = `SELECT slot
+	FROM ethcl.slots
+	WHERE slot=$1`
 	// Statement to insert known_gaps. We don't pass in timestamp, we let the server take care of that one.
 	UpsertKnownGapsStmt string = `
 INSERT INTO ethcl.known_gaps (start_slot, end_slot, checked_out, reprocessing_error, entry_error, entry_process)
 VALUES ($1, $2, $3, $4, $5, $6) on CONFLICT (start_slot, end_slot) DO NOTHING`
+	UpsertKnownGapsErrorStmt string = `
+	UPDATE ethcl.known_gaps
+	SET reprocessing_error=$3
+	WHERE start_slot=$1 AND end_slot=$2;`
+	// Get the highest slot if one exists
 	QueryHighestSlotStmt string = "SELECT COALESCE(MAX(slot), 0) FROM ethcl.slots"
 )
 
@@ -148,19 +158,24 @@ func (dw *DatabaseWriter) writeFullSlot() error {
 	}).Debug("Starting to write to the DB.")
 	err := dw.writeSlots()
 	if err != nil {
+		loghelper.LogSlotError(dw.DbSlots.Slot, err).Error("We couldn't write to the ethcl.slots table...")
 		return err
 	}
+	log.Debug("We finished writing to the ethcl.slots table.")
 	if dw.DbSlots.Status != "skipped" {
-		err = dw.writeSignedBeaconBlocks()
-		if err != nil {
-			return err
-		}
-		err = dw.writeBeaconState()
-		if err != nil {
+		errG, _ := errgroup.WithContext(context.Background())
+		errG.Go(func() error {
+			return dw.writeSignedBeaconBlocks()
+		})
+		errG.Go(func() error {
+			return dw.writeBeaconState()
+		})
+		if err := errG.Wait(); err != nil {
+			loghelper.LogSlotError(dw.DbSlots.Slot, err).Error("We couldn't write to the ethcl block or state table...")
 			return err
 		}
 	}
-	dw.Metrics.IncrementHeadTrackingInserts(1)
+	dw.Metrics.IncrementSlotInserts(1)
 	return nil
 }
 
@@ -291,7 +306,7 @@ func writeReorgs(db sql.Database, slot string, latestBlockRoot string, metrics *
 		}
 	}
 
-	metrics.IncrementHeadTrackingReorgs(1)
+	metrics.IncrementReorgsInsert(1)
 }
 
 // Update the slots table by marking the old slot's as forked.
@@ -383,7 +398,7 @@ func upsertKnownGaps(db sql.Database, knModel DbKnownGaps, metric *BeaconClientM
 		"startSlot": knModel.StartSlot,
 		"endSlot":   knModel.EndSlot,
 	}).Warn("A new gap has been added to the ethcl.known_gaps table.")
-	metric.IncrementHeadTrackingKnownGaps(1)
+	metric.IncrementKnownGapsInserts(1)
 }
 
 // A function to write the gap between the highest slot in the DB and the first processed slot.
@@ -404,8 +419,50 @@ func writeStartUpGaps(db sql.Database, tableIncrement int, firstSlot int, metric
 	}
 }
 
+// A function to update a knownGap range with a reprocessing error.
+func updateKnownGapErrors(db sql.Database, startSlot int, endSlot int, reprocessingErr error, metric *BeaconClientMetrics) error {
+	res, err := db.Exec(context.Background(), UpsertKnownGapsErrorStmt, startSlot, endSlot, reprocessingErr.Error())
+	if err != nil {
+		loghelper.LogSlotRangeError(strconv.Itoa(startSlot), strconv.Itoa(endSlot), err).Error("Unable to update reprocessing_error")
+		metric.IncrementKnownGapsProcessingError(1)
+		return err
+	}
+	row, err := res.RowsAffected()
+	if err != nil {
+		loghelper.LogSlotRangeError(strconv.Itoa(startSlot), strconv.Itoa(endSlot), err).Error("Unable to count rows affected when trying to update reprocessing_error.")
+		metric.IncrementKnownGapsProcessingError(1)
+		return err
+	}
+	if row != 1 {
+		loghelper.LogSlotRangeError(strconv.Itoa(startSlot), strconv.Itoa(endSlot), err).WithFields(log.Fields{
+			"rowCount": row,
+		}).Error("The rows affected by the upsert for reprocessing_error is not 1.")
+		metric.IncrementKnownGapsProcessingError(1)
+		return err
+	}
+	metric.IncrementKnownGapsProcessed(1)
+	return nil
+}
+
 // A quick helper function to calculate the epoch.
 func calculateEpoch(slot int, slotPerEpoch int) string {
 	epoch := slot / slotPerEpoch
 	return strconv.Itoa(epoch)
+}
+
+// A helper function to check to see if the slot is processed.
+func isSlotProcessed(db sql.Database, checkProcessStmt string, slot string) (bool, error) {
+	processRow, err := db.Exec(context.Background(), checkProcessStmt, slot)
+	if err != nil {
+		return false, err
+	}
+	row, err := processRow.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+
+	if row > 0 {
+		return true, nil
+	}
+	return false, nil
 }

@@ -26,7 +26,7 @@ on:
 
 env:
   stack-orchestrator-ref: ${{ github.event.inputs.stack-orchestrator-ref  || 'main'}}
-  ipld-ethcl-db-ref: ${{ github.event.inputs.ipld-ethcl-db-ref  || 'feature/schema-ipld-ethcl-indexer' }}
+  ipld-ethcl-db-ref: ${{ github.event.inputs.ipld-ethcl-db-ref  || 'feature/historic-processing' }}
   ssz-data-ref: ${{ github.event.inputs.ssz-data-ref  || 'main' }}
   GOPATH: /tmp/go
 jobs:
@@ -206,4 +206,5 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3
         with:
-          args: --timeout 90s
+          args: --timeout 90s --disable deadcode,unused
+#          args: --timeout 90s --disable deadcode,

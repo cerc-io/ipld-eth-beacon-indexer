@@ -45,7 +45,6 @@ var (
 		return fmt.Sprintf("Unable to properly unmarshal the Slot field in the %s.", obj)
 	}
 	ParentRootUnmarshalError  = "Unable to properly unmarshal the ParentRoot field in the SignedBeaconBlock."
-	MissingIdentifiedError    = "Can't query state without a set slot or block_root"
 	MissingEth1Data           = "Can't get the Eth1 block_hash"
 	VersionedUnmarshalerError = "Unable to create a versioned unmarshaler"
 )
@@ -78,7 +77,9 @@ type ProcessSlot struct {
 }
 
 // This function will do all the work to process the slot and write it to the DB.
-func processFullSlot(db sql.Database, serverAddress string, slot int, blockRoot string, stateRoot string, previousSlot int, previousBlockRoot string, headOrHistoric string, metrics *BeaconClientMetrics, knownGapsTableIncrement int) error {
+// It will return the error and error process. The error process is used for providing reach detail to the
+// known_gaps table.
+func processFullSlot(db sql.Database, serverAddress string, slot int, blockRoot string, stateRoot string, previousSlot int, previousBlockRoot string, headOrHistoric string, metrics *BeaconClientMetrics, knownGapsTableIncrement int) (error, string) {
 	ps := &ProcessSlot{
 		Slot:           slot,
 		BlockRoot:      blockRoot,
@@ -110,60 +111,55 @@ func processFullSlot(db sql.Database, serverAddress string, slot int, blockRoot 
 	})
 
 	if err := g.Wait(); err != nil {
-		writeKnownGaps(ps.Db, 1, ps.Slot, ps.Slot, err, "processSlot", ps.Metrics)
-		return err
-	}
-
-	if ps.HeadOrHistoric == "head" && previousSlot == 0 && previousBlockRoot == "" {
-		writeStartUpGaps(db, knownGapsTableIncrement, ps.Slot, ps.Metrics)
+		return err, "processSlot"
 	}
 
 	// Get this object ready to write
-	blockRootEndpoint := serverAddress + BcBlockRootEndpoint(strconv.Itoa(ps.Slot))
-	dw, err := ps.createWriteObjects(blockRootEndpoint)
+	dw, err := ps.createWriteObjects()
 	if err != nil {
-		writeKnownGaps(ps.Db, 1, ps.Slot, ps.Slot, err, "blockRoot", ps.Metrics)
-		return err
+		return err, "blockRoot"
 	}
 	// Write the object to the DB.
 	err = dw.writeFullSlot()
 	if err != nil {
-		writeKnownGaps(ps.Db, 1, ps.Slot, ps.Slot, err, "processSlot", ps.Metrics)
-		return err
+		return err, "processSlot"
 	}
 
 	// Handle any reorgs or skipped slots.
 	headOrHistoric = strings.ToLower(headOrHistoric)
 	if headOrHistoric != "head" && headOrHistoric != "historic" {
-		return fmt.Errorf("headOrHistoric must be either historic or head!")
+		return fmt.Errorf("headOrHistoric must be either historic or head!"), ""
 	}
 	if ps.HeadOrHistoric == "head" && previousSlot != 0 && previousBlockRoot != "" && ps.Status != "skipped" {
 		ps.checkPreviousSlot(previousSlot, previousBlockRoot, knownGapsTableIncrement)
 	}
-	return nil
+	return nil, ""
 }
 
 // Handle a slot that is at head. A wrapper function for calling `handleFullSlot`.
-func processHeadSlot(db sql.Database, serverAddress string, slot int, blockRoot string, stateRoot string, previousSlot int, previousBlockRoot string, metrics *BeaconClientMetrics, knownGapsTableIncrement int) error {
-	return processFullSlot(db, serverAddress, slot, blockRoot, stateRoot, previousSlot, previousBlockRoot, "head", metrics, knownGapsTableIncrement)
+func processHeadSlot(db sql.Database, serverAddress string, slot int, blockRoot string, stateRoot string, previousSlot int, previousBlockRoot string, metrics *BeaconClientMetrics, knownGapsTableIncrement int) {
+	// Get the knownGaps at startUp.
+	if previousSlot == 0 && previousBlockRoot == "" {
+		writeStartUpGaps(db, knownGapsTableIncrement, slot, metrics)
+	}
+	err, errReason := processFullSlot(db, serverAddress, slot, blockRoot, stateRoot, previousSlot, previousBlockRoot, "head", metrics, knownGapsTableIncrement)
+	if err != nil {
+		writeKnownGaps(db, knownGapsTableIncrement, slot, slot, err, errReason, metrics)
+	}
 }
 
 // Handle a historic slot. A wrapper function for calling `handleFullSlot`.
-// Commented because of the linter...... LOL
-//func handleHistoricSlot(db sql.Database, serverAddress string, slot int) error {
-//	return handleFullSlot(db, serverAddress, slot, "", "", 0, "", "historic")
-//}
+func handleHistoricSlot(db sql.Database, serverAddress string, slot int, metrics *BeaconClientMetrics) (error, string) {
+	return processFullSlot(db, serverAddress, slot, "", "", 0, "", "historic", metrics, 1)
+}
 
 // Update the SszSignedBeaconBlock and FullSignedBeaconBlock object with their respective values.
 func (ps *ProcessSlot) getSignedBeaconBlock(serverAddress string, vmCh <-chan *dt.VersionedUnmarshaler) error {
 	var blockIdentifier string // Used to query the block
 	if ps.BlockRoot != "" {
 		blockIdentifier = ps.BlockRoot
-	} else if ps.Slot != 0 {
-		blockIdentifier = strconv.Itoa(ps.Slot)
 	} else {
-		log.Error(MissingIdentifiedError)
-		return fmt.Errorf(MissingIdentifiedError)
+		blockIdentifier = strconv.Itoa(ps.Slot)
 	}
 	blockEndpoint := serverAddress + BcBlockQueryEndpoint + blockIdentifier
 	var err error
@@ -208,11 +204,8 @@ func (ps *ProcessSlot) getBeaconState(serverEndpoint string, vmCh chan<- *dt.Ver
 	var stateIdentifier string // Used to query the state
 	if ps.StateRoot != "" {
 		stateIdentifier = ps.StateRoot
-	} else if ps.Slot != 0 {
-		stateIdentifier = strconv.Itoa(ps.Slot)
 	} else {
-		log.Error(MissingIdentifiedError)
-		return fmt.Errorf(MissingIdentifiedError)
+		stateIdentifier = strconv.Itoa(ps.Slot)
 	}
 	stateEndpoint := serverEndpoint + BcStateQueryEndpoint + stateIdentifier
 	ps.SszBeaconState, _, _ = querySsz(stateEndpoint, strconv.Itoa(ps.Slot))
@@ -243,10 +236,15 @@ func (ps *ProcessSlot) checkPreviousSlot(previousSlot int, previousBlockRoot str
 	parentRoot := "0x" + hex.EncodeToString(ps.FullSignedBeaconBlock.Block().ParentRoot())
 	if previousSlot == int(ps.FullBeaconState.Slot()) {
 		log.WithFields(log.Fields{
-			"slot": ps.FullBeaconState.Slot,
+			"slot": ps.FullBeaconState.Slot(),
 			"fork": true,
 		}).Warn("A fork occurred! The previous slot and current slot match.")
 		writeReorgs(ps.Db, strconv.Itoa(ps.Slot), ps.BlockRoot, ps.Metrics)
+	} else if previousSlot > int(ps.FullBeaconState.Slot()) {
+		log.WithFields(log.Fields{
+			"previousSlot": previousSlot,
+			"curSlot":      int(ps.FullBeaconState.Slot()),
+		}).Warn("We noticed the previous slot is greater than the current slot.")
 	} else if previousSlot+1 != int(ps.FullBeaconState.Slot()) {
 		log.WithFields(log.Fields{
 			"previousSlot": previousSlot,
@@ -265,7 +263,7 @@ func (ps *ProcessSlot) checkPreviousSlot(previousSlot int, previousBlockRoot str
 }
 
 // Transforms all the raw data into DB models that can be written to the DB.
-func (ps *ProcessSlot) createWriteObjects(blockRootEndpoint string) (*DatabaseWriter, error) {
+func (ps *ProcessSlot) createWriteObjects() (*DatabaseWriter, error) {
 	var (
 		stateRoot     string
 		blockRoot     string
@@ -289,10 +287,13 @@ func (ps *ProcessSlot) createWriteObjects(blockRootEndpoint string) (*DatabaseWr
 			blockRoot = ps.BlockRoot
 		} else {
 			var err error
-			blockRoot, err = queryBlockRoot(blockRootEndpoint, strconv.Itoa(ps.Slot))
+			rawBlockRoot, err := ps.FullSignedBeaconBlock.Block().HashTreeRoot()
+			//blockRoot, err = queryBlockRoot(blockRootEndpoint, strconv.Itoa(ps.Slot))
 			if err != nil {
 				return nil, err
 			}
+			blockRoot = "0x" + hex.EncodeToString(rawBlockRoot[:])
+			log.WithFields(log.Fields{"blockRoot": blockRoot}).Debug("Block Root from ssz:")
 		}
 		eth1BlockHash = "0x" + hex.EncodeToString(ps.FullSignedBeaconBlock.Block().Body().Eth1Data().BlockHash)
 	}

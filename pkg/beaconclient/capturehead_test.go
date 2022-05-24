@@ -44,6 +44,172 @@ import (
 	"github.com/vulcanize/ipld-ethcl-indexer/pkg/database/sql/postgres"
 )
 
+var (
+	address                 string = "localhost"
+	port                    int    = 8080
+	protocol                string = "http"
+	dbHost                  string = "localhost"
+	dbPort                  int    = 8076
+	dbName                  string = "vulcanize_testing"
+	dbUser                  string = "vdbm"
+	dbPassword              string = "password"
+	dbDriver                string = "pgx"
+	dummyParentRoot         string = "46f98c08b54a71dfda4d56e29ec3952b8300cd8d6b67a9b6c562ae96a7a25a42"
+	knownGapsTableIncrement int    = 100000
+	maxRetry                int    = 120
+
+	TestEvents = map[string]Message{
+		"100-dummy": {
+			HeadMessage: beaconclient.Head{
+				Slot:                      "100",
+				Block:                     "04955400371347e26f61d7a4bbda5b23fa0b25d5fc465160f2a92d52a63b919b",
+				State:                     "36d5c9a129979b4502bd9a06e57a742810ecbc3fa55a0361c0723c92c1782bfa",
+				CurrentDutyDependentRoot:  "",
+				PreviousDutyDependentRoot: "",
+				EpochTransition:           false,
+				ExecutionOptimistic:       false,
+			},
+			TestNotes: "A block that is supposed to replicate slot 100, but contains some dummy test information.",
+			MimicConfig: &MimicConfig{
+				ForkVersion: "phase0",
+			},
+			SignedBeaconBlock: filepath.Join("ssz-data", "100", "signed-beacon-block.ssz"),
+			BeaconState:       filepath.Join("ssz-data", "100", "beacon-state.ssz"),
+		},
+		"100-dummy-2": {
+			HeadMessage: beaconclient.Head{
+				Slot:                      "100",
+				Block:                     "04955400371347e26f61d7a4bbda5b23fa0b25d5fc465160f2a9aaaaaaaaaaaa",
+				State:                     "36d5c9a129979b4502bd9a06e57a742810ecbc3fa55a0361c072bbbbbbbbbbbb",
+				CurrentDutyDependentRoot:  "",
+				PreviousDutyDependentRoot: "",
+				EpochTransition:           false,
+				ExecutionOptimistic:       false,
+			},
+			TestNotes: "A block that is supposed to replicate slot 100, but contains some dummy test information.",
+			MimicConfig: &MimicConfig{
+				ForkVersion: "phase0",
+			},
+			SignedBeaconBlock: filepath.Join("ssz-data", "100", "signed-beacon-block.ssz"),
+			BeaconState:       filepath.Join("ssz-data", "100", "beacon-state.ssz"),
+		},
+		"102-wrong-ssz-1": {
+			HeadMessage: beaconclient.Head{
+				Slot:                      "102",
+				Block:                     "0x46f98c08b54a71dfda4d56e29ec3952b8300cd8d6b67a9b6c562ae96a7a25a42",
+				State:                     "0x9b20b114c613c1aa462e02d590b3da902b0a1377e938ed0f94dd3491d763ef67",
+				CurrentDutyDependentRoot:  "",
+				PreviousDutyDependentRoot: "",
+				EpochTransition:           false,
+				ExecutionOptimistic:       false,
+			},
+			TestNotes:         "A bad block that returns the wrong ssz objects, used for testing incorrect SSZ decoding.",
+			BeaconState:       filepath.Join("ssz-data", "102", "signed-beacon-block.ssz"),
+			SignedBeaconBlock: filepath.Join("ssz-data", "102", "beacon-state.ssz"),
+		},
+		"100": {
+			HeadMessage: beaconclient.Head{
+				Slot:                      "100",
+				Block:                     "0x582187e97f7520bb69eea014c3834c964c45259372a0eaaea3f032013797996b",
+				State:                     "0xf286a0379c0386a3c7be28d05d829f8eb7b280cc9ede15449af20ebcd06a7a56",
+				CurrentDutyDependentRoot:  "",
+				PreviousDutyDependentRoot: "",
+				EpochTransition:           false,
+				ExecutionOptimistic:       false,
+			},
+			TestNotes:         "An easy to process Phase 0 block",
+			SignedBeaconBlock: filepath.Join("ssz-data", "100", "signed-beacon-block.ssz"),
+			BeaconState:       filepath.Join("ssz-data", "100", "beacon-state.ssz"),
+		},
+		"101": {
+			HeadMessage: beaconclient.Head{
+				Slot:                      "101",
+				Block:                     "0xabe1a972e512182d04f0d4a5c9c25f9ee57c2e9d0ff3f4c4c82fd42d13d31083",
+				State:                     "0xcb04aa2edbf13c7bb7e7bd9b621ced6832e0075e89147352eac3019a824ce847",
+				CurrentDutyDependentRoot:  "",
+				PreviousDutyDependentRoot: "",
+				EpochTransition:           false,
+				ExecutionOptimistic:       false,
+			},
+			TestNotes:         "An easy to process Phase 0 block",
+			SignedBeaconBlock: filepath.Join("ssz-data", "101", "signed-beacon-block.ssz"),
+			BeaconState:       filepath.Join("ssz-data", "101", "beacon-state.ssz"),
+		},
+		"2375703-dummy": {
+			HeadMessage: beaconclient.Head{
+				Slot:                      "2375703",
+				Block:                     "c9fb337b62e2a0dae4f27ab49913132570f7f2cab3f23ad99f4d07508a8e648e",
+				State:                     "0299a145bcda2c8f5e7d2e068ee101861edbee2ec1db2d5e1d850b0d265aef5f",
+				CurrentDutyDependentRoot:  "",
+				PreviousDutyDependentRoot: "",
+				EpochTransition:           false,
+				ExecutionOptimistic:       false,
+			},
+			TestNotes: "This is a dummy message that is used for reorgs",
+			MimicConfig: &MimicConfig{
+				ForkVersion: "altair",
+			},
+			SignedBeaconBlock: filepath.Join("ssz-data", "2375703", "signed-beacon-block.ssz"),
+			BeaconState:       filepath.Join("ssz-data", "2375703", "beacon-state.ssz"),
+		},
+		"2375703-dummy-2": {
+			HeadMessage: beaconclient.Head{
+				Slot:                      "2375703",
+				Block:                     "c9fb337b62e2a0dae4f27ab49913132570f7f2cab3f23ad99f4d07508aaaaaaa",
+				State:                     "0299a145bcda2c8f5e7d2e068ee101861edbee2ec1db2d5e1d850b0d2bbbbbbb",
+				CurrentDutyDependentRoot:  "",
+				PreviousDutyDependentRoot: "",
+				EpochTransition:           false,
+				ExecutionOptimistic:       false,
+			},
+			TestNotes: "This is a dummy message that is used for reorgs",
+			MimicConfig: &MimicConfig{
+				ForkVersion: "altair",
+			},
+			SignedBeaconBlock: filepath.Join("ssz-data", "2375703", "signed-beacon-block.ssz"),
+			BeaconState:       filepath.Join("ssz-data", "2375703", "beacon-state.ssz"),
+		},
+		"2375703": {
+			HeadMessage: beaconclient.Head{
+				Slot:                     "2375703",
+				Block:                    "0x4392372c5f6e39499e31bf924388b5815639103149f0f54f8a453773b1802301",
+				State:                    "0xb6215b560273af63ec7e011572b60ec1ca0b0232f8ff44fcd4ed55c7526e964e",
+				CurrentDutyDependentRoot: "", PreviousDutyDependentRoot: "", EpochTransition: false, ExecutionOptimistic: false},
+			TestNotes:         "An easy to process Altair Block",
+			SignedBeaconBlock: filepath.Join("ssz-data", "2375703", "signed-beacon-block.ssz"),
+			BeaconState:       filepath.Join("ssz-data", "2375703", "beacon-state.ssz"),
+		},
+		"3797056": {
+			HeadMessage: beaconclient.Head{
+				Slot:                     "3797056",
+				Block:                    "",
+				State:                    "0xb6215b560273af63ec7e011572b60ec1ca0b0232f8ff44fcd4ed55c7526e964e",
+				CurrentDutyDependentRoot: "", PreviousDutyDependentRoot: "", EpochTransition: false, ExecutionOptimistic: false},
+			TestNotes:         "An easy to process Altair Block",
+			SignedBeaconBlock: filepath.Join("ssz-data", "2375703", "signed-beacon-block.ssz"),
+			BeaconState:       filepath.Join("ssz-data", "2375703", "beacon-state.ssz"),
+		},
+	}
+	TestConfig = Config{
+		protocol:                protocol,
+		address:                 address,
+		port:                    port,
+		dummyParentRoot:         dummyParentRoot,
+		dbHost:                  dbHost,
+		dbPort:                  dbPort,
+		dbName:                  dbName,
+		dbUser:                  dbUser,
+		dbPassword:              dbPassword,
+		dbDriver:                dbDriver,
+		knownGapsTableIncrement: knownGapsTableIncrement,
+	}
+
+	BeaconNodeTester = TestBeaconNode{
+		TestEvents: TestEvents,
+		TestConfig: TestConfig,
+	}
+)
+
 type Message struct {
 	HeadMessage       beaconclient.Head // The head messsage that will be streamed to the BeaconClient
 	TestNotes         string            // A small explanation of the purpose this structure plays in the testing landscape.
@@ -60,177 +226,6 @@ type MimicConfig struct {
 }
 
 var _ = Describe("Capturehead", func() {
-
-	var (
-		TestConfig              Config
-		BeaconNodeTester        TestBeaconNode
-		address                 string = "localhost"
-		port                    int    = 8080
-		protocol                string = "http"
-		TestEvents              map[string]Message
-		dbHost                  string = "localhost"
-		dbPort                  int    = 8076
-		dbName                  string = "vulcanize_testing"
-		dbUser                  string = "vdbm"
-		dbPassword              string = "password"
-		dbDriver                string = "pgx"
-		dummyParentRoot         string = "46f98c08b54a71dfda4d56e29ec3952b8300cd8d6b67a9b6c562ae96a7a25a42"
-		knownGapsTableIncrement int    = 100000
-		maxRetry                int    = 60
-	)
-
-	BeforeEach(func() {
-		TestEvents = map[string]Message{
-			"100-dummy": {
-				HeadMessage: beaconclient.Head{
-					Slot:                      "100",
-					Block:                     "04955400371347e26f61d7a4bbda5b23fa0b25d5fc465160f2a92d52a63b919b",
-					State:                     "36d5c9a129979b4502bd9a06e57a742810ecbc3fa55a0361c0723c92c1782bfa",
-					CurrentDutyDependentRoot:  "",
-					PreviousDutyDependentRoot: "",
-					EpochTransition:           false,
-					ExecutionOptimistic:       false,
-				},
-				TestNotes: "A block that is supposed to replicate slot 100, but contains some dummy test information.",
-				MimicConfig: &MimicConfig{
-					ForkVersion: "phase0",
-				},
-				SignedBeaconBlock: filepath.Join("ssz-data", "100", "signed-beacon-block.ssz"),
-				BeaconState:       filepath.Join("ssz-data", "100", "beacon-state.ssz"),
-			},
-			"100-dummy-2": {
-				HeadMessage: beaconclient.Head{
-					Slot:                      "100",
-					Block:                     "04955400371347e26f61d7a4bbda5b23fa0b25d5fc465160f2a9aaaaaaaaaaaa",
-					State:                     "36d5c9a129979b4502bd9a06e57a742810ecbc3fa55a0361c072bbbbbbbbbbbb",
-					CurrentDutyDependentRoot:  "",
-					PreviousDutyDependentRoot: "",
-					EpochTransition:           false,
-					ExecutionOptimistic:       false,
-				},
-				TestNotes: "A block that is supposed to replicate slot 100, but contains some dummy test information.",
-				MimicConfig: &MimicConfig{
-					ForkVersion: "phase0",
-				},
-				SignedBeaconBlock: filepath.Join("ssz-data", "100", "signed-beacon-block.ssz"),
-				BeaconState:       filepath.Join("ssz-data", "100", "beacon-state.ssz"),
-			},
-			"102-wrong-ssz-1": {
-				HeadMessage: beaconclient.Head{
-					Slot:                      "102",
-					Block:                     "0x46f98c08b54a71dfda4d56e29ec3952b8300cd8d6b67a9b6c562ae96a7a25a42",
-					State:                     "0x9b20b114c613c1aa462e02d590b3da902b0a1377e938ed0f94dd3491d763ef67",
-					CurrentDutyDependentRoot:  "",
-					PreviousDutyDependentRoot: "",
-					EpochTransition:           false,
-					ExecutionOptimistic:       false,
-				},
-				TestNotes:         "A bad block that returns the wrong ssz objects, used for testing incorrect SSZ decoding.",
-				BeaconState:       filepath.Join("ssz-data", "102", "signed-beacon-block.ssz"),
-				SignedBeaconBlock: filepath.Join("ssz-data", "102", "beacon-state.ssz"),
-			},
-			"100": {
-				HeadMessage: beaconclient.Head{
-					Slot:                      "100",
-					Block:                     "0x582187e97f7520bb69eea014c3834c964c45259372a0eaaea3f032013797996b",
-					State:                     "0xf286a0379c0386a3c7be28d05d829f8eb7b280cc9ede15449af20ebcd06a7a56",
-					CurrentDutyDependentRoot:  "",
-					PreviousDutyDependentRoot: "",
-					EpochTransition:           false,
-					ExecutionOptimistic:       false,
-				},
-				TestNotes:         "An easy to process Phase 0 block",
-				SignedBeaconBlock: filepath.Join("ssz-data", "100", "signed-beacon-block.ssz"),
-				BeaconState:       filepath.Join("ssz-data", "100", "beacon-state.ssz"),
-			},
-			"101": {
-				HeadMessage: beaconclient.Head{
-					Slot:                      "101",
-					Block:                     "0xabe1a972e512182d04f0d4a5c9c25f9ee57c2e9d0ff3f4c4c82fd42d13d31083",
-					State:                     "0xcb04aa2edbf13c7bb7e7bd9b621ced6832e0075e89147352eac3019a824ce847",
-					CurrentDutyDependentRoot:  "",
-					PreviousDutyDependentRoot: "",
-					EpochTransition:           false,
-					ExecutionOptimistic:       false,
-				},
-				TestNotes:         "An easy to process Phase 0 block",
-				SignedBeaconBlock: filepath.Join("ssz-data", "101", "signed-beacon-block.ssz"),
-				BeaconState:       filepath.Join("ssz-data", "101", "beacon-state.ssz"),
-			},
-			"2375703-dummy": {
-				HeadMessage: beaconclient.Head{
-					Slot:                      "2375703",
-					Block:                     "c9fb337b62e2a0dae4f27ab49913132570f7f2cab3f23ad99f4d07508a8e648e",
-					State:                     "0299a145bcda2c8f5e7d2e068ee101861edbee2ec1db2d5e1d850b0d265aef5f",
-					CurrentDutyDependentRoot:  "",
-					PreviousDutyDependentRoot: "",
-					EpochTransition:           false,
-					ExecutionOptimistic:       false,
-				},
-				TestNotes: "This is a dummy message that is used for reorgs",
-				MimicConfig: &MimicConfig{
-					ForkVersion: "altair",
-				},
-				SignedBeaconBlock: filepath.Join("ssz-data", "2375703", "signed-beacon-block.ssz"),
-				BeaconState:       filepath.Join("ssz-data", "2375703", "beacon-state.ssz"),
-			},
-			"2375703-dummy-2": {
-				HeadMessage: beaconclient.Head{
-					Slot:                      "2375703",
-					Block:                     "c9fb337b62e2a0dae4f27ab49913132570f7f2cab3f23ad99f4d07508aaaaaaa",
-					State:                     "0299a145bcda2c8f5e7d2e068ee101861edbee2ec1db2d5e1d850b0d2bbbbbbb",
-					CurrentDutyDependentRoot:  "",
-					PreviousDutyDependentRoot: "",
-					EpochTransition:           false,
-					ExecutionOptimistic:       false,
-				},
-				TestNotes: "This is a dummy message that is used for reorgs",
-				MimicConfig: &MimicConfig{
-					ForkVersion: "altair",
-				},
-				SignedBeaconBlock: filepath.Join("ssz-data", "2375703", "signed-beacon-block.ssz"),
-				BeaconState:       filepath.Join("ssz-data", "2375703", "beacon-state.ssz"),
-			},
-			"2375703": {
-				HeadMessage: beaconclient.Head{
-					Slot:                     "2375703",
-					Block:                    "0x4392372c5f6e39499e31bf924388b5815639103149f0f54f8a453773b1802301",
-					State:                    "0xb6215b560273af63ec7e011572b60ec1ca0b0232f8ff44fcd4ed55c7526e964e",
-					CurrentDutyDependentRoot: "", PreviousDutyDependentRoot: "", EpochTransition: false, ExecutionOptimistic: false},
-				TestNotes:         "An easy to process Altair Block",
-				SignedBeaconBlock: filepath.Join("ssz-data", "2375703", "signed-beacon-block.ssz"),
-				BeaconState:       filepath.Join("ssz-data", "2375703", "beacon-state.ssz"),
-			},
-			"3797056": {
-				HeadMessage: beaconclient.Head{
-					Slot:                     "3797056",
-					Block:                    "",
-					State:                    "0xb6215b560273af63ec7e011572b60ec1ca0b0232f8ff44fcd4ed55c7526e964e",
-					CurrentDutyDependentRoot: "", PreviousDutyDependentRoot: "", EpochTransition: false, ExecutionOptimistic: false},
-				TestNotes:         "An easy to process Altair Block",
-				SignedBeaconBlock: filepath.Join("ssz-data", "2375703", "signed-beacon-block.ssz"),
-				BeaconState:       filepath.Join("ssz-data", "2375703", "beacon-state.ssz"),
-			},
-		}
-		TestConfig = Config{
-			protocol:                protocol,
-			address:                 address,
-			port:                    port,
-			dummyParentRoot:         dummyParentRoot,
-			dbHost:                  dbHost,
-			dbPort:                  dbPort,
-			dbName:                  dbName,
-			dbUser:                  dbUser,
-			dbPassword:              dbPassword,
-			dbDriver:                dbDriver,
-			knownGapsTableIncrement: knownGapsTableIncrement,
-		}
-
-		BeaconNodeTester = TestBeaconNode{
-			TestEvents: TestEvents,
-			TestConfig: TestConfig,
-		}
-	})
 
 	Describe("Receiving New Head SSE messages", Label("unit", "behavioral"), func() {
 		Context("Correctly formatted Phase0 Block", func() {
@@ -315,7 +310,7 @@ var _ = Describe("Capturehead", func() {
 
 		//	})
 		//})
-		Context("When the proper SSZ objects are not served", Label("now"), func() {
+		Context("When the proper SSZ objects are not served", func() {
 			It("Should return an error, and add the slot to the knownGaps table.", func() {
 				bc := setUpTest(BeaconNodeTester.TestConfig, "101")
 				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
@@ -403,7 +398,7 @@ var _ = Describe("Capturehead", func() {
 				BeaconNodeTester.testMultipleReorgs(bc, TestEvents["100-dummy"].HeadMessage, TestEvents["100-dummy-2"].HeadMessage, TestEvents["100"].HeadMessage, 3, maxRetry)
 			})
 		})
-		Context("Altair: Multiple reorgs have occurred on this slot", Label("new"), func() {
+		Context("Altair: Multiple reorgs have occurred on this slot", func() {
 			It("The previous blocks should be marked as 'forked', the new block should be the only one marked as 'proposed'.", func() {
 				bc := setUpTest(BeaconNodeTester.TestConfig, "2375702")
 				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
@@ -435,7 +430,7 @@ type Config struct {
 // Must run before each test. We can't use the beforeEach because of the way
 // Gingko treats race conditions.
 func setUpTest(config Config, maxSlot string) *beaconclient.BeaconClient {
-	bc := *beaconclient.CreateBeaconClient(context.Background(), config.protocol, config.address, config.port)
+	bc := *beaconclient.CreateBeaconClient(context.Background(), config.protocol, config.address, config.port, config.knownGapsTableIncrement)
 	db, err := postgres.SetupPostgresDb(config.dbHost, config.dbPort, config.dbName, config.dbUser, config.dbPassword, config.dbDriver)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -491,7 +486,7 @@ func sendHeadMessage(bc *beaconclient.BeaconClient, head beaconclient.Head, maxR
 	data, err := json.Marshal(head)
 	Expect(err).ToNot(HaveOccurred())
 
-	startInserts := atomic.LoadUint64(&bc.Metrics.HeadTrackingInserts)
+	startInserts := atomic.LoadUint64(&bc.Metrics.SlotInserts)
 	bc.HeadTracking.MessagesCh <- &sse.Event{
 		ID:    []byte{},
 		Data:  data,
@@ -499,13 +494,14 @@ func sendHeadMessage(bc *beaconclient.BeaconClient, head beaconclient.Head, maxR
 		Retry: []byte{},
 	}
 	curRetry := 0
-	for atomic.LoadUint64(&bc.Metrics.HeadTrackingInserts) != startInserts+expectedSuccessfulInserts {
+	for atomic.LoadUint64(&bc.Metrics.SlotInserts) != startInserts+expectedSuccessfulInserts {
 		time.Sleep(1 * time.Second)
 		curRetry = curRetry + 1
 		if curRetry == maxRetry {
 			log.WithFields(log.Fields{
-				"startInsert":  startInserts,
-				"currentValue": atomic.LoadUint64(&bc.Metrics.HeadTrackingInserts),
+				"startInsert":               startInserts,
+				"expectedSuccessfulInserts": expectedSuccessfulInserts,
+				"currentValue":              atomic.LoadUint64(&bc.Metrics.SlotInserts),
 			}).Error("HeadTracking Insert wasn't incremented properly.")
 			Fail("Too many retries have occurred.")
 		}
@@ -517,9 +513,10 @@ func queryDbSlotAndBlock(db sql.Database, querySlot string, queryBlockRoot strin
 	sqlStatement := `SELECT epoch, slot, block_root, state_root, status FROM ethcl.slots WHERE slot=$1 AND block_root=$2;`
 	var epoch, slot int
 	var blockRoot, stateRoot, status string
-	row := db.QueryRow(context.Background(), sqlStatement, querySlot, queryBlockRoot)
-	err := row.Scan(&epoch, &slot, &blockRoot, &stateRoot, &status)
+	log.Debug("Starting to query the ethcl.slots table, ", querySlot, " ", queryBlockRoot)
+	err := db.QueryRow(context.Background(), sqlStatement, querySlot, queryBlockRoot).Scan(&epoch, &slot, &blockRoot, &stateRoot, &status)
 	Expect(err).ToNot(HaveOccurred())
+	log.Debug("Querying the ethcl.slots table complete")
 	return epoch, slot, blockRoot, stateRoot, status
 }
 
@@ -567,7 +564,7 @@ func queryKnownGaps(db sql.Database, queryStartGap string, QueryEndGap string) (
 
 // A function that will remove all entries from the ethcl tables for you.
 func clearEthclDbTables(db sql.Database) {
-	deleteQueries := []string{"DELETE FROM ethcl.slots;", "DELETE FROM ethcl.signed_beacon_block;", "DELETE FROM ethcl.beacon_state;", "DELETE FROM ethcl.known_gaps;"}
+	deleteQueries := []string{"DELETE FROM ethcl.slots;", "DELETE FROM ethcl.signed_beacon_block;", "DELETE FROM ethcl.beacon_state;", "DELETE FROM ethcl.known_gaps;", "DELETE FROM ethcl.historic_process;"}
 	for _, queries := range deleteQueries {
 		_, err := db.Exec(context.Background(), queries)
 		Expect(err).ToNot(HaveOccurred())
@@ -670,6 +667,33 @@ func (tbc TestBeaconNode) SetupBeaconNodeMock(TestEvents map[string]Message, pro
 			return httpmock.NewBytesResponse(200, dat), nil
 		},
 	)
+	// Not needed but could be useful to have.
+	blockRootUrl := `=~^` + protocol + "://" + address + ":" + strconv.Itoa(port) + "/eth/v1/beacon/blocks/" + `([^/]+)` + "/root"
+	httpmock.RegisterResponder("GET", blockRootUrl,
+		func(req *http.Request) (*http.Response, error) {
+			// Get ID from request
+			slot := httpmock.MustGetSubmatch(req, 1)
+			dat, err := tbc.provideBlockRoot(slot)
+			if err != nil {
+				Expect(err).NotTo(HaveOccurred())
+				return httpmock.NewStringResponse(404, fmt.Sprintf("Unable to find block root for %s", slot)), err
+			}
+			return httpmock.NewBytesResponse(200, dat), nil
+		},
+	)
+}
+
+// Provide the Block root
+func (tbc TestBeaconNode) provideBlockRoot(slot string) ([]byte, error) {
+
+	for _, val := range tbc.TestEvents {
+		if val.HeadMessage.Slot == slot && val.MimicConfig == nil {
+			block, err := hex.DecodeString(val.HeadMessage.Block[2:])
+			Expect(err).ToNot(HaveOccurred())
+			return block, nil
+		}
+	}
+	return nil, fmt.Errorf("Unable to find the Blockroot in test object.")
 }
 
 // A function to mimic querying the state from the beacon node. We simply get the SSZ file are return it.
@@ -679,12 +703,12 @@ func (tbc TestBeaconNode) provideSsz(slotIdentifier string, sszIdentifier string
 
 	for _, val := range tbc.TestEvents {
 		if sszIdentifier == "state" {
-			if val.HeadMessage.Slot == slotIdentifier || val.HeadMessage.State == slotIdentifier {
+			if (val.HeadMessage.Slot == slotIdentifier && val.MimicConfig == nil) || val.HeadMessage.State == slotIdentifier {
 				slotFile = val.BeaconState
 				Message = val
 			}
 		} else if sszIdentifier == "block" {
-			if val.HeadMessage.Slot == slotIdentifier || val.HeadMessage.Block == slotIdentifier {
+			if (val.HeadMessage.Slot == slotIdentifier && val.MimicConfig == nil) || val.HeadMessage.Block == slotIdentifier {
 				slotFile = val.SignedBeaconBlock
 				Message = val
 			}
@@ -770,16 +794,16 @@ func (tbc TestBeaconNode) provideSsz(slotIdentifier string, sszIdentifier string
 // Helper function to test three reorg messages. There are going to be many functions like this,
 // Because we need to test the same logic for multiple phases.
 func (tbc TestBeaconNode) testMultipleReorgs(bc *beaconclient.BeaconClient, firstHead beaconclient.Head, secondHead beaconclient.Head, thirdHead beaconclient.Head, epoch int, maxRetry int) {
-	go bc.CaptureHead(tbc.TestConfig.knownGapsTableIncrement)
+	go bc.CaptureHead()
 	time.Sleep(1 * time.Second)
 
-	log.Info("Sending Phase0 Messages to BeaconClient")
+	log.Info("Sending Messages to BeaconClient")
 	sendHeadMessage(bc, firstHead, maxRetry, 1)
 	sendHeadMessage(bc, secondHead, maxRetry, 1)
 	sendHeadMessage(bc, thirdHead, maxRetry, 1)
 
 	curRetry := 0
-	for atomic.LoadUint64(&bc.Metrics.HeadTrackingReorgs) != 2 {
+	for atomic.LoadUint64(&bc.Metrics.ReorgInserts) != 2 {
 		time.Sleep(1 * time.Second)
 		curRetry = curRetry + 1
 		if curRetry == maxRetry {
@@ -810,7 +834,7 @@ func (tbc TestBeaconNode) testMultipleReorgs(bc *beaconclient.BeaconClient, firs
 	}
 
 	curRetry = 0
-	for atomic.LoadUint64(&bc.Metrics.HeadTrackingReorgs) != 3 {
+	for atomic.LoadUint64(&bc.Metrics.ReorgInserts) != 3 {
 		time.Sleep(1 * time.Second)
 		curRetry = curRetry + 1
 		if curRetry == maxRetry {
@@ -818,7 +842,7 @@ func (tbc TestBeaconNode) testMultipleReorgs(bc *beaconclient.BeaconClient, firs
 		}
 	}
 
-	if bc.Metrics.HeadTrackingKnownGaps != 0 {
+	if bc.Metrics.KnownGapsInserts != 0 {
 		Fail("We found gaps when processing a single block")
 	}
 
@@ -832,25 +856,25 @@ func (tbc TestBeaconNode) testMultipleReorgs(bc *beaconclient.BeaconClient, firs
 
 // A test to validate a single block was processed correctly
 func (tbc TestBeaconNode) testProcessBlock(bc *beaconclient.BeaconClient, head beaconclient.Head, epoch int, maxRetry int, expectedSuccessInsert uint64, expectedKnownGaps uint64, expectedReorgs uint64) {
-	go bc.CaptureHead(tbc.TestConfig.knownGapsTableIncrement)
+	go bc.CaptureHead()
 	time.Sleep(1 * time.Second)
 	sendHeadMessage(bc, head, maxRetry, expectedSuccessInsert)
 
 	curRetry := 0
-	for atomic.LoadUint64(&bc.Metrics.HeadTrackingKnownGaps) != expectedKnownGaps {
+	for atomic.LoadUint64(&bc.Metrics.KnownGapsInserts) != expectedKnownGaps {
 		time.Sleep(1 * time.Second)
 		curRetry = curRetry + 1
 		if curRetry == maxRetry {
-			Fail(fmt.Sprintf("Wrong gap metrics, got: %d, wanted %d", bc.Metrics.HeadTrackingKnownGaps, expectedKnownGaps))
+			Fail(fmt.Sprintf("Wrong gap metrics, got: %d, wanted %d", bc.Metrics.KnownGapsInserts, expectedKnownGaps))
 		}
 	}
 
 	curRetry = 0
-	for atomic.LoadUint64(&bc.Metrics.HeadTrackingReorgs) != expectedReorgs {
+	for atomic.LoadUint64(&bc.Metrics.ReorgInserts) != expectedReorgs {
 		time.Sleep(1 * time.Second)
 		curRetry = curRetry + 1
 		if curRetry == maxRetry {
-			Fail(fmt.Sprintf("Wrong reorg metrics, got: %d, wanted %d", bc.Metrics.HeadTrackingKnownGaps, expectedKnownGaps))
+			Fail(fmt.Sprintf("Wrong reorg metrics, got: %d, wanted %d", bc.Metrics.KnownGapsInserts, expectedKnownGaps))
 		}
 	}
 
@@ -862,14 +886,14 @@ func (tbc TestBeaconNode) testProcessBlock(bc *beaconclient.BeaconClient, head b
 // A test that ensures that if two HeadMessages occur for a single slot they are marked
 // as proposed and forked correctly.
 func (tbc TestBeaconNode) testMultipleHead(bc *beaconclient.BeaconClient, firstHead beaconclient.Head, secondHead beaconclient.Head, epoch int, maxRetry int) {
-	go bc.CaptureHead(tbc.TestConfig.knownGapsTableIncrement)
+	go bc.CaptureHead()
 	time.Sleep(1 * time.Second)
 
 	sendHeadMessage(bc, firstHead, maxRetry, 1)
 	sendHeadMessage(bc, secondHead, maxRetry, 1)
 
 	curRetry := 0
-	for atomic.LoadUint64(&bc.Metrics.HeadTrackingReorgs) != 1 {
+	for atomic.LoadUint64(&bc.Metrics.ReorgInserts) != 1 {
 		time.Sleep(1 * time.Second)
 		curRetry = curRetry + 1
 		if curRetry == maxRetry {
@@ -877,7 +901,7 @@ func (tbc TestBeaconNode) testMultipleHead(bc *beaconclient.BeaconClient, firstH
 		}
 	}
 
-	if bc.Metrics.HeadTrackingKnownGaps != 0 {
+	if bc.Metrics.KnownGapsInserts != 0 {
 		Fail("We found gaps when processing a single block")
 	}
 
@@ -889,7 +913,8 @@ func (tbc TestBeaconNode) testMultipleHead(bc *beaconclient.BeaconClient, firstH
 // A test that ensures that if two HeadMessages occur for a single slot they are marked
 // as proposed and forked correctly.
 func (tbc TestBeaconNode) testKnownGapsMessages(bc *beaconclient.BeaconClient, tableIncrement int, expectedEntries uint64, maxRetry int, msg ...beaconclient.Head) {
-	go bc.CaptureHead(tableIncrement)
+	bc.KnownGapTableIncrement = tableIncrement
+	go bc.CaptureHead()
 	time.Sleep(1 * time.Second)
 
 	for _, headMsg := range msg {
@@ -897,7 +922,7 @@ func (tbc TestBeaconNode) testKnownGapsMessages(bc *beaconclient.BeaconClient, t
 	}
 
 	curRetry := 0
-	for atomic.LoadUint64(&bc.Metrics.HeadTrackingKnownGaps) != expectedEntries {
+	for atomic.LoadUint64(&bc.Metrics.KnownGapsInserts) != expectedEntries {
 		time.Sleep(1 * time.Second)
 		curRetry = curRetry + 1
 		if curRetry == maxRetry {
@@ -909,7 +934,7 @@ func (tbc TestBeaconNode) testKnownGapsMessages(bc *beaconclient.BeaconClient, t
 	knownGapCount := countKnownGapsTable(bc.Db)
 	Expect(knownGapCount).To(Equal(int(expectedEntries)))
 
-	if atomic.LoadUint64(&bc.Metrics.HeadTrackingReorgs) != 0 {
+	if atomic.LoadUint64(&bc.Metrics.ReorgInserts) != 0 {
 		Fail("We found reorgs when we didn't expect it")
 	}
 }
