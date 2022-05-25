@@ -54,6 +54,7 @@ var (
 	dbUser                  string = "vdbm"
 	dbPassword              string = "password"
 	dbDriver                string = "pgx"
+	bcUniqueIdentifier      int    = 100
 	dummyParentRoot         string = "46f98c08b54a71dfda4d56e29ec3952b8300cd8d6b67a9b6c562ae96a7a25a42"
 	knownGapsTableIncrement int    = 100000
 	maxRetry                int    = 120
@@ -202,6 +203,7 @@ var (
 		dbPassword:              dbPassword,
 		dbDriver:                dbDriver,
 		knownGapsTableIncrement: knownGapsTableIncrement,
+		bcUniqueIdentifier:      bcUniqueIdentifier,
 	}
 
 	BeaconNodeTester = TestBeaconNode{
@@ -421,6 +423,7 @@ type Config struct {
 	dbPassword              string
 	dbDriver                string
 	knownGapsTableIncrement int
+	bcUniqueIdentifier      int
 }
 
 //////////////////////////////////////////////////////
@@ -430,7 +433,8 @@ type Config struct {
 // Must run before each test. We can't use the beforeEach because of the way
 // Gingko treats race conditions.
 func setUpTest(config Config, maxSlot string) *beaconclient.BeaconClient {
-	bc := *beaconclient.CreateBeaconClient(context.Background(), config.protocol, config.address, config.port, config.knownGapsTableIncrement)
+	bc, err := beaconclient.CreateBeaconClient(context.Background(), config.protocol, config.address, config.port, config.knownGapsTableIncrement, config.bcUniqueIdentifier)
+	Expect(err).ToNot(HaveOccurred())
 	db, err := postgres.SetupPostgresDb(config.dbHost, config.dbPort, config.dbName, config.dbUser, config.dbPassword, config.dbDriver)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -441,7 +445,7 @@ func setUpTest(config Config, maxSlot string) *beaconclient.BeaconClient {
 	writeSlot(db, maxSlot)
 	bc.Db = db
 
-	return &bc
+	return bc
 }
 
 // A helper function to validate the expected output from the ethcl.slots table.

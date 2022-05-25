@@ -24,7 +24,7 @@ import (
 )
 
 //Create a metric struct and register each channel with prometheus
-func CreateBeaconClientMetrics() *BeaconClientMetrics {
+func CreateBeaconClientMetrics() (*BeaconClientMetrics, error) {
 	metrics := &BeaconClientMetrics{
 		SlotInserts:              0,
 		ReorgInserts:             0,
@@ -34,17 +34,38 @@ func CreateBeaconClientMetrics() *BeaconClientMetrics {
 		HeadError:                0,
 		HeadReorgError:           0,
 	}
-	prometheusRegisterHelper("slot_inserts", "Keeps track of the number of slots we have inserted.", &metrics.SlotInserts)
-	prometheusRegisterHelper("reorg_inserts", "Keeps track of the number of reorgs we have inserted.", &metrics.ReorgInserts)
-	prometheusRegisterHelper("known_gaps_inserts", "Keeps track of the number of known gaps we have inserted.", &metrics.KnownGapsInserts)
-	prometheusRegisterHelper("known_gaps_processed", "Keeps track of the number of known gaps we processed.", &metrics.knownGapsProcessed)
-	prometheusRegisterHelper("known_gaps_processing_error", "Keeps track of the number of known gaps we had errors processing.", &metrics.KnownGapsProcessingError)
-	prometheusRegisterHelper("head_error", "Keeps track of the number of errors we had processing head messages.", &metrics.HeadError)
-	prometheusRegisterHelper("head_reorg_error", "Keeps track of the number of errors we had processing reorg messages.", &metrics.HeadReorgError)
-	return metrics
+	err := prometheusRegisterHelper("slot_inserts", "Keeps track of the number of slots we have inserted.", &metrics.SlotInserts)
+	if err != nil {
+		return nil, err
+	}
+	err = prometheusRegisterHelper("reorg_inserts", "Keeps track of the number of reorgs we have inserted.", &metrics.ReorgInserts)
+	if err != nil {
+		return nil, err
+	}
+	err = prometheusRegisterHelper("known_gaps_inserts", "Keeps track of the number of known gaps we have inserted.", &metrics.KnownGapsInserts)
+	if err != nil {
+		return nil, err
+	}
+	err = prometheusRegisterHelper("known_gaps_processed", "Keeps track of the number of known gaps we processed.", &metrics.knownGapsProcessed)
+	if err != nil {
+		return nil, err
+	}
+	err = prometheusRegisterHelper("known_gaps_processing_error", "Keeps track of the number of known gaps we had errors processing.", &metrics.KnownGapsProcessingError)
+	if err != nil {
+		return nil, err
+	}
+	err = prometheusRegisterHelper("head_error", "Keeps track of the number of errors we had processing head messages.", &metrics.HeadError)
+	if err != nil {
+		return nil, err
+	}
+	err = prometheusRegisterHelper("head_reorg_error", "Keeps track of the number of errors we had processing reorg messages.", &metrics.HeadReorgError)
+	if err != nil {
+		return nil, err
+	}
+	return metrics, nil
 }
 
-func prometheusRegisterHelper(name string, help string, varPointer *uint64) {
+func prometheusRegisterHelper(name string, help string, varPointer *uint64) error {
 	err := prometheus.Register(prometheus.NewCounterFunc(
 		prometheus.CounterOpts{
 			Namespace:   "beacon_client",
@@ -58,7 +79,9 @@ func prometheusRegisterHelper(name string, help string, varPointer *uint64) {
 		}))
 	if err != nil && err.Error() != "duplicate metrics collector registration attempted" {
 		loghelper.LogError(err).WithField("name", name).Error("Unable to register counter.")
+		return err
 	}
+	return nil
 }
 
 // A structure utilized for keeping track of various metrics. Currently, mostly used in testing.

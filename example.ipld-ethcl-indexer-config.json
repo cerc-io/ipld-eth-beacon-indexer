@@ -14,7 +14,8 @@
     "bootRetryInterval": 30,
     "bootMaxRetry": 5,
     "maxHistoricProcessWorker": 2,
-    "connectionProtocol": "http"
+    "connectionProtocol": "http",
+    "uniqueNodeIdentifier": 100
   },
   "t": {
     "skipSync": true

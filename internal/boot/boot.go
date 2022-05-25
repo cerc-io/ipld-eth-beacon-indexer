@@ -42,14 +42,17 @@ var (
 //
 // 3. Make sure the node is synced, unless disregardSync is true.
 func BootApplication(ctx context.Context, dbHostname string, dbPort int, dbName string, dbUsername string, dbPassword string, driverName string,
-	bcAddress string, bcPort int, bcConnectionProtocol string, bcKgTableIncrement int, disregardSync bool) (*beaconclient.BeaconClient, sql.Database, error) {
+	bcAddress string, bcPort int, bcConnectionProtocol string, bcKgTableIncrement int, disregardSync bool, uniqueNodeIdentifier int) (*beaconclient.BeaconClient, sql.Database, error) {
 	log.Info("Booting the Application")
 
 	log.Debug("Creating the Beacon Client")
-	BC = beaconclient.CreateBeaconClient(ctx, bcConnectionProtocol, bcAddress, bcPort, bcKgTableIncrement)
+	Bc, err := beaconclient.CreateBeaconClient(ctx, bcConnectionProtocol, bcAddress, bcPort, bcKgTableIncrement, uniqueNodeIdentifier)
+	if err != nil {
+		return Bc, nil, err
+	}
 
 	log.Debug("Checking Beacon Client")
-	err := BC.CheckBeaconClient()
+	err = Bc.CheckBeaconClient()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -60,36 +63,37 @@ func BootApplication(ctx context.Context, dbHostname string, dbPort int, dbName 
 		return nil, nil, err
 	}
 
-	BC.Db = DB
+	Bc.Db = DB
 
 	var status bool
 	if !disregardSync {
-		status, err = BC.CheckHeadSync()
+		status, err = Bc.CheckHeadSync()
 		if err != nil {
 			log.Error("Unable to get the nodes sync status")
-			return BC, DB, err
+			return Bc, DB, err
 		}
 		if status {
 			log.Error("The node is still syncing..")
 			err = fmt.Errorf("The node is still syncing.")
-			return BC, DB, err
+			return Bc, DB, err
 		}
 	} else {
 		log.Warn("We are not checking to see if the node has synced to head.")
 	}
-	return BC, DB, nil
+	return Bc, DB, nil
 }
 
 // Add retry logic to ensure that we are give the Beacon Client and the DB time to start.
 func BootApplicationWithRetry(ctx context.Context, dbHostname string, dbPort int, dbName string, dbUsername string, dbPassword string, driverName string,
-	bcAddress string, bcPort int, bcConnectionProtocol string, bcType string, bcRetryInterval int, bcMaxRetry int, bcKgTableIncrement int, startUpMode string, disregardSync bool) (*beaconclient.BeaconClient, sql.Database, error) {
+	bcAddress string, bcPort int, bcConnectionProtocol string, bcType string, bcRetryInterval int, bcMaxRetry int, bcKgTableIncrement int,
+	startUpMode string, disregardSync bool, uniqueNodeIdentifier int) (*beaconclient.BeaconClient, sql.Database, error) {
 	var err error
 
 	if bcMaxRetry < 0 {
 		i := 0
 		for {
 			BC, DB, err = BootApplication(ctx, dbHostname, dbPort, dbName, dbUsername, dbPassword, driverName,
-				bcAddress, bcPort, bcConnectionProtocol, bcKgTableIncrement, disregardSync)
+				bcAddress, bcPort, bcConnectionProtocol, bcKgTableIncrement, disregardSync, uniqueNodeIdentifier)
 			if err != nil {
 				log.WithFields(log.Fields{
 					"retryNumber": i,
@@ -104,7 +108,7 @@ func BootApplicationWithRetry(ctx context.Context, dbHostname string, dbPort int
 	} else {
 		for i := 0; i < bcMaxRetry; i++ {
 			BC, DB, err = BootApplication(ctx, dbHostname, dbPort, dbName, dbUsername, dbPassword, driverName,
-				bcAddress, bcPort, bcConnectionProtocol, bcKgTableIncrement, disregardSync)
+				bcAddress, bcPort, bcConnectionProtocol, bcKgTableIncrement, disregardSync, uniqueNodeIdentifier)
 			if err != nil {
 				log.WithFields(log.Fields{
 					"retryNumber": i,
@@ -136,6 +140,8 @@ func BootApplicationWithRetry(ctx context.Context, dbHostname string, dbPort int
 		}
 		BC.UpdateLatestSlotInBeaconServer(int64(headSlot))
 		// Add another switch case for bcType if its ever needed.
+	case "boot":
+		log.Debug("Running application in boot mode.")
 	default:
 		log.WithFields(log.Fields{
 			"startUpMode": startUpMode,

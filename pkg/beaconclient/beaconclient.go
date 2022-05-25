@@ -48,6 +48,7 @@ type BeaconClient struct {
 	Db                     sql.Database         // Database object used for reads and writes.
 	Metrics                *BeaconClientMetrics // An object used to keep track of certain BeaconClient Metrics.
 	KnownGapTableIncrement int                  // The max number of slots within a single known_gaps table entry.
+	UniqueNodeIdentifier   int                  // The unique identifier within the cluster of this individual node.
 
 	// Used for Head Tracking
 
@@ -84,7 +85,16 @@ type SseError struct {
 }
 
 // A Function to create the BeaconClient.
-func CreateBeaconClient(ctx context.Context, connectionProtocol string, bcAddress string, bcPort int, bcKgTableIncrement int) *BeaconClient {
+func CreateBeaconClient(ctx context.Context, connectionProtocol string, bcAddress string, bcPort int, bcKgTableIncrement int, uniqueNodeIdentifier int) (*BeaconClient, error) {
+	if uniqueNodeIdentifier == 0 {
+		return nil, fmt.Errorf("The unique node identifier provided is 0, it must be a non-zero value!!!!")
+	}
+
+	metrics, err := CreateBeaconClientMetrics()
+	if err != nil {
+		return nil, err
+	}
+
 	endpoint := fmt.Sprintf("%s://%s:%d", connectionProtocol, bcAddress, bcPort)
 	log.Info("Creating the BeaconClient")
 	return &BeaconClient{
@@ -93,9 +103,9 @@ func CreateBeaconClient(ctx context.Context, connectionProtocol string, bcAddres
 		KnownGapTableIncrement: bcKgTableIncrement,
 		HeadTracking:           createSseEvent[Head](endpoint, BcHeadTopicEndpoint),
 		ReOrgTracking:          createSseEvent[ChainReorg](endpoint, bcReorgTopicEndpoint),
-		Metrics:                CreateBeaconClientMetrics(),
+		Metrics:                metrics,
 		//FinalizationTracking: createSseEvent[FinalizedCheckpoint](endpoint, bcFinalizedTopicEndpoint),
-	}
+	}, nil
 }
 
 // Create all the channels to handle a SSE events

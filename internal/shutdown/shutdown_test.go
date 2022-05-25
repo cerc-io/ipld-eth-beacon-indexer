@@ -35,32 +35,34 @@ import (
 	"github.com/vulcanize/ipld-ethcl-indexer/pkg/gracefulshutdown"
 )
 
+var (
+	dbAddress              string        = "localhost"
+	dbPort                 int           = 8076
+	dbName                 string        = "vulcanize_testing"
+	dbUsername             string        = "vdbm"
+	dbPassword             string        = "password"
+	dbDriver               string        = "PGX"
+	bcAddress              string        = "localhost"
+	bcPort                 int           = 5052
+	bcConnectionProtocol   string        = "http"
+	bcType                 string        = "lighthouse"
+	bcBootRetryInterval    int           = 1
+	bcBootMaxRetry         int           = 5
+	bcKgTableIncrement     int           = 10
+	bcUniqueIdentifier     int           = 100
+	maxWaitSecondsShutdown time.Duration = time.Duration(1) * time.Second
+	DB                     sql.Database
+	BC                     *beaconclient.BeaconClient
+	err                    error
+	ctx                    context.Context
+	notifierCh             chan os.Signal
+)
+
 var _ = Describe("Shutdown", func() {
-	var (
-		dbAddress              string        = "localhost"
-		dbPort                 int           = 8076
-		dbName                 string        = "vulcanize_testing"
-		dbUsername             string        = "vdbm"
-		dbPassword             string        = "password"
-		dbDriver               string        = "PGX"
-		bcAddress              string        = "localhost"
-		bcPort                 int           = 5052
-		bcConnectionProtocol   string        = "http"
-		bcType                 string        = "lighthouse"
-		bcBootRetryInterval    int           = 1
-		bcBootMaxRetry         int           = 5
-		bcKgTableIncrement     int           = 10
-		maxWaitSecondsShutdown time.Duration = time.Duration(1) * time.Second
-		DB                     sql.Database
-		BC                     *beaconclient.BeaconClient
-		err                    error
-		ctx                    context.Context
-		notifierCh             chan os.Signal
-	)
 	BeforeEach(func() {
 		ctx = context.Background()
 		BC, DB, err = boot.BootApplicationWithRetry(ctx, dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver, bcAddress,
-			bcPort, bcConnectionProtocol, bcType, bcBootRetryInterval, bcBootMaxRetry, bcKgTableIncrement, "head", true)
+			bcPort, bcConnectionProtocol, bcType, bcBootRetryInterval, bcBootMaxRetry, bcKgTableIncrement, "head", true, bcUniqueIdentifier)
 		notifierCh = make(chan os.Signal, 1)
 		Expect(err).To(BeNil())
 	})
