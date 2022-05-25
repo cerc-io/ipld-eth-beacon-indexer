@@ -20,6 +20,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
+	"github.com/vulcanize/ipld-ethcl-indexer/pkg/loghelper"
 )
 
 //Create a metric struct and register each channel with prometheus
@@ -44,7 +45,7 @@ func CreateBeaconClientMetrics() *BeaconClientMetrics {
 }
 
 func prometheusRegisterHelper(name string, help string, varPointer *uint64) {
-	prometheus.MustRegister(prometheus.NewCounterFunc(
+	err := prometheus.Register(prometheus.NewCounterFunc(
 		prometheus.CounterOpts{
 			Namespace:   "beacon_client",
 			Subsystem:   "",
@@ -55,6 +56,9 @@ func prometheusRegisterHelper(name string, help string, varPointer *uint64) {
 		func() float64 {
 			return float64(atomic.LoadUint64(varPointer))
 		}))
+	if err != nil && err.Error() != "duplicate metrics collector registration attempted" {
+		loghelper.LogError(err).WithField("name", name).Error("Unable to register counter.")
+	}
 }
 
 // A structure utilized for keeping track of various metrics. Currently, mostly used in testing.
