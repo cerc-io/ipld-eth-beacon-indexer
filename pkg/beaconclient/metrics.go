@@ -46,8 +46,11 @@ func CreateBeaconClientMetrics() *BeaconClientMetrics {
 func prometheusRegisterHelper(name string, help string, varPointer *uint64) {
 	prometheus.MustRegister(prometheus.NewCounterFunc(
 		prometheus.CounterOpts{
-			Name: name,
-			Help: help,
+			Namespace:   "beacon_client",
+			Subsystem:   "",
+			Name:        name,
+			Help:        help,
+			ConstLabels: map[string]string{},
 		},
 		func() float64 {
 			return float64(atomic.LoadUint64(varPointer))
