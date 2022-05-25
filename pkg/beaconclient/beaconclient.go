@@ -93,13 +93,7 @@ func CreateBeaconClient(ctx context.Context, connectionProtocol string, bcAddres
 		KnownGapTableIncrement: bcKgTableIncrement,
 		HeadTracking:           createSseEvent[Head](endpoint, BcHeadTopicEndpoint),
 		ReOrgTracking:          createSseEvent[ChainReorg](endpoint, bcReorgTopicEndpoint),
-		Metrics: &BeaconClientMetrics{
-			SlotInserts:      0,
-			ReorgInserts:     0,
-			KnownGapsInserts: 0,
-			HeadError:        0,
-			HeadReorgError:   0,
-		},
+		Metrics:                CreateBeaconClientMetrics(),
 		//FinalizationTracking: createSseEvent[FinalizedCheckpoint](endpoint, bcFinalizedTopicEndpoint),
 	}
 }
