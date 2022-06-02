@@ -36,7 +36,7 @@ var (
 	checkKgEntryStmt string = `SELECT * FROM ethcl.known_gaps WHERE checked_out=false;`
 	// Used to checkout a row from the ethcl.known_gaps table
 	lockKgEntryStmt string = `UPDATE ethcl.known_gaps
-	SET checked_out=true
+	SET checked_out=true, checked_out_by=$3
 	WHERE start_slot=$1 AND end_slot=$2;`
 	// Used to delete an entry from the knownGaps table
 	deleteKgEntryStmt string = `DELETE FROM ethcl.known_gaps
@@ -44,25 +44,41 @@ var (
 	// Used to check to see if a single slot exists in the known_gaps table.
 	checkKgSingleSlotStmt string = `SELECT start_slot, end_slot FROM ethcl.known_gaps
 	WHERE start_slot=$1 AND end_slot=$2;`
+	// Used to update every single row that this node has checked out.
+	releaseKgLockStmt string = `UPDATE ethcl.known_gaps
+	SET checked_out=false
+	WHERE checked_out_by=$1`
 )
 
 type knownGapsProcessing struct {
-	db      sql.Database
-	metrics *BeaconClientMetrics
+	db                   sql.Database         //db connection
+	metrics              *BeaconClientMetrics // metrics for beaconclient
+	uniqueNodeIdentifier int                  // node unique identifier.
+	finishProcessing     chan int             // A channel which indicates to the process handleBatchProcess function that its time to end.
 }
 
 // This function will perform all the heavy lifting for tracking the head of the chain.
 func (bc *BeaconClient) ProcessKnownGaps(maxWorkers int) []error {
 	log.Info("We are starting the known gaps processing service.")
-	hp := knownGapsProcessing{db: bc.Db, metrics: bc.Metrics}
-	errs := handleBatchProcess(maxWorkers, hp, hp.db, bc.ServerEndpoint, bc.Metrics)
+	bc.KnownGapsProcess = knownGapsProcessing{db: bc.Db, uniqueNodeIdentifier: bc.UniqueNodeIdentifier, metrics: bc.Metrics, finishProcessing: make(chan int)}
+	errs := handleBatchProcess(maxWorkers, bc.KnownGapsProcess, bc.KnownGapsProcess.finishProcessing, bc.KnownGapsProcess.db, bc.ServerEndpoint, bc.Metrics)
 	log.Debug("Exiting known gaps processing service")
 	return errs
 }
 
+// This function will perform all the necessary clean up tasks for stopping historical processing.
+func (bc *BeaconClient) StopKnownGapsProcessing() error {
+	log.Info("We are stopping the historical processing service.")
+	err := bc.KnownGapsProcess.releaseDbLocks()
+	if err != nil {
+		loghelper.LogError(err).WithField("uniqueIdentifier", bc.UniqueNodeIdentifier).Error("We were unable to remove the locks from the ethcl.known_gaps table. Manual Intervention is needed!")
+	}
+	return nil
+}
+
 // Get a single row of historical slots from the table.
 func (kgp knownGapsProcessing) getSlotRange(slotCh chan<- slotsToProcess) []error {
-	return getBatchProcessRow(kgp.db, getKgEntryStmt, checkKgEntryStmt, lockKgEntryStmt, slotCh)
+	return getBatchProcessRow(kgp.db, getKgEntryStmt, checkKgEntryStmt, lockKgEntryStmt, slotCh, strconv.Itoa(kgp.uniqueNodeIdentifier))
 }
 
 // Remove the table entry.
@@ -98,4 +114,19 @@ func (kgp knownGapsProcessing) handleProcessingErrors(errMessages <-chan batchHi
 			writeKnownGaps(kgp.db, 1, errMs.slot, errMs.slot, errMs.err, errMs.errProcess, kgp.metrics)
 		}
 	}
+}
+
+// Updated checked_out column for the uniqueNodeIdentifier.
+func (kgp knownGapsProcessing) releaseDbLocks() error {
+	go func() { kgp.finishProcessing <- 1 }()
+	res, err := kgp.db.Exec(context.Background(), releaseKgLockStmt, kgp.uniqueNodeIdentifier)
+	if err != nil {
+		return err
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	log.WithField("rowCount", rows).Info("Released knownGaps locks for specified rows.")
+	return nil
 }

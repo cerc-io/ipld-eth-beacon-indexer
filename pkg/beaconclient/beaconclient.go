@@ -18,6 +18,7 @@ package beaconclient
 import (
 	"context"
 	"fmt"
+	"math/rand"
 
 	"github.com/r3labs/sse"
 	log "github.com/sirupsen/logrus"
@@ -67,6 +68,8 @@ type BeaconClient struct {
 	// This value is lazily updated. Therefore at times it will be outdated.
 	LatestSlotInBeaconServer    int64
 	PerformHistoricalProcessing bool // Should we perform historical processing?
+	HistoricalProcess           historicProcessing
+	KnownGapsProcess            knownGapsProcessing
 }
 
 // A struct to keep track of relevant the head event topic.
@@ -87,7 +90,8 @@ type SseError struct {
 // A Function to create the BeaconClient.
 func CreateBeaconClient(ctx context.Context, connectionProtocol string, bcAddress string, bcPort int, bcKgTableIncrement int, uniqueNodeIdentifier int) (*BeaconClient, error) {
 	if uniqueNodeIdentifier == 0 {
-		return nil, fmt.Errorf("The unique node identifier provided is 0, it must be a non-zero value!!!!")
+		uniqueNodeIdentifier := rand.Int()
+		log.WithField("randomUniqueNodeIdentifier", uniqueNodeIdentifier).Warn("No uniqueNodeIdentifier provided, we are going to use a randomly generated one.")
 	}
 
 	metrics, err := CreateBeaconClientMetrics()
@@ -104,6 +108,7 @@ func CreateBeaconClient(ctx context.Context, connectionProtocol string, bcAddres
 		HeadTracking:           createSseEvent[Head](endpoint, BcHeadTopicEndpoint),
 		ReOrgTracking:          createSseEvent[ChainReorg](endpoint, bcReorgTopicEndpoint),
 		Metrics:                metrics,
+		UniqueNodeIdentifier:   uniqueNodeIdentifier,
 		//FinalizationTracking: createSseEvent[FinalizedCheckpoint](endpoint, bcFinalizedTopicEndpoint),
 	}, nil
 }

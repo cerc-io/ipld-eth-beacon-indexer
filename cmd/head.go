@@ -81,7 +81,7 @@ func startHeadTracking() {
 	}
 
 	// Shutdown when the time is right.
-	err = shutdown.ShutdownServices(ctx, notifierCh, maxWaitSecondsShutdown, Db, Bc)
+	err = shutdown.ShutdownHeadTracking(ctx, notifierCh, maxWaitSecondsShutdown, Db, Bc)
 	if err != nil {
 		loghelper.LogError(err).Error("Ungracefully Shutdown ipld-ethcl-indexer!")
 	} else {

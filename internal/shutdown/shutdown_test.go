@@ -67,12 +67,12 @@ var _ = Describe("Shutdown", func() {
 		Expect(err).To(BeNil())
 	})
 
-	Describe("Run Shutdown Function,", Label("integration"), func() {
+	Describe("Run Shutdown Function for head tracking,", Label("integration"), func() {
 		Context("When Channels are empty,", func() {
 			It("Should Shutdown Successfully.", func() {
 				go func() {
 					log.Debug("Starting shutdown chan")
-					err = shutdown.ShutdownServices(ctx, notifierCh, maxWaitSecondsShutdown, DB, BC)
+					err = shutdown.ShutdownHeadTracking(ctx, notifierCh, maxWaitSecondsShutdown, DB, BC)
 					log.Debug("We have completed the shutdown...")
 					Expect(err).ToNot(HaveOccurred())
 				}()
@@ -84,7 +84,7 @@ var _ = Describe("Shutdown", func() {
 				//log.SetLevel(log.DebugLevel)
 				go func() {
 					log.Debug("Starting shutdown chan")
-					err = shutdown.ShutdownServices(ctx, notifierCh, maxWaitSecondsShutdown, DB, BC)
+					err = shutdown.ShutdownHeadTracking(ctx, notifierCh, maxWaitSecondsShutdown, DB, BC)
 					log.Debug("We have completed the shutdown...")
 					Expect(err).ToNot(HaveOccurred())
 					shutdownCh <- true
@@ -117,7 +117,7 @@ var _ = Describe("Shutdown", func() {
 				//log.SetLevel(log.DebugLevel)
 				go func() {
 					log.Debug("Starting shutdown chan")
-					err = shutdown.ShutdownServices(ctx, notifierCh, maxWaitSecondsShutdown, DB, BC)
+					err = shutdown.ShutdownHeadTracking(ctx, notifierCh, maxWaitSecondsShutdown, DB, BC)
 					log.Debug("We have completed the shutdown...")
 					Expect(err).To(MatchError(gracefulshutdown.TimeoutErr(maxWaitSecondsShutdown.String())))
 					shutdownCh <- true
