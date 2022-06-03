@@ -3,9 +3,16 @@ on:
   release:
     types: [published, edited]
 jobs:
+  trigger-tests:
+    uses: ./.github/workflows/tests.yml
+    with:
+      stack-orchestrator-ref: ${{ github.event.inputs.stack-orchestrator-ref }}
+      ipld-ethcl-db-ref: ${{ github.event.inputs.ipld-ethcl-db-ref }}
+      ssz-data-ref: ${{ github.event.inputs.ssz-data-ref }}
   build:
     name: Run docker build
     runs-on: ubuntu-latest
+    needs: trigger-tests
     steps:
       - uses: actions/checkout@v2
       - name: Get the version

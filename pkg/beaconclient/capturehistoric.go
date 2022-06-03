@@ -57,6 +57,12 @@ type BatchProcessing interface {
 	releaseDbLocks() error                            // Update the checked_out column to false for whatever table is being updated.
 }
 
+/// ^^^
+// Might be better to remove the interface and create a single struct that historicalProcessing
+// and knownGapsProcessing can use. The struct would contain all the SQL strings that they need.
+// And the only difference in logic for processing would be within the error handling.
+// Which can be a function we pass into handleBatchProcess()
+
 // A struct to pass around indicating a table entry for slots to process.
 type slotsToProcess struct {
 	startSlot int // The start slot
