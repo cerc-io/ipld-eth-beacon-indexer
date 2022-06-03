@@ -125,6 +125,8 @@ func init() {
 	exitErr(err)
 	err = viper.BindPFlag("db.name", captureCmd.PersistentFlags().Lookup("db.name"))
 	exitErr(err)
+	err = viper.BindPFlag("db.driver", captureCmd.PersistentFlags().Lookup("db.driver"))
+	exitErr(err)
 
 	//// Testing Specific
 	err = viper.BindPFlag("t.skipSync", captureCmd.PersistentFlags().Lookup("t.skipSync"))

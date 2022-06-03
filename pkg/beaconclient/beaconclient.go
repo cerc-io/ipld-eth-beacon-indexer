@@ -50,6 +50,7 @@ type BeaconClient struct {
 	Metrics                *BeaconClientMetrics // An object used to keep track of certain BeaconClient Metrics.
 	KnownGapTableIncrement int                  // The max number of slots within a single known_gaps table entry.
 	UniqueNodeIdentifier   int                  // The unique identifier within the cluster of this individual node.
+	KnownGapsProcess       KnownGapsProcessing  // object keeping track of knowngaps processing
 
 	// Used for Head Tracking
 
@@ -67,9 +68,8 @@ type BeaconClient struct {
 	// The latest available slot within the Beacon Server. We can't query any slot greater than this.
 	// This value is lazily updated. Therefore at times it will be outdated.
 	LatestSlotInBeaconServer    int64
-	PerformHistoricalProcessing bool // Should we perform historical processing?
-	HistoricalProcess           historicProcessing
-	KnownGapsProcess            knownGapsProcessing
+	PerformHistoricalProcessing bool               // Should we perform historical processing?
+	HistoricalProcess           historicProcessing // object keeping track of historical processing
 }
 
 // A struct to keep track of relevant the head event topic.

@@ -94,6 +94,7 @@ func init() {
 	captureCmd.AddCommand(headCmd)
 }
 
+// Start prometheus server
 func serveProm(addr string) {
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.Handler())

@@ -49,6 +49,12 @@ func ShutdownHeadTracking(ctx context.Context, notifierCh chan os.Signal, waitTi
 			if err != nil {
 				loghelper.LogError(err).Error("Unable to trigger shutdown of head tracking")
 			}
+			if BC.KnownGapsProcess != (beaconclient.KnownGapsProcessing{}) {
+				err = BC.StopKnownGapsProcessing()
+				if err != nil {
+					loghelper.LogError(err).Error("Unable to stop processing known gaps")
+				}
+			}
 			return err
 		},
 	})
@@ -64,9 +70,11 @@ func ShutdownHistoricProcessing(ctx context.Context, notifierCh chan os.Signal, 
 			if err != nil {
 				loghelper.LogError(err).Error("Unable to stop processing historic")
 			}
-			err = BC.StopKnownGapsProcessing()
-			if err != nil {
-				loghelper.LogError(err).Error("Unable to stop processing known gaps")
+			if BC.KnownGapsProcess != (beaconclient.KnownGapsProcessing{}) {
+				err = BC.StopKnownGapsProcessing()
+				if err != nil {
+					loghelper.LogError(err).Error("Unable to stop processing known gaps")
+				}
 			}
 			return err
 		},

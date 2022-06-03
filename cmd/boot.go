@@ -49,7 +49,7 @@ func bootApp() {
 		viper.GetString("bc.address"), viper.GetInt("bc.port"), viper.GetString("bc.connectionProtocol"), viper.GetString("bc.type"), viper.GetInt("bc.bootRetryInterval"), viper.GetInt("bc.bootMaxRetry"),
 		viper.GetInt("kg.increment"), "boot", viper.GetBool("t.skipSync"), viper.GetInt("bc.uniqueNodeIdentifier"))
 	if err != nil {
-		loghelper.LogError(err).Error("Unable to Start application")
+		StopApplicationPreBoot(err, Db)
 	}
 
 	log.Info("Boot complete, we are going to shutdown.")

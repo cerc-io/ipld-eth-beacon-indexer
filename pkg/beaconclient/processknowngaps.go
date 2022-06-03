@@ -50,7 +50,7 @@ var (
 	WHERE checked_out_by=$1`
 )
 
-type knownGapsProcessing struct {
+type KnownGapsProcessing struct {
 	db                   sql.Database         //db connection
 	metrics              *BeaconClientMetrics // metrics for beaconclient
 	uniqueNodeIdentifier int                  // node unique identifier.
@@ -60,7 +60,7 @@ type knownGapsProcessing struct {
 // This function will perform all the heavy lifting for tracking the head of the chain.
 func (bc *BeaconClient) ProcessKnownGaps(maxWorkers int) []error {
 	log.Info("We are starting the known gaps processing service.")
-	bc.KnownGapsProcess = knownGapsProcessing{db: bc.Db, uniqueNodeIdentifier: bc.UniqueNodeIdentifier, metrics: bc.Metrics, finishProcessing: make(chan int)}
+	bc.KnownGapsProcess = KnownGapsProcessing{db: bc.Db, uniqueNodeIdentifier: bc.UniqueNodeIdentifier, metrics: bc.Metrics, finishProcessing: make(chan int)}
 	errs := handleBatchProcess(maxWorkers, bc.KnownGapsProcess, bc.KnownGapsProcess.finishProcessing, bc.KnownGapsProcess.db, bc.ServerEndpoint, bc.Metrics)
 	log.Debug("Exiting known gaps processing service")
 	return errs
@@ -77,17 +77,17 @@ func (bc *BeaconClient) StopKnownGapsProcessing() error {
 }
 
 // Get a single row of historical slots from the table.
-func (kgp knownGapsProcessing) getSlotRange(slotCh chan<- slotsToProcess) []error {
+func (kgp KnownGapsProcessing) getSlotRange(slotCh chan<- slotsToProcess) []error {
 	return getBatchProcessRow(kgp.db, getKgEntryStmt, checkKgEntryStmt, lockKgEntryStmt, slotCh, strconv.Itoa(kgp.uniqueNodeIdentifier))
 }
 
 // Remove the table entry.
-func (kgp knownGapsProcessing) removeTableEntry(processCh <-chan slotsToProcess) error {
+func (kgp KnownGapsProcessing) removeTableEntry(processCh <-chan slotsToProcess) error {
 	return removeRowPostProcess(kgp.db, processCh, QueryBySlotStmt, deleteKgEntryStmt)
 }
 
 // Remove the table entry.
-func (kgp knownGapsProcessing) handleProcessingErrors(errMessages <-chan batchHistoricError) {
+func (kgp KnownGapsProcessing) handleProcessingErrors(errMessages <-chan batchHistoricError) {
 	for {
 		errMs := <-errMessages
 
@@ -117,7 +117,7 @@ func (kgp knownGapsProcessing) handleProcessingErrors(errMessages <-chan batchHi
 }
 
 // Updated checked_out column for the uniqueNodeIdentifier.
-func (kgp knownGapsProcessing) releaseDbLocks() error {
+func (kgp KnownGapsProcessing) releaseDbLocks() error {
 	go func() { kgp.finishProcessing <- 1 }()
 	res, err := kgp.db.Exec(context.Background(), releaseKgLockStmt, kgp.uniqueNodeIdentifier)
 	if err != nil {
