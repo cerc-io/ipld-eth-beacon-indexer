@@ -93,7 +93,7 @@ jobs:
           ref: ${{ env.ipld-ethcl-db-ref }}
           repository: vulcanize/ipld-ethcl-db
           path: "./ipld-ethcl-db/"
-          token: ${{ secrets.GH_PAT }}
+          ssh-key: ${{ secrets.GHA_KEY }}
           fetch-depth: 0
 
       - uses: actions/checkout@v3
@@ -154,7 +154,7 @@ jobs:
           ref: ${{ env.ipld-ethcl-db-ref }}
           repository: vulcanize/ipld-ethcl-db
           path: "./ipld-ethcl-db/"
-          token: ${{ secrets.GH_PAT }}
+          ssh-key: ${{secrets.GHA_KEY}}
           fetch-depth: 0
 
       - name: Create config file
