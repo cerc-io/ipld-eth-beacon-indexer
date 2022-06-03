@@ -15,7 +15,8 @@
     "bootMaxRetry": 5,
     "maxHistoricProcessWorker": 2,
     "connectionProtocol": "http",
-    "uniqueNodeIdentifier": 100
+    "uniqueNodeIdentifier": 100,
+    "checkDb": true
   },
   "t": {
     "skipSync": true

@@ -24,6 +24,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/vulcanize/ipld-ethcl-indexer/pkg/database/sql"
 	"github.com/vulcanize/ipld-ethcl-indexer/pkg/loghelper"
+	"golang.org/x/sync/errgroup"
 )
 
 var (
@@ -54,6 +55,14 @@ VALUES ($1, $2) ON CONFLICT (key) DO NOTHING`
 	CheckProposedStmt string = `SELECT slot, block_root
 	FROM ethcl.slots
 	WHERE slot=$1 AND block_root=$2;`
+	// Check to see if the slot and block_root exist in ethcl.signed_beacon_block
+	CheckSignedBeaconBlockStmt string = `SELECT slot, block_root
+	FROM ethcl.signed_beacon_block
+	WHERE slot=$1 AND block_root=$2`
+	// Check to see if the slot and state_root exist in ethcl.beacon_state
+	CheckBeaconStateStmt string = `SELECT slot, state_root
+	FROM ethcl.beacon_state
+	WHERE slot=$1 AND state_root=$2`
 	// Used to get a single slot from the table if it exists
 	QueryBySlotStmt string = `SELECT slot
 	FROM ethcl.slots
@@ -275,7 +284,7 @@ func (dw *DatabaseWriter) upsertBeaconState() error {
 
 // Update a given slot to be marked as forked within a transaction. Provide the slot and the latest latestBlockRoot.
 // We will mark all entries for the given slot that don't match the provided latestBlockRoot as forked.
-func transactReorgs(db sql.Database, tx sql.Tx, ctx context.Context, slot string, latestBlockRoot string, metrics *BeaconClientMetrics) {
+func transactReorgs(tx sql.Tx, ctx context.Context, slot string, latestBlockRoot string, metrics *BeaconClientMetrics) {
 	slotNum, strErr := strconv.Atoi(slot)
 	if strErr != nil {
 		loghelper.LogReorgError(slot, latestBlockRoot, strErr).Error("We can't convert the slot to an int...")
@@ -312,19 +321,8 @@ func transactReorgs(db sql.Database, tx sql.Tx, ctx context.Context, slot string
 		}).Error("Too many rows were marked as proposed!")
 		transactKnownGaps(tx, ctx, 1, slotNum, slotNum, err, "reorg", metrics)
 	} else if proposedCount == 0 {
-		var count int
-		err := db.QueryRow(context.Background(), CheckProposedStmt, slot, latestBlockRoot).Scan(count)
-		if err != nil {
-			loghelper.LogReorgError(slot, latestBlockRoot, err).Error("Unable to query proposed rows after reorg.")
-			transactKnownGaps(tx, ctx, 1, slotNum, slotNum, err, "reorg", metrics)
-		} else if count != 1 {
-			loghelper.LogReorg(slot, latestBlockRoot).WithFields(log.Fields{
-				"proposedCount": count,
-			}).Warn("The proposed block was not marked as proposed...")
-			transactKnownGaps(tx, ctx, 1, slotNum, slotNum, err, "reorg", metrics)
-		} else {
-			loghelper.LogReorg(slot, latestBlockRoot).Info("Updated the row that should have been marked as proposed.")
-		}
+		transactKnownGaps(tx, ctx, 1, slotNum, slotNum, err, "reorg", metrics)
+		loghelper.LogReorg(slot, latestBlockRoot).Info("Updated the row that should have been marked as proposed.")
 	}
 
 	metrics.IncrementReorgsInsert(1)
@@ -343,7 +341,7 @@ func writeReorgs(db sql.Database, slot string, latestBlockRoot string, metrics *
 			loghelper.LogError(err).Error("We were unable to Rollback a transaction for reorgs")
 		}
 	}()
-	transactReorgs(db, tx, ctx, slot, latestBlockRoot, metrics)
+	transactReorgs(tx, ctx, slot, latestBlockRoot, metrics)
 	if err = tx.Commit(ctx); err != nil {
 		loghelper.LogReorgError(slot, latestBlockRoot, err).Fatal("Unable to execute the transaction for reorgs")
 	}
@@ -520,7 +518,55 @@ func isSlotProcessed(db sql.Database, checkProcessStmt string, slot string) (boo
 	if err != nil {
 		return false, err
 	}
+	if row > 0 {
+		return true, nil
+	}
+	return false, nil
+}
 
+// Check to see if this slot is in the DB. Check ethcl.slots, ethcl.signed_beacon_block
+// and ethcl.beacon_state. If the slot exists, return true
+func IsSlotInDb(db sql.Database, slot string, blockRoot string, stateRoot string) (bool, error) {
+	var (
+		isInBeaconState       bool
+		isInSignedBeaconBlock bool
+		err                   error
+	)
+	errG, _ := errgroup.WithContext(context.Background())
+	errG.Go(func() error {
+		isInBeaconState, err = checkSlotAndRoot(db, CheckBeaconStateStmt, slot, stateRoot)
+		if err != nil {
+			loghelper.LogError(err).Error("Unable to check if the slot and stateroot exist in ethcl.beacon_state")
+		}
+		return err
+	})
+	errG.Go(func() error {
+		isInSignedBeaconBlock, err = checkSlotAndRoot(db, CheckSignedBeaconBlockStmt, slot, blockRoot)
+		if err != nil {
+			loghelper.LogError(err).Error("Unable to check if the slot and block_root exist in ethcl.signed_beacon_block")
+		}
+		return err
+	})
+	if err := errG.Wait(); err != nil {
+		return false, err
+	}
+	if isInBeaconState && isInSignedBeaconBlock {
+		return true, nil
+	}
+	return false, nil
+}
+
+// Provide a statement, slot, and root, and this function will check to see
+// if the slot and root exist in the table.
+func checkSlotAndRoot(db sql.Database, statement, slot, root string) (bool, error) {
+	processRow, err := db.Exec(context.Background(), statement, slot, root)
+	if err != nil {
+		return false, err
+	}
+	row, err := processRow.RowsAffected()
+	if err != nil {
+		return false, err
+	}
 	if row > 0 {
 		return true, nil
 	}

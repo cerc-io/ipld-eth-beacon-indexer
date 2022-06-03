@@ -51,6 +51,7 @@ type BeaconClient struct {
 	KnownGapTableIncrement int                  // The max number of slots within a single known_gaps table entry.
 	UniqueNodeIdentifier   int                  // The unique identifier within the cluster of this individual node.
 	KnownGapsProcess       KnownGapsProcessing  // object keeping track of knowngaps processing
+	CheckDb                bool                 // Should we check the DB to see if the slot exists before processing it?
 
 	// Used for Head Tracking
 
@@ -88,7 +89,7 @@ type SseError struct {
 }
 
 // A Function to create the BeaconClient.
-func CreateBeaconClient(ctx context.Context, connectionProtocol string, bcAddress string, bcPort int, bcKgTableIncrement int, uniqueNodeIdentifier int) (*BeaconClient, error) {
+func CreateBeaconClient(ctx context.Context, connectionProtocol string, bcAddress string, bcPort int, bcKgTableIncrement int, uniqueNodeIdentifier int, checkDb bool) (*BeaconClient, error) {
 	if uniqueNodeIdentifier == 0 {
 		uniqueNodeIdentifier := rand.Int()
 		log.WithField("randomUniqueNodeIdentifier", uniqueNodeIdentifier).Warn("No uniqueNodeIdentifier provided, we are going to use a randomly generated one.")
@@ -109,6 +110,7 @@ func CreateBeaconClient(ctx context.Context, connectionProtocol string, bcAddres
 		ReOrgTracking:          createSseEvent[ChainReorg](endpoint, bcReorgTopicEndpoint),
 		Metrics:                metrics,
 		UniqueNodeIdentifier:   uniqueNodeIdentifier,
+		CheckDb:                checkDb,
 		//FinalizationTracking: createSseEvent[FinalizedCheckpoint](endpoint, bcFinalizedTopicEndpoint),
 	}, nil
 }

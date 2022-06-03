@@ -30,7 +30,7 @@ import (
 func (bc *BeaconClient) CaptureHistoric(maxWorkers int) []error {
 	log.Info("We are starting the historical processing service.")
 	bc.HistoricalProcess = historicProcessing{db: bc.Db, metrics: bc.Metrics}
-	errs := handleBatchProcess(maxWorkers, bc.HistoricalProcess, bc.HistoricalProcess.finishProcessing, bc.HistoricalProcess.db, bc.ServerEndpoint, bc.Metrics)
+	errs := handleBatchProcess(maxWorkers, bc.HistoricalProcess, bc.HistoricalProcess.finishProcessing, bc.HistoricalProcess.db, bc.ServerEndpoint, bc.Metrics, bc.CheckDb)
 	log.Debug("Exiting Historical")
 	return errs
 }
@@ -89,7 +89,7 @@ type batchHistoricError struct {
 // 4. Remove the slot entry from the DB.
 //
 // 5. Handle any errors.
-func handleBatchProcess(maxWorkers int, bp BatchProcessing, finishCh chan int, db sql.Database, serverEndpoint string, metrics *BeaconClientMetrics) []error {
+func handleBatchProcess(maxWorkers int, bp BatchProcessing, finishCh chan int, db sql.Database, serverEndpoint string, metrics *BeaconClientMetrics, checkDb bool) []error {
 	slotsCh := make(chan slotsToProcess)
 	workCh := make(chan int)
 	processedCh := make(chan slotsToProcess)
@@ -99,7 +99,7 @@ func handleBatchProcess(maxWorkers int, bp BatchProcessing, finishCh chan int, d
 	// Start workers
 	for w := 1; w <= maxWorkers; w++ {
 		log.WithFields(log.Fields{"maxWorkers": maxWorkers}).Debug("Starting batch  processing workers")
-		go processSlotRangeWorker(workCh, errCh, db, serverEndpoint, metrics)
+		go processSlotRangeWorker(workCh, errCh, db, serverEndpoint, metrics, checkDb)
 	}
 
 	// Process all ranges and send each individual slot to the worker.

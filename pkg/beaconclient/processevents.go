@@ -60,7 +60,7 @@ func (bc *BeaconClient) handleHead() {
 
 		log.WithFields(log.Fields{"head": head}).Debug("We are going to start processing the slot.")
 
-		go processHeadSlot(bc.Db, bc.ServerEndpoint, slot, head.Block, head.State, bc.PreviousSlot, bc.PreviousBlockRoot, bc.Metrics, bc.KnownGapTableIncrement)
+		go processHeadSlot(bc.Db, bc.ServerEndpoint, slot, head.Block, head.State, bc.PreviousSlot, bc.PreviousBlockRoot, bc.Metrics, bc.KnownGapTableIncrement, bc.CheckDb)
 
 		log.WithFields(log.Fields{"head": head.Slot}).Debug("We finished calling processHeadSlot.")
 
