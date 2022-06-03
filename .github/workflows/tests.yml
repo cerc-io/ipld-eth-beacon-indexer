@@ -11,6 +11,9 @@ on:
       ssz-data-ref:
         required: false
         type: string
+    secrets:
+      GH_PAT:
+        required: true
 
 env:
   stack-orchestrator-ref: ${{ inputs.stack-orchestrator-ref || 'develop' }}
