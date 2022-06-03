@@ -40,7 +40,7 @@ var (
 	checkHpEntryStmt string = `SELECT * FROM ethcl.historic_process WHERE checked_out=false;`
 	// Used to checkout a row from the ethcl.historic_process table
 	lockHpEntryStmt string = `UPDATE ethcl.historic_process
-	SET checked_out=true
+	SET checked_out=true, checked_out_by=$3
 	WHERE start_slot=$1 AND end_slot=$2;`
 	// Used to delete an entry from the ethcl.historic_process table
 	deleteHpEntryStmt string = `DELETE FROM ethcl.historic_process
