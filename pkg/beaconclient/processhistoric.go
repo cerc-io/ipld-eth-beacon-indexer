@@ -150,7 +150,7 @@ func getBatchProcessRow(db sql.Database, getStartEndSlotStmt string, checkNewRow
 		}
 		defer func() {
 			err := tx.Rollback(ctx)
-			if err != nil {
+			if err != nil && err != pgx.ErrTxClosed {
 				loghelper.LogError(err).Error("We were unable to Rollback a transaction")
 				errCount = append(errCount, err)
 			}
