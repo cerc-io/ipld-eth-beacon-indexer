@@ -10,7 +10,7 @@ jobs:
       ipld-ethcl-db-ref: ${{ github.event.inputs.ipld-ethcl-db-ref }}
       ssz-data-ref: ${{ github.event.inputs.ssz-data-ref }}
     secrets:
-      GH_PAT: ${{secrets.GH_PAT}}
+      GHA_KEY: ${{secrets.GHA_KEY}}
   build:
     name: Run docker build
     runs-on: ubuntu-latest

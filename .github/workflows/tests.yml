@@ -12,7 +12,7 @@ on:
         required: false
         type: string
     secrets:
-      GH_PAT:
+      GHA_KEY:
         required: true
 
 env:
@@ -41,7 +41,7 @@ jobs:
           ref: ${{ env.ipld-ethcl-db-ref }}
           repository: vulcanize/ipld-ethcl-db
           path: "./ipld-ethcl-db/"
-          token: ${{ secrets.GH_PAT }}
+          ssh-key: ${{secrets.GHA_KEY}}
           fetch-depth: 0
 
       - name: Create config file
