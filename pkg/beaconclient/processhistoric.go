@@ -40,21 +40,27 @@ var (
 	checkHpEntryStmt string = `SELECT * FROM ethcl.historic_process WHERE checked_out=false;`
 	// Used to checkout a row from the ethcl.historic_process table
 	lockHpEntryStmt string = `UPDATE ethcl.historic_process
-	SET checked_out=true
+	SET checked_out=true, checked_out_by=$3
 	WHERE start_slot=$1 AND end_slot=$2;`
-	// Used to delete an entry from the knownGaps table
+	// Used to delete an entry from the ethcl.historic_process table
 	deleteHpEntryStmt string = `DELETE FROM ethcl.historic_process
 	WHERE start_slot=$1 AND end_slot=$2;`
+	// Used to update every single row that this node has checked out.
+	releaseHpLockStmt string = `UPDATE ethcl.historic_process
+	SET checked_out=false
+	WHERE checked_out_by=$1`
 )
 
 type historicProcessing struct {
-	db      sql.Database
-	metrics *BeaconClientMetrics
+	db                   sql.Database         //db connection
+	metrics              *BeaconClientMetrics // metrics for beaconclient
+	uniqueNodeIdentifier int                  // node unique identifier.
+	finishProcessing     chan int             // A channel which indicates to the process handleBatchProcess function that its time to end.
 }
 
 // Get a single row of historical slots from the table.
 func (hp historicProcessing) getSlotRange(slotCh chan<- slotsToProcess) []error {
-	return getBatchProcessRow(hp.db, getHpEntryStmt, checkHpEntryStmt, lockHpEntryStmt, slotCh)
+	return getBatchProcessRow(hp.db, getHpEntryStmt, checkHpEntryStmt, lockHpEntryStmt, slotCh, strconv.Itoa(hp.uniqueNodeIdentifier))
 }
 
 // Remove the table entry.
@@ -69,6 +75,22 @@ func (hp historicProcessing) handleProcessingErrors(errMessages <-chan batchHist
 		loghelper.LogSlotError(strconv.Itoa(errMs.slot), errMs.err)
 		writeKnownGaps(hp.db, 1, errMs.slot, errMs.slot, errMs.err, errMs.errProcess, hp.metrics)
 	}
+}
+
+func (hp historicProcessing) releaseDbLocks() error {
+	go func() { hp.finishProcessing <- 1 }()
+	log.Debug("Updating all the entries to ethcl.historical processing")
+	res, err := hp.db.Exec(context.Background(), releaseHpLockStmt, hp.uniqueNodeIdentifier)
+	if err != nil {
+		return fmt.Errorf("Unable to remove lock from ethcl.historical_processing table for node %d, error is %e", hp.uniqueNodeIdentifier, err)
+	}
+	log.Debug("Update all the entries to ethcl.historical processing")
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("Unable to calculated number of rows affected by releasing locks from ethcl.historical_processing table for node %d, error is %e", hp.uniqueNodeIdentifier, err)
+	}
+	log.WithField("rowCount", rows).Info("Released historicalProcess locks for specified rows.")
+	return nil
 }
 
 // Process the slot range.
@@ -91,7 +113,7 @@ func processSlotRangeWorker(workCh <-chan int, errCh chan<- batchHistoricError, 
 // It also locks the row by updating the checked_out column.
 // The statement for getting the start_slot and end_slot must be provided.
 // The statement for "locking" the row must also be provided.
-func getBatchProcessRow(db sql.Database, getStartEndSlotStmt string, checkNewRowsStmt string, checkOutRowStmt string, slotCh chan<- slotsToProcess) []error {
+func getBatchProcessRow(db sql.Database, getStartEndSlotStmt string, checkNewRowsStmt string, checkOutRowStmt string, slotCh chan<- slotsToProcess, uniqueNodeIdentifier string) []error {
 	errCount := make([]error, 0)
 
 	// 5 is an arbitrary number. It allows us to retry a few times before
@@ -148,7 +170,7 @@ func getBatchProcessRow(db sql.Database, getStartEndSlotStmt string, checkNewRow
 		}
 
 		// Checkout the Row
-		res, err := tx.Exec(ctx, checkOutRowStmt, sp.startSlot, sp.endSlot)
+		res, err := tx.Exec(ctx, checkOutRowStmt, sp.startSlot, sp.endSlot, uniqueNodeIdentifier)
 		if err != nil {
 			loghelper.LogSlotRangeStatementError(strconv.Itoa(sp.startSlot), strconv.Itoa(sp.endSlot), checkOutRowStmt, err).Error("Unable to checkout the row")
 			errCount = append(errCount, err)

@@ -22,16 +22,27 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/vulcanize/ipld-ethcl-indexer/pkg/database/sql"
+	"github.com/vulcanize/ipld-ethcl-indexer/pkg/loghelper"
 	"golang.org/x/sync/errgroup"
 )
 
 // This function will perform all the heavy lifting for tracking the head of the chain.
 func (bc *BeaconClient) CaptureHistoric(maxWorkers int) []error {
 	log.Info("We are starting the historical processing service.")
-	hp := historicProcessing{db: bc.Db, metrics: bc.Metrics}
-	errs := handleBatchProcess(maxWorkers, hp, hp.db, bc.ServerEndpoint, bc.Metrics)
+	bc.HistoricalProcess = historicProcessing{db: bc.Db, metrics: bc.Metrics}
+	errs := handleBatchProcess(maxWorkers, bc.HistoricalProcess, bc.HistoricalProcess.finishProcessing, bc.HistoricalProcess.db, bc.ServerEndpoint, bc.Metrics)
 	log.Debug("Exiting Historical")
 	return errs
+}
+
+// This function will perform all the necessary clean up tasks for stopping historical processing.
+func (bc *BeaconClient) StopHistoric() error {
+	log.Info("We are stopping the historical processing service.")
+	err := bc.HistoricalProcess.releaseDbLocks()
+	if err != nil {
+		loghelper.LogError(err).WithField("uniqueIdentifier", bc.UniqueNodeIdentifier).Error("We were unable to remove the locks from the ethcl.historic_processing table. Manual Intervention is needed!")
+	}
+	return nil
 }
 
 // An interface to enforce any batch processing. Currently there are two use cases for this.
@@ -40,10 +51,17 @@ func (bc *BeaconClient) CaptureHistoric(maxWorkers int) []error {
 //
 // 2. Known Gaps Processing
 type BatchProcessing interface {
-	getSlotRange(chan<- slotsToProcess) []error // Write the slots to process in a channel, return an error if you cant get the next slots to write.
-	handleProcessingErrors(<-chan batchHistoricError)
-	removeTableEntry(<-chan slotsToProcess) error // With the provided start and end slot, remove the entry from the database.
+	getSlotRange(chan<- slotsToProcess) []error       // Write the slots to process in a channel, return an error if you cant get the next slots to write.
+	handleProcessingErrors(<-chan batchHistoricError) // Custom logic to handle errors.
+	removeTableEntry(<-chan slotsToProcess) error     // With the provided start and end slot, remove the entry from the database.
+	releaseDbLocks() error                            // Update the checked_out column to false for whatever table is being updated.
 }
+
+/// ^^^
+// Might be better to remove the interface and create a single struct that historicalProcessing
+// and knownGapsProcessing can use. The struct would contain all the SQL strings that they need.
+// And the only difference in logic for processing would be within the error handling.
+// Which can be a function we pass into handleBatchProcess()
 
 // A struct to pass around indicating a table entry for slots to process.
 type slotsToProcess struct {
@@ -71,12 +89,12 @@ type batchHistoricError struct {
 // 4. Remove the slot entry from the DB.
 //
 // 5. Handle any errors.
-func handleBatchProcess(maxWorkers int, bp BatchProcessing, db sql.Database, serverEndpoint string, metrics *BeaconClientMetrics) []error {
+func handleBatchProcess(maxWorkers int, bp BatchProcessing, finishCh chan int, db sql.Database, serverEndpoint string, metrics *BeaconClientMetrics) []error {
 	slotsCh := make(chan slotsToProcess)
 	workCh := make(chan int)
 	processedCh := make(chan slotsToProcess)
 	errCh := make(chan batchHistoricError)
-	finishCh := make(chan []error, 1)
+	finalErrCh := make(chan []error, 1)
 
 	// Start workers
 	for w := 1; w <= maxWorkers; w++ {
@@ -115,7 +133,7 @@ func handleBatchProcess(maxWorkers int, bp BatchProcessing, db sql.Database, ser
 			return bp.removeTableEntry(processedCh)
 		})
 		if err := errG.Wait(); err != nil {
-			finishCh <- []error{err}
+			finalErrCh <- []error{err}
 		}
 	}()
 	// Process errors from slot processing.
@@ -125,12 +143,17 @@ func handleBatchProcess(maxWorkers int, bp BatchProcessing, db sql.Database, ser
 	go func() {
 		errs := bp.getSlotRange(slotsCh) // Periodically adds new entries....
 		if errs != nil {
-			finishCh <- errs
+			finalErrCh <- errs
 		}
-		finishCh <- nil
+		finalErrCh <- nil
 	}()
-
-	errs := <-finishCh
-	log.Debug("Finishing the batchProcess")
-	return errs
+	log.Debug("Waiting for shutdown signal from channel")
+	select {
+	case <-finishCh:
+		log.Debug("Received shutdown signal from channel")
+		return nil
+	case errs := <-finalErrCh:
+		log.Debug("Finishing the batchProcess")
+		return errs
+	}
 }

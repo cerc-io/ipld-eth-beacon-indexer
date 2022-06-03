@@ -25,19 +25,22 @@ import (
 
 var _ = Describe("Healthcheck", func() {
 	var (
-		BC    *beaconclient.BeaconClient
+		Bc    *beaconclient.BeaconClient
 		errBc *beaconclient.BeaconClient
 	)
 
 	BeforeEach(func() {
-		BC = beaconclient.CreateBeaconClient(context.Background(), "http", "localhost", 5052, 10)
-		errBc = beaconclient.CreateBeaconClient(context.Background(), "http", "blah-blah", 1010, 10)
+		var err error
+		Bc, err = beaconclient.CreateBeaconClient(context.Background(), "http", "localhost", 5052, 10, bcUniqueIdentifier)
+		Expect(err).ToNot(HaveOccurred())
+		errBc, err = beaconclient.CreateBeaconClient(context.Background(), "http", "blah-blah", 1010, 10, bcUniqueIdentifier)
+		Expect(err).ToNot(HaveOccurred())
 
 	})
 	Describe("Connecting to the lighthouse client", Label("integration"), func() {
 		Context("When the client is running", func() {
 			It("We should connect successfully", func() {
-				err := BC.CheckBeaconClient()
+				err := Bc.CheckBeaconClient()
 				Expect(err).To(BeNil())
 			})
 		})

@@ -39,6 +39,7 @@ var (
 	bcConnectionProtocol       string
 	bcType                     string
 	bcMaxHistoricProcessWorker int
+	bcUniqueNodeIdentifier     int
 	kgMaxWorker                int
 	kgTableIncrement           int
 	kgProcessGaps              bool
@@ -93,6 +94,7 @@ func init() {
 	captureCmd.PersistentFlags().IntVarP(&bcBootRetryInterval, "bc.bootRetryInterval", "", 30, "The amount of time to wait between retries while booting the application")
 	captureCmd.PersistentFlags().IntVarP(&bcBootMaxRetry, "bc.bootMaxRetry", "", 5, "The amount of time to wait between retries while booting the application")
 	captureCmd.PersistentFlags().IntVarP(&bcMaxHistoricProcessWorker, "bc.maxHistoricProcessWorker", "", 30, "The number of workers that should be actively processing slots from the ethcl.historic_process table. Be careful of system memory.")
+	captureCmd.PersistentFlags().IntVarP(&bcUniqueNodeIdentifier, "bc.uniqueNodeIdentifier", "", 0, "The unique identifier of this application. Each application connecting to the DB should have a unique identifier.")
 	// err = captureCmd.MarkPersistentFlagRequired("bc.address")
 	// exitErr(err)
 	// err = captureCmd.MarkPersistentFlagRequired("bc.port")
@@ -123,6 +125,8 @@ func init() {
 	exitErr(err)
 	err = viper.BindPFlag("db.name", captureCmd.PersistentFlags().Lookup("db.name"))
 	exitErr(err)
+	err = viper.BindPFlag("db.driver", captureCmd.PersistentFlags().Lookup("db.driver"))
+	exitErr(err)
 
 	//// Testing Specific
 	err = viper.BindPFlag("t.skipSync", captureCmd.PersistentFlags().Lookup("t.skipSync"))
@@ -142,6 +146,8 @@ func init() {
 	err = viper.BindPFlag("bc.bootMaxRetry", captureCmd.PersistentFlags().Lookup("bc.bootMaxRetry"))
 	exitErr(err)
 	err = viper.BindPFlag("bc.maxHistoricProcessWorker", captureCmd.PersistentFlags().Lookup("bc.maxHistoricProcessWorker"))
+	exitErr(err)
+	err = viper.BindPFlag("bc.uniqueNodeIdentifier", captureCmd.PersistentFlags().Lookup("bc.uniqueNodeIdentifier"))
 	exitErr(err)
 	// Here you will define your flags and configuration settings.
 

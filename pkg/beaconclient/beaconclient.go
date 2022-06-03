@@ -18,6 +18,7 @@ package beaconclient
 import (
 	"context"
 	"fmt"
+	"math/rand"
 
 	"github.com/r3labs/sse"
 	log "github.com/sirupsen/logrus"
@@ -48,6 +49,8 @@ type BeaconClient struct {
 	Db                     sql.Database         // Database object used for reads and writes.
 	Metrics                *BeaconClientMetrics // An object used to keep track of certain BeaconClient Metrics.
 	KnownGapTableIncrement int                  // The max number of slots within a single known_gaps table entry.
+	UniqueNodeIdentifier   int                  // The unique identifier within the cluster of this individual node.
+	KnownGapsProcess       KnownGapsProcessing  // object keeping track of knowngaps processing
 
 	// Used for Head Tracking
 
@@ -65,7 +68,8 @@ type BeaconClient struct {
 	// The latest available slot within the Beacon Server. We can't query any slot greater than this.
 	// This value is lazily updated. Therefore at times it will be outdated.
 	LatestSlotInBeaconServer    int64
-	PerformHistoricalProcessing bool // Should we perform historical processing?
+	PerformHistoricalProcessing bool               // Should we perform historical processing?
+	HistoricalProcess           historicProcessing // object keeping track of historical processing
 }
 
 // A struct to keep track of relevant the head event topic.
@@ -84,7 +88,17 @@ type SseError struct {
 }
 
 // A Function to create the BeaconClient.
-func CreateBeaconClient(ctx context.Context, connectionProtocol string, bcAddress string, bcPort int, bcKgTableIncrement int) *BeaconClient {
+func CreateBeaconClient(ctx context.Context, connectionProtocol string, bcAddress string, bcPort int, bcKgTableIncrement int, uniqueNodeIdentifier int) (*BeaconClient, error) {
+	if uniqueNodeIdentifier == 0 {
+		uniqueNodeIdentifier := rand.Int()
+		log.WithField("randomUniqueNodeIdentifier", uniqueNodeIdentifier).Warn("No uniqueNodeIdentifier provided, we are going to use a randomly generated one.")
+	}
+
+	metrics, err := CreateBeaconClientMetrics()
+	if err != nil {
+		return nil, err
+	}
+
 	endpoint := fmt.Sprintf("%s://%s:%d", connectionProtocol, bcAddress, bcPort)
 	log.Info("Creating the BeaconClient")
 	return &BeaconClient{
@@ -93,9 +107,10 @@ func CreateBeaconClient(ctx context.Context, connectionProtocol string, bcAddres
 		KnownGapTableIncrement: bcKgTableIncrement,
 		HeadTracking:           createSseEvent[Head](endpoint, BcHeadTopicEndpoint),
 		ReOrgTracking:          createSseEvent[ChainReorg](endpoint, bcReorgTopicEndpoint),
-		Metrics:                CreateBeaconClientMetrics(),
+		Metrics:                metrics,
+		UniqueNodeIdentifier:   uniqueNodeIdentifier,
 		//FinalizationTracking: createSseEvent[FinalizedCheckpoint](endpoint, bcFinalizedTopicEndpoint),
-	}
+	}, nil
 }
 
 // Create all the channels to handle a SSE events
