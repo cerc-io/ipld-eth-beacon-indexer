@@ -131,7 +131,7 @@ func processFullSlot(db sql.Database, serverAddress string, slot int, blockRoot 
 	}
 
 	// Get this object ready to write
-	dw, err := ps.createWriteObjects(finalBlockRoot, finalStateRoot, ps.Status, finalEth1BlockHash)
+	dw, err := ps.createWriteObjects(finalBlockRoot, finalStateRoot, finalEth1BlockHash)
 	if err != nil {
 		return err, "blockRoot"
 	}
@@ -291,8 +291,8 @@ func (ps *ProcessSlot) checkPreviousSlot(tx sql.Tx, ctx context.Context, previou
 }
 
 // Transforms all the raw data into DB models that can be written to the DB.
-func (ps *ProcessSlot) createWriteObjects(blockRoot, stateRoot, status, eth1BlockHash string) (*DatabaseWriter, error) {
-
+func (ps *ProcessSlot) createWriteObjects(blockRoot, stateRoot, eth1BlockHash string) (*DatabaseWriter, error) {
+	var status string
 	if ps.Status != "" {
 		status = ps.Status
 	} else {
