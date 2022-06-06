@@ -98,12 +98,12 @@ func processSlotRangeWorker(workCh <-chan int, errCh chan<- batchHistoricError, 
 	for slot := range workCh {
 		log.Debug("Handling slot: ", slot)
 		err, errProcess := handleHistoricSlot(db, serverAddress, slot, metrics, checkDb)
-		errMs := batchHistoricError{
-			err:        err,
-			errProcess: errProcess,
-			slot:       slot,
-		}
 		if err != nil {
+			errMs := batchHistoricError{
+				err:        err,
+				errProcess: errProcess,
+				slot:       slot,
+			}
 			errCh <- errMs
 		}
 	}

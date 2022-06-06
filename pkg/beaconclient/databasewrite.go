@@ -319,9 +319,9 @@ func transactReorgs(tx sql.Tx, ctx context.Context, slot string, latestBlockRoot
 		loghelper.LogReorg(slot, latestBlockRoot).WithFields(log.Fields{
 			"proposedCount": proposedCount,
 		}).Error("Too many rows were marked as proposed!")
-		transactKnownGaps(tx, ctx, 1, slotNum, slotNum, err, "reorg", metrics)
+		transactKnownGaps(tx, ctx, 1, slotNum, slotNum, fmt.Errorf("Too many rows were marked as unproposed."), "reorg", metrics)
 	} else if proposedCount == 0 {
-		transactKnownGaps(tx, ctx, 1, slotNum, slotNum, err, "reorg", metrics)
+		transactKnownGaps(tx, ctx, 1, slotNum, slotNum, fmt.Errorf("Unable to find properly proposed row in DB"), "reorg", metrics)
 		loghelper.LogReorg(slot, latestBlockRoot).Info("Updated the row that should have been marked as proposed.")
 	}
 
@@ -382,13 +382,19 @@ func updateProposed(tx sql.Tx, ctx context.Context, slot string, latestBlockRoot
 // smaller chunks. For example, instead of having an entry of 1-101, if we increment the entries by 10 slots, we would
 // have 10 entries as follows: 1-10, 11-20, etc...
 func transactKnownGaps(tx sql.Tx, ctx context.Context, tableIncrement int, startSlot int, endSlot int, entryError error, entryProcess string, metric *BeaconClientMetrics) {
+	var entryErrorMsg string
+	if entryError == nil {
+		entryErrorMsg = ""
+	} else {
+		entryErrorMsg = entryError.Error()
+	}
 	if endSlot-startSlot <= tableIncrement {
 		kgModel := DbKnownGaps{
 			StartSlot:         strconv.Itoa(startSlot),
 			EndSlot:           strconv.Itoa(endSlot),
 			CheckedOut:        false,
 			ReprocessingError: "",
-			EntryError:        entryError.Error(),
+			EntryError:        entryErrorMsg,
 			EntryProcess:      entryProcess,
 		}
 		upsertKnownGaps(tx, ctx, kgModel, metric)
@@ -413,7 +419,7 @@ func transactKnownGaps(tx sql.Tx, ctx context.Context, tableIncrement int, start
 				EndSlot:           strconv.Itoa(tempEnd),
 				CheckedOut:        false,
 				ReprocessingError: "",
-				EntryError:        entryError.Error(),
+				EntryError:        entryErrorMsg,
 				EntryProcess:      entryProcess,
 			}
 			upsertKnownGaps(tx, ctx, kgModel, metric)
