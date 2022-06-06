@@ -23,7 +23,7 @@ import (
 	"github.com/vulcanize/ipld-ethcl-indexer/pkg/loghelper"
 )
 
-const SSZ_SHA2_256_PREFIX uint64 = 0xb501
+const SSZ_SHA2_256_PREFIX uint64 = 0xb502
 
 // MultihashKeyFromSSZRoot converts a SSZ-SHA2-256 root hash into a blockstore prefixed multihash key
 func MultihashKeyFromSSZRoot(root []byte) (string, error) {
