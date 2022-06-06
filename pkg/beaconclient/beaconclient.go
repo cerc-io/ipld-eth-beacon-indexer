@@ -59,7 +59,6 @@ type BeaconClient struct {
 	StartingSlot        int                    // If we're performing head tracking. What is the first slot we processed.
 	PreviousSlot        int                    // Whats the previous slot we processed
 	PreviousBlockRoot   string                 // Whats the previous block root, used to check the next blocks parent.
-	CheckKnownGaps      bool                   // Should we check for gaps at start up.
 	HeadTracking        *SseEvents[Head]       // Track the head block
 	ReOrgTracking       *SseEvents[ChainReorg] // Track all Reorgs
 	//FinalizationTracking        *SseEvents[FinalizedCheckpoint] // Track all finalization checkpoints
