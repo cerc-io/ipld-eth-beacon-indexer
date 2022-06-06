@@ -50,6 +50,7 @@ var (
 	bcBootMaxRetry         int           = 5
 	bcKgTableIncrement     int           = 10
 	bcUniqueIdentifier     int           = 100
+	bcCheckDb              bool          = false
 	maxWaitSecondsShutdown time.Duration = time.Duration(1) * time.Second
 	DB                     sql.Database
 	BC                     *beaconclient.BeaconClient
@@ -62,7 +63,7 @@ var _ = Describe("Shutdown", func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 		BC, DB, err = boot.BootApplicationWithRetry(ctx, dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver, bcAddress,
-			bcPort, bcConnectionProtocol, bcType, bcBootRetryInterval, bcBootMaxRetry, bcKgTableIncrement, "head", true, bcUniqueIdentifier)
+			bcPort, bcConnectionProtocol, bcType, bcBootRetryInterval, bcBootMaxRetry, bcKgTableIncrement, "head", true, bcUniqueIdentifier, bcCheckDb)
 		notifierCh = make(chan os.Signal, 1)
 		Expect(err).To(BeNil())
 	})

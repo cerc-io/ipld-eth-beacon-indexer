@@ -16,7 +16,7 @@ import (
 var _ = Describe("Capturehistoric", func() {
 
 	Describe("Run the application in historic mode", Label("unit", "behavioral"), func() {
-		Context("Phase0: When we need to process a single block in the ethcl.historic_process table.", Label("now"), func() {
+		Context("Phase0: When we need to process a single block in the ethcl.historic_process table.", func() {
 			It("Successfully Process the Block", func() {
 				bc := setUpTest(BeaconNodeTester.TestConfig, "99")
 				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)

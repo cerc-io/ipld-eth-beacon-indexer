@@ -94,16 +94,16 @@ func (hp historicProcessing) releaseDbLocks() error {
 }
 
 // Process the slot range.
-func processSlotRangeWorker(workCh <-chan int, errCh chan<- batchHistoricError, db sql.Database, serverAddress string, metrics *BeaconClientMetrics) {
+func processSlotRangeWorker(workCh <-chan int, errCh chan<- batchHistoricError, db sql.Database, serverAddress string, metrics *BeaconClientMetrics, checkDb bool) {
 	for slot := range workCh {
 		log.Debug("Handling slot: ", slot)
-		err, errProcess := handleHistoricSlot(db, serverAddress, slot, metrics)
-		errMs := batchHistoricError{
-			err:        err,
-			errProcess: errProcess,
-			slot:       slot,
-		}
+		err, errProcess := handleHistoricSlot(db, serverAddress, slot, metrics, checkDb)
 		if err != nil {
+			errMs := batchHistoricError{
+				err:        err,
+				errProcess: errProcess,
+				slot:       slot,
+			}
 			errCh <- errMs
 		}
 	}
@@ -150,7 +150,7 @@ func getBatchProcessRow(db sql.Database, getStartEndSlotStmt string, checkNewRow
 		}
 		defer func() {
 			err := tx.Rollback(ctx)
-			if err != nil {
+			if err != nil && err != pgx.ErrTxClosed {
 				loghelper.LogError(err).Error("We were unable to Rollback a transaction")
 				errCount = append(errCount, err)
 			}

@@ -40,6 +40,7 @@ var (
 	bcType                     string
 	bcMaxHistoricProcessWorker int
 	bcUniqueNodeIdentifier     int
+	bcCheckDb                  bool
 	kgMaxWorker                int
 	kgTableIncrement           int
 	kgProcessGaps              bool
@@ -95,6 +96,7 @@ func init() {
 	captureCmd.PersistentFlags().IntVarP(&bcBootMaxRetry, "bc.bootMaxRetry", "", 5, "The amount of time to wait between retries while booting the application")
 	captureCmd.PersistentFlags().IntVarP(&bcMaxHistoricProcessWorker, "bc.maxHistoricProcessWorker", "", 30, "The number of workers that should be actively processing slots from the ethcl.historic_process table. Be careful of system memory.")
 	captureCmd.PersistentFlags().IntVarP(&bcUniqueNodeIdentifier, "bc.uniqueNodeIdentifier", "", 0, "The unique identifier of this application. Each application connecting to the DB should have a unique identifier.")
+	captureCmd.PersistentFlags().BoolVarP(&bcCheckDb, "bc.checkDb", "", true, "Should we check to see if the slot exists in the DB before writing it?")
 	// err = captureCmd.MarkPersistentFlagRequired("bc.address")
 	// exitErr(err)
 	// err = captureCmd.MarkPersistentFlagRequired("bc.port")
@@ -148,6 +150,8 @@ func init() {
 	err = viper.BindPFlag("bc.maxHistoricProcessWorker", captureCmd.PersistentFlags().Lookup("bc.maxHistoricProcessWorker"))
 	exitErr(err)
 	err = viper.BindPFlag("bc.uniqueNodeIdentifier", captureCmd.PersistentFlags().Lookup("bc.uniqueNodeIdentifier"))
+	exitErr(err)
+	err = viper.BindPFlag("bc.checkDb", captureCmd.PersistentFlags().Lookup("bc.checkDb"))
 	exitErr(err)
 	// Here you will define your flags and configuration settings.
 

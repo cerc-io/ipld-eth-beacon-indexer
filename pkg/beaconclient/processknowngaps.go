@@ -61,7 +61,7 @@ type KnownGapsProcessing struct {
 func (bc *BeaconClient) ProcessKnownGaps(maxWorkers int) []error {
 	log.Info("We are starting the known gaps processing service.")
 	bc.KnownGapsProcess = KnownGapsProcessing{db: bc.Db, uniqueNodeIdentifier: bc.UniqueNodeIdentifier, metrics: bc.Metrics, finishProcessing: make(chan int)}
-	errs := handleBatchProcess(maxWorkers, bc.KnownGapsProcess, bc.KnownGapsProcess.finishProcessing, bc.KnownGapsProcess.db, bc.ServerEndpoint, bc.Metrics)
+	errs := handleBatchProcess(maxWorkers, bc.KnownGapsProcess, bc.KnownGapsProcess.finishProcessing, bc.KnownGapsProcess.db, bc.ServerEndpoint, bc.Metrics, bc.CheckDb)
 	log.Debug("Exiting known gaps processing service")
 	return errs
 }

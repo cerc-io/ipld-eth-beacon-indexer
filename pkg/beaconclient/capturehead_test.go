@@ -204,6 +204,7 @@ var (
 		dbDriver:                dbDriver,
 		knownGapsTableIncrement: knownGapsTableIncrement,
 		bcUniqueIdentifier:      bcUniqueIdentifier,
+		checkDb:                 true,
 	}
 
 	BeaconNodeTester = TestBeaconNode{
@@ -424,6 +425,7 @@ type Config struct {
 	dbDriver                string
 	knownGapsTableIncrement int
 	bcUniqueIdentifier      int
+	checkDb                 bool
 }
 
 //////////////////////////////////////////////////////
@@ -433,7 +435,7 @@ type Config struct {
 // Must run before each test. We can't use the beforeEach because of the way
 // Gingko treats race conditions.
 func setUpTest(config Config, maxSlot string) *beaconclient.BeaconClient {
-	bc, err := beaconclient.CreateBeaconClient(context.Background(), config.protocol, config.address, config.port, config.knownGapsTableIncrement, config.bcUniqueIdentifier)
+	bc, err := beaconclient.CreateBeaconClient(context.Background(), config.protocol, config.address, config.port, config.knownGapsTableIncrement, config.bcUniqueIdentifier, config.checkDb)
 	Expect(err).ToNot(HaveOccurred())
 	db, err := postgres.SetupPostgresDb(config.dbHost, config.dbPort, config.dbName, config.dbUser, config.dbPassword, config.dbDriver)
 	Expect(err).ToNot(HaveOccurred())
