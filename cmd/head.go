@@ -63,11 +63,12 @@ func startHeadTracking() {
 	log.Info("The Beacon Client has booted successfully!")
 	// Capture head blocks
 	go Bc.CaptureHead()
+	kgCtx, KgCancel := context.WithCancel(context.Background())
 	if viper.GetBool("kg.processKnownGaps") {
 		go func() {
 			errG := new(errgroup.Group)
 			errG.Go(func() error {
-				errs := Bc.ProcessKnownGaps(viper.GetInt("kg.maxKnownGapsWorker"))
+				errs := Bc.ProcessKnownGaps(kgCtx, viper.GetInt("kg.maxKnownGapsWorker"))
 				if len(errs) != 0 {
 					log.WithFields(log.Fields{"errs": errs}).Error("All errors when processing knownGaps")
 					return fmt.Errorf("Application ended because there were too many error when attempting to process knownGaps")
@@ -81,7 +82,7 @@ func startHeadTracking() {
 	}
 
 	// Shutdown when the time is right.
-	err = shutdown.ShutdownHeadTracking(ctx, notifierCh, maxWaitSecondsShutdown, Db, Bc)
+	err = shutdown.ShutdownHeadTracking(ctx, KgCancel, notifierCh, maxWaitSecondsShutdown, Db, Bc)
 	if err != nil {
 		loghelper.LogError(err).Error("Ungracefully Shutdown ipld-ethcl-indexer!")
 	} else {

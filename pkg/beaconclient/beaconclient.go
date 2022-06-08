@@ -69,7 +69,7 @@ type BeaconClient struct {
 	// This value is lazily updated. Therefore at times it will be outdated.
 	LatestSlotInBeaconServer    int64
 	PerformHistoricalProcessing bool               // Should we perform historical processing?
-	HistoricalProcess           historicProcessing // object keeping track of historical processing
+	HistoricalProcess           HistoricProcessing // object keeping track of historical processing
 }
 
 // A struct to keep track of relevant the head event topic.

@@ -488,23 +488,21 @@ func updateKnownGapErrors(db sql.Database, startSlot int, endSlot int, reprocess
 	res, err := db.Exec(context.Background(), UpsertKnownGapsErrorStmt, startSlot, endSlot, reprocessingErr.Error())
 	if err != nil {
 		loghelper.LogSlotRangeError(strconv.Itoa(startSlot), strconv.Itoa(endSlot), err).Error("Unable to update reprocessing_error")
-		metric.IncrementKnownGapsProcessingError(1)
 		return err
 	}
 	row, err := res.RowsAffected()
 	if err != nil {
 		loghelper.LogSlotRangeError(strconv.Itoa(startSlot), strconv.Itoa(endSlot), err).Error("Unable to count rows affected when trying to update reprocessing_error.")
-		metric.IncrementKnownGapsProcessingError(1)
 		return err
 	}
 	if row != 1 {
 		loghelper.LogSlotRangeError(strconv.Itoa(startSlot), strconv.Itoa(endSlot), err).WithFields(log.Fields{
 			"rowCount": row,
 		}).Error("The rows affected by the upsert for reprocessing_error is not 1.")
-		metric.IncrementKnownGapsProcessingError(1)
+		metric.IncrementKnownGapsReprocessError(1)
 		return err
 	}
-	metric.IncrementKnownGapsProcessed(1)
+	metric.IncrementKnownGapsReprocessError(1)
 	return nil
 }
 

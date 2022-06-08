@@ -42,9 +42,6 @@ import (
 )
 
 var (
-	SlotUnmarshalError = func(obj string) string {
-		return fmt.Sprintf("Unable to properly unmarshal the Slot field in the %s.", obj)
-	}
 	ParentRootUnmarshalError  = "Unable to properly unmarshal the ParentRoot field in the SignedBeaconBlock."
 	MissingEth1Data           = "Can't get the Eth1 block_hash"
 	VersionedUnmarshalerError = "Unable to create a versioned unmarshaler"
@@ -213,15 +210,8 @@ func (ps *ProcessSlot) getSignedBeaconBlock(serverAddress string, vmCh <-chan *d
 
 	ps.FullSignedBeaconBlock, err = vm.UnmarshalBeaconBlock(ps.SszSignedBeaconBlock)
 	if err != nil {
-		loghelper.LogSlotError(strconv.Itoa(ps.Slot), err).Error("We are getting an error message when unmarshalling the SignedBeaconBlock.")
-		if ps.FullSignedBeaconBlock.Block().Slot() == 0 {
-			loghelper.LogSlotError(strconv.Itoa(ps.Slot), err).Error(SlotUnmarshalError("SignedBeaconBlock"))
-			return fmt.Errorf(SlotUnmarshalError("SignedBeaconBlock"))
-		} else if ps.FullSignedBeaconBlock.Block().ParentRoot() == nil {
-			loghelper.LogSlotError(strconv.Itoa(ps.Slot), err).Error(ParentRootUnmarshalError)
-			return fmt.Errorf(ParentRootUnmarshalError)
-		}
-		log.Warn("We received a processing error: ", err)
+		loghelper.LogSlotError(strconv.Itoa(ps.Slot), err).Warn("Unable to process the slots SignedBeaconBlock")
+		return nil
 	}
 	ps.ParentBlockRoot = "0x" + hex.EncodeToString(ps.FullSignedBeaconBlock.Block().ParentRoot())
 	return nil
@@ -247,14 +237,8 @@ func (ps *ProcessSlot) getBeaconState(serverEndpoint string, vmCh chan<- *dt.Ver
 	vmCh <- versionedUnmarshaler
 	ps.FullBeaconState, err = versionedUnmarshaler.UnmarshalBeaconState(ps.SszBeaconState)
 	if err != nil {
-		loghelper.LogError(err).Error("We are getting an error message when unmarshalling the BeaconState")
-		if ps.FullBeaconState.Slot() == 0 {
-			loghelper.LogSlotError(strconv.Itoa(ps.Slot), err).Error(SlotUnmarshalError("BeaconState"))
-			return fmt.Errorf(SlotUnmarshalError("BeaconState"))
-		} else if hex.EncodeToString(ps.FullBeaconState.Eth1Data().BlockHash) == "" {
-			loghelper.LogSlotError(strconv.Itoa(ps.Slot), err).Error(MissingEth1Data)
-			return fmt.Errorf(MissingEth1Data)
-		}
+		loghelper.LogSlotError(strconv.Itoa(ps.Slot), err).Error("Unable to process the slots BeaconState")
+		return err
 	}
 	return nil
 }

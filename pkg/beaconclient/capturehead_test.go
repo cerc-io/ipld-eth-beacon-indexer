@@ -60,6 +60,22 @@ var (
 	maxRetry                int    = 120
 
 	TestEvents = map[string]Message{
+		"0": {
+			HeadMessage: beaconclient.Head{
+				Slot:                      "0",
+				Block:                     "0x4d611d5b93fdab69013a7f0a2f961caca0c853f87cfe9595fe50038163079360",
+				State:                     "0x7e76880eb67bbdc86250aa578958e9d0675e64e714337855204fb5abaaf82c2b",
+				CurrentDutyDependentRoot:  "",
+				PreviousDutyDependentRoot: "",
+				EpochTransition:           false,
+				ExecutionOptimistic:       false,
+			},
+			SignedBeaconBlock:    filepath.Join("ssz-data", "0", "signed-beacon-block.ssz"),
+			BeaconState:          filepath.Join("ssz-data", "0", "beacon-state.ssz"),
+			CorrectMhKey:         "/blocks/QHVAEQRQPA2GINRRGFSDKYRZGNTGIYLCGY4TAMJTME3WMMDBGJTDSNRRMNQWGYJQMM4DKM3GHA3WGZTFHE2TSNLGMU2TAMBTHAYTMMZQG44TGNRQ",
+			CorrectParentRoot:    "0x0000000000000000000000000000000000000000000000000000000000000000",
+			CorrectEth1BlockHash: "0x0000000000000000000000000000000000000000000000000000000000000000",
+		},
 		"100-dummy": {
 			HeadMessage: beaconclient.Head{
 				Slot:                      "100",
@@ -118,9 +134,12 @@ var (
 				EpochTransition:           false,
 				ExecutionOptimistic:       false,
 			},
-			TestNotes:         "An easy to process Phase 0 block",
-			SignedBeaconBlock: filepath.Join("ssz-data", "100", "signed-beacon-block.ssz"),
-			BeaconState:       filepath.Join("ssz-data", "100", "beacon-state.ssz"),
+			TestNotes:            "An easy to process Phase 0 block",
+			SignedBeaconBlock:    filepath.Join("ssz-data", "100", "signed-beacon-block.ssz"),
+			BeaconState:          filepath.Join("ssz-data", "100", "beacon-state.ssz"),
+			CorrectMhKey:         "/blocks/QHVAEQBQGQ4TKNJUGAYDGNZRGM2DOZJSGZTDMMLEG5QTIYTCMRQTKYRSGNTGCMDCGI2WINLGMM2DMNJRGYYGMMTBHEZGINJSME3DGYRZGE4WE",
+			CorrectParentRoot:    "0x8d3f027beef5cbd4f8b29fc831aba67a5d74768edca529f5596f07fd207865e1",
+			CorrectEth1BlockHash: "0x8d3f027beef5cbd4f8b29fc831aba67a5d74768edca529f5596f07fd207865e1",
 		},
 		"101": {
 			HeadMessage: beaconclient.Head{
@@ -132,9 +151,11 @@ var (
 				EpochTransition:           false,
 				ExecutionOptimistic:       false,
 			},
-			TestNotes:         "An easy to process Phase 0 block",
-			SignedBeaconBlock: filepath.Join("ssz-data", "101", "signed-beacon-block.ssz"),
-			BeaconState:       filepath.Join("ssz-data", "101", "beacon-state.ssz"),
+			TestNotes:            "An easy to process Phase 0 block",
+			SignedBeaconBlock:    filepath.Join("ssz-data", "101", "signed-beacon-block.ssz"),
+			BeaconState:          filepath.Join("ssz-data", "101", "beacon-state.ssz"),
+			CorrectEth1BlockHash: "0x8d3f027beef5cbd4f8b29fc831aba67a5d74768edca529f5596f07fd207865e1",
+			CorrectMhKey:         "/blocks/QHVAEQRQPBQWEZJRME4TOMTFGUYTEMJYGJSDANDGGBSDIYJVMM4WGMRVMY4WKZJVG5RTEZJZMQYGMZRTMY2GGNDDHAZGMZBUGJSDCM3EGMYTAOBT",
 		},
 		"2375703-dummy": {
 			HeadMessage: beaconclient.Head{
@@ -176,19 +197,23 @@ var (
 				Block:                    "0x4392372c5f6e39499e31bf924388b5815639103149f0f54f8a453773b1802301",
 				State:                    "0xb6215b560273af63ec7e011572b60ec1ca0b0232f8ff44fcd4ed55c7526e964e",
 				CurrentDutyDependentRoot: "", PreviousDutyDependentRoot: "", EpochTransition: false, ExecutionOptimistic: false},
-			TestNotes:         "An easy to process Altair Block",
-			SignedBeaconBlock: filepath.Join("ssz-data", "2375703", "signed-beacon-block.ssz"),
-			BeaconState:       filepath.Join("ssz-data", "2375703", "beacon-state.ssz"),
+			TestNotes:            "An easy to process Altair Block",
+			SignedBeaconBlock:    filepath.Join("ssz-data", "2375703", "signed-beacon-block.ssz"),
+			BeaconState:          filepath.Join("ssz-data", "2375703", "beacon-state.ssz"),
+			CorrectEth1BlockHash: "0xd74b1c60423651624de6bb301ac25808951c167ba6ecdd9b2e79b4315aee8202",
+			CorrectParentRoot:    "0x08736ddc20b77f65d1aa6301f7e6e856a820ff3ce6430ed2c3694ae35580e740",
+			CorrectMhKey:         "",
 		},
 		"3797056": {
 			HeadMessage: beaconclient.Head{
 				Slot:                     "3797056",
 				Block:                    "",
-				State:                    "0xb6215b560273af63ec7e011572b60ec1ca0b0232f8ff44fcd4ed55c7526e964e",
+				State:                    "",
 				CurrentDutyDependentRoot: "", PreviousDutyDependentRoot: "", EpochTransition: false, ExecutionOptimistic: false},
-			TestNotes:         "An easy to process Altair Block",
-			SignedBeaconBlock: filepath.Join("ssz-data", "2375703", "signed-beacon-block.ssz"),
-			BeaconState:       filepath.Join("ssz-data", "2375703", "beacon-state.ssz"),
+			TestNotes: "An easy to process Altair Block",
+			// The file below should not exist, this will trigger an error message and 404 response from the mock.
+			SignedBeaconBlock: filepath.Join("ssz-data", "3797056", "should-not-exist.txt"),
+			BeaconState:       filepath.Join("ssz-data", "3797056", "beacon-state.ssz"),
 		},
 	}
 	TestConfig = Config{
@@ -214,11 +239,14 @@ var (
 )
 
 type Message struct {
-	HeadMessage       beaconclient.Head // The head messsage that will be streamed to the BeaconClient
-	TestNotes         string            // A small explanation of the purpose this structure plays in the testing landscape.
-	MimicConfig       *MimicConfig      // A configuration of parameters that you are trying to
-	SignedBeaconBlock string            // The file path output of an SSZ encoded SignedBeaconBlock.
-	BeaconState       string            // The file path output of an SSZ encoded BeaconState.
+	HeadMessage          beaconclient.Head // The head messsage that will be streamed to the BeaconClient
+	TestNotes            string            // A small explanation of the purpose this structure plays in the testing landscape.
+	MimicConfig          *MimicConfig      // A configuration of parameters that you are trying to
+	SignedBeaconBlock    string            // The file path output of an SSZ encoded SignedBeaconBlock.
+	BeaconState          string            // The file path output of an SSZ encoded BeaconState.
+	CorrectMhKey         string            // The correct MhKey
+	CorrectParentRoot    string            // The correct parent root
+	CorrectEth1BlockHash string            // The correct eth1blockHash
 }
 
 // A structure that can be utilized to mimic and existing SSZ object but change it ever so slightly.
@@ -228,7 +256,7 @@ type MimicConfig struct {
 	ForkVersion string // Specify the fork version. This is needed as a workaround to create dummy SignedBeaconBlocks.
 }
 
-var _ = Describe("Capturehead", func() {
+var _ = Describe("Capturehead", Label("head"), func() {
 
 	Describe("Receiving New Head SSE messages", Label("unit", "behavioral"), func() {
 		Context("Correctly formatted Phase0 Block", func() {
@@ -653,8 +681,7 @@ func (tbc TestBeaconNode) SetupBeaconNodeMock(TestEvents map[string]Message, pro
 			id := httpmock.MustGetSubmatch(req, 1)
 			dat, err := tbc.provideSsz(id, "state", dummyParentRoot)
 			if err != nil {
-				Expect(err).NotTo(HaveOccurred())
-				return httpmock.NewStringResponse(404, fmt.Sprintf("Unable to find file for %s", id)), err
+				return httpmock.NewStringResponse(404, fmt.Sprintf("Unable to find file for %s", id)), nil
 			}
 			return httpmock.NewBytesResponse(200, dat), nil
 		},
@@ -667,8 +694,7 @@ func (tbc TestBeaconNode) SetupBeaconNodeMock(TestEvents map[string]Message, pro
 			id := httpmock.MustGetSubmatch(req, 1)
 			dat, err := tbc.provideSsz(id, "block", dummyParentRoot)
 			if err != nil {
-				Expect(err).NotTo(HaveOccurred())
-				return httpmock.NewStringResponse(404, fmt.Sprintf("Unable to find file for %s", id)), err
+				return httpmock.NewStringResponse(404, fmt.Sprintf("Unable to find file for %s", id)), nil
 			}
 			return httpmock.NewBytesResponse(200, dat), nil
 		},
