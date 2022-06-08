@@ -70,11 +70,12 @@ var (
 				EpochTransition:           false,
 				ExecutionOptimistic:       false,
 			},
-			SignedBeaconBlock:    filepath.Join("ssz-data", "0", "signed-beacon-block.ssz"),
-			BeaconState:          filepath.Join("ssz-data", "0", "beacon-state.ssz"),
-			CorrectMhKey:         "/blocks/QHVAEQRQPA2GINRRGFSDKYRZGNTGIYLCGY4TAMJTME3WMMDBGJTDSNRRMNQWGYJQMM4DKM3GHA3WGZTFHE2TSNLGMU2TAMBTHAYTMMZQG44TGNRQ",
-			CorrectParentRoot:    "0x0000000000000000000000000000000000000000000000000000000000000000",
-			CorrectEth1BlockHash: "0x0000000000000000000000000000000000000000000000000000000000000000",
+			SignedBeaconBlock:             filepath.Join("ssz-data", "0", "signed-beacon-block.ssz"),
+			BeaconState:                   filepath.Join("ssz-data", "0", "beacon-state.ssz"),
+			CorrectSignedBeaconBlockMhKey: "/blocks/QLVAEQRQPA2GINRRGFSDKYRZGNTGIYLCGY4TAMJTME3WMMDBGJTDSNRRMNQWGYJQMM4DKM3GHA3WGZTFHE2TSNLGMU2TAMBTHAYTMMZQG44TGNRQ",
+			CorrectBeaconStateMhKey:       "/blocks/QLVAEQRQPA3WKNZWHA4DAZLCGY3WEYTEMM4DMMRVGBQWCNJXHA4TKODFHFSDANRXGVSTMNDFG4YTIMZTG44DKNJSGA2GMYRVMFRGCYLGHAZGGMTC",
+			CorrectParentRoot:             "0x0000000000000000000000000000000000000000000000000000000000000000",
+			CorrectEth1BlockHash:          "0x0000000000000000000000000000000000000000000000000000000000000000",
 		},
 		"100-dummy": {
 			HeadMessage: beaconclient.Head{
@@ -134,12 +135,13 @@ var (
 				EpochTransition:           false,
 				ExecutionOptimistic:       false,
 			},
-			TestNotes:            "An easy to process Phase 0 block",
-			SignedBeaconBlock:    filepath.Join("ssz-data", "100", "signed-beacon-block.ssz"),
-			BeaconState:          filepath.Join("ssz-data", "100", "beacon-state.ssz"),
-			CorrectMhKey:         "/blocks/QHVAEQBQGQ4TKNJUGAYDGNZRGM2DOZJSGZTDMMLEG5QTIYTCMRQTKYRSGNTGCMDCGI2WINLGMM2DMNJRGYYGMMTBHEZGINJSME3DGYRZGE4WE",
-			CorrectParentRoot:    "0x8d3f027beef5cbd4f8b29fc831aba67a5d74768edca529f5596f07fd207865e1",
-			CorrectEth1BlockHash: "0x8d3f027beef5cbd4f8b29fc831aba67a5d74768edca529f5596f07fd207865e1",
+			TestNotes:                     "An easy to process Phase 0 block",
+			SignedBeaconBlock:             filepath.Join("ssz-data", "100", "signed-beacon-block.ssz"),
+			BeaconState:                   filepath.Join("ssz-data", "100", "beacon-state.ssz"),
+			CorrectSignedBeaconBlockMhKey: "/blocks/QLVAEQRQPA2TQMRRHA3WKOJXMY3TKMRQMJRDMOLFMVQTAMJUMMZTQMZUMM4TMNDDGQ2TENJZGM3TEYJQMVQWCZLBGNTDAMZSGAYTGNZZG44TSNTC",
+			CorrectBeaconStateMhKey:       "/blocks/QLVAEQRQPBTDEOBWMEYDGNZZMMYDGOBWMEZWGN3CMUZDQZBQGVSDQMRZMY4GKYRXMIZDQMDDMM4WKZDFGE2TINBZMFTDEMDFMJRWIMBWME3WCNJW",
+			CorrectParentRoot:             "0x629ae1587895043076500f4f5dcb202a47c2fc95d5b5c548cb83bc97bd2dbfe1",
+			CorrectEth1BlockHash:          "0x8d3f027beef5cbd4f8b29fc831aba67a5d74768edca529f5596f07fd207865e1",
 		},
 		"101": {
 			HeadMessage: beaconclient.Head{
@@ -151,11 +153,12 @@ var (
 				EpochTransition:           false,
 				ExecutionOptimistic:       false,
 			},
-			TestNotes:            "An easy to process Phase 0 block",
-			SignedBeaconBlock:    filepath.Join("ssz-data", "101", "signed-beacon-block.ssz"),
-			BeaconState:          filepath.Join("ssz-data", "101", "beacon-state.ssz"),
-			CorrectEth1BlockHash: "0x8d3f027beef5cbd4f8b29fc831aba67a5d74768edca529f5596f07fd207865e1",
-			CorrectMhKey:         "/blocks/QHVAEQRQPBQWEZJRME4TOMTFGUYTEMJYGJSDANDGGBSDIYJVMM4WGMRVMY4WKZJVG5RTEZJZMQYGMZRTMY2GGNDDHAZGMZBUGJSDCM3EGMYTAOBT",
+			TestNotes:                     "An easy to process Phase 0 block",
+			SignedBeaconBlock:             filepath.Join("ssz-data", "101", "signed-beacon-block.ssz"),
+			BeaconState:                   filepath.Join("ssz-data", "101", "beacon-state.ssz"),
+			CorrectEth1BlockHash:          "0x8d3f027beef5cbd4f8b29fc831aba67a5d74768edca529f5596f07fd207865e1",
+			CorrectSignedBeaconBlockMhKey: "/blocks/QLVAEQRQPBQWEZJRME4TOMTFGUYTEMJYGJSDANDGGBSDIYJVMM4WGMRVMY4WKZJVG5RTEZJZMQYGMZRTMY2GGNDDHAZGMZBUGJSDCM3EGMYTAOBT",
+			CorrectBeaconStateMhKey:       "/blocks/QLVAEQRQPBRWEMBUMFQTEZLEMJTDCM3DG5RGEN3FG5RGIOLCGYZDCY3FMQ3DQMZSMUYDANZVMU4DSMJUG4ZTKMTFMFRTGMBRHFQTQMRUMNSTQNBX",
 		},
 		"2375703-dummy": {
 			HeadMessage: beaconclient.Head{
@@ -197,12 +200,13 @@ var (
 				Block:                    "0x4392372c5f6e39499e31bf924388b5815639103149f0f54f8a453773b1802301",
 				State:                    "0xb6215b560273af63ec7e011572b60ec1ca0b0232f8ff44fcd4ed55c7526e964e",
 				CurrentDutyDependentRoot: "", PreviousDutyDependentRoot: "", EpochTransition: false, ExecutionOptimistic: false},
-			TestNotes:            "An easy to process Altair Block",
-			SignedBeaconBlock:    filepath.Join("ssz-data", "2375703", "signed-beacon-block.ssz"),
-			BeaconState:          filepath.Join("ssz-data", "2375703", "beacon-state.ssz"),
-			CorrectEth1BlockHash: "0xd74b1c60423651624de6bb301ac25808951c167ba6ecdd9b2e79b4315aee8202",
-			CorrectParentRoot:    "0x08736ddc20b77f65d1aa6301f7e6e856a820ff3ce6430ed2c3694ae35580e740",
-			CorrectMhKey:         "",
+			TestNotes:                     "An easy to process Altair Block",
+			SignedBeaconBlock:             filepath.Join("ssz-data", "2375703", "signed-beacon-block.ssz"),
+			BeaconState:                   filepath.Join("ssz-data", "2375703", "beacon-state.ssz"),
+			CorrectEth1BlockHash:          "0xd74b1c60423651624de6bb301ac25808951c167ba6ecdd9b2e79b4315aee8202",
+			CorrectParentRoot:             "0x08736ddc20b77f65d1aa6301f7e6e856a820ff3ce6430ed2c3694ae35580e740",
+			CorrectSignedBeaconBlockMhKey: "/blocks/QLVAEQRQPA2DGOJSGM3TEYZVMY3GKMZZGQ4TSZJTGFRGMOJSGQZTQODCGU4DCNJWGM4TCMBTGE2DSZRQMY2TIZRYME2DKMZXG4ZWEMJYGAZDGMBR",
+			CorrectBeaconStateMhKey:       "/blocks/QLVAEQRQPBRDMMRRGVRDKNRQGI3TGYLGGYZWKYZXMUYDCMJVG4ZGENRQMVRTCY3BGBRDAMRTGJTDQZTGGQ2GMY3EGRSWINJVMM3TKMRWMU4TMNDF",
 		},
 		"3797056": {
 			HeadMessage: beaconclient.Head{
@@ -239,14 +243,15 @@ var (
 )
 
 type Message struct {
-	HeadMessage          beaconclient.Head // The head messsage that will be streamed to the BeaconClient
-	TestNotes            string            // A small explanation of the purpose this structure plays in the testing landscape.
-	MimicConfig          *MimicConfig      // A configuration of parameters that you are trying to
-	SignedBeaconBlock    string            // The file path output of an SSZ encoded SignedBeaconBlock.
-	BeaconState          string            // The file path output of an SSZ encoded BeaconState.
-	CorrectMhKey         string            // The correct MhKey
-	CorrectParentRoot    string            // The correct parent root
-	CorrectEth1BlockHash string            // The correct eth1blockHash
+	HeadMessage                   beaconclient.Head // The head messsage that will be streamed to the BeaconClient
+	TestNotes                     string            // A small explanation of the purpose this structure plays in the testing landscape.
+	MimicConfig                   *MimicConfig      // A configuration of parameters that you are trying to
+	SignedBeaconBlock             string            // The file path output of an SSZ encoded SignedBeaconBlock.
+	BeaconState                   string            // The file path output of an SSZ encoded BeaconState.
+	CorrectSignedBeaconBlockMhKey string            // The correct MhKey for the signedBeaconBlock
+	CorrectBeaconStateMhKey       string            // The correct MhKey beaconState
+	CorrectParentRoot             string            // The correct parent root
+	CorrectEth1BlockHash          string            // The correct eth1blockHash
 }
 
 // A structure that can be utilized to mimic and existing SSZ object but change it ever so slightly.
@@ -265,8 +270,8 @@ var _ = Describe("Capturehead", Label("head"), func() {
 				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
 				defer httpmock.DeactivateAndReset()
 				BeaconNodeTester.testProcessBlock(bc, BeaconNodeTester.TestEvents["100"].HeadMessage, 3, maxRetry, 1, 0, 0)
-				validateSignedBeaconBlock(bc, BeaconNodeTester.TestEvents["100"].HeadMessage, "0x629ae1587895043076500f4f5dcb202a47c2fc95d5b5c548cb83bc97bd2dbfe1", "0x8d3f027beef5cbd4f8b29fc831aba67a5d74768edca529f5596f07fd207865e1", "/blocks/QHVAEQBQGQ4TKNJUGAYDGNZRGM2DOZJSGZTDMMLEG5QTIYTCMRQTKYRSGNTGCMDCGI2WINLGMM2DMNJRGYYGMMTBHEZGINJSME3DGYRZGE4WE")
-				validateBeaconState(bc, BeaconNodeTester.TestEvents["100"].HeadMessage, "/blocks/QHVAEQRQPBTDEOBWMEYDGNZZMMYDGOBWMEZWGN3CMUZDQZBQGVSDQMRZMY4GKYRXMIZDQMDDMM4WKZDFGE2TINBZMFTDEMDFMJRWIMBWME3WCNJW")
+				validateSignedBeaconBlock(bc, BeaconNodeTester.TestEvents["100"].HeadMessage, "0x629ae1587895043076500f4f5dcb202a47c2fc95d5b5c548cb83bc97bd2dbfe1", "0x8d3f027beef5cbd4f8b29fc831aba67a5d74768edca529f5596f07fd207865e1", BeaconNodeTester.TestEvents["100"].CorrectSignedBeaconBlockMhKey)
+				validateBeaconState(bc, BeaconNodeTester.TestEvents["100"].HeadMessage, BeaconNodeTester.TestEvents["100"].CorrectBeaconStateMhKey)
 
 			})
 		})
@@ -276,8 +281,8 @@ var _ = Describe("Capturehead", Label("head"), func() {
 				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
 				defer httpmock.DeactivateAndReset()
 				BeaconNodeTester.testProcessBlock(bc, BeaconNodeTester.TestEvents["2375703"].HeadMessage, 74240, maxRetry, 1, 0, 0)
-				validateSignedBeaconBlock(bc, BeaconNodeTester.TestEvents["2375703"].HeadMessage, "0x83154c692b9cce50bdf56af5a933da0a020ed7ff809a6a8236301094c7f25276", "0xd74b1c60423651624de6bb301ac25808951c167ba6ecdd9b2e79b4315aee8202", "/blocks/QHVAEQRQPA2DGOJSGM3TEYZVMY3GKMZZGQ4TSZJTGFRGMOJSGQZTQODCGU4DCNJWGM4TCMBTGE2DSZRQMY2TIZRYME2DKMZXG4ZWEMJYGAZDGMBR")
-				validateBeaconState(bc, BeaconNodeTester.TestEvents["2375703"].HeadMessage, "/blocks/QHVAEQRQPBRDMMRRGVRDKNRQGI3TGYLGGYZWKYZXMUYDCMJVG4ZGENRQMVRTCY3BGBRDAMRTGJTDQZTGGQ2GMY3EGRSWINJVMM3TKMRWMU4TMNDF")
+				validateSignedBeaconBlock(bc, BeaconNodeTester.TestEvents["2375703"].HeadMessage, "0x83154c692b9cce50bdf56af5a933da0a020ed7ff809a6a8236301094c7f25276", "0xd74b1c60423651624de6bb301ac25808951c167ba6ecdd9b2e79b4315aee8202", BeaconNodeTester.TestEvents["2375703"].CorrectSignedBeaconBlockMhKey)
+				validateBeaconState(bc, BeaconNodeTester.TestEvents["2375703"].HeadMessage, BeaconNodeTester.TestEvents["2375703"].CorrectBeaconStateMhKey)
 			})
 		})
 		Context("Correctly formatted Altair Test Blocks", func() {
@@ -481,6 +486,7 @@ func setUpTest(config Config, maxSlot string) *beaconclient.BeaconClient {
 // A helper function to validate the expected output from the ethcl.slots table.
 func validateSlot(bc *beaconclient.BeaconClient, headMessage beaconclient.Head, correctEpoch int, correctStatus string) {
 	epoch, dbSlot, blockRoot, stateRoot, status := queryDbSlotAndBlock(bc.Db, headMessage.Slot, headMessage.Block)
+	log.Info("validateSlot: ", headMessage)
 	baseSlot, err := strconv.Atoi(headMessage.Slot)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(dbSlot).To(Equal(baseSlot))
@@ -493,24 +499,26 @@ func validateSlot(bc *beaconclient.BeaconClient, headMessage beaconclient.Head, 
 // A helper function to validate the expected output from the ethcl.signed_beacon_block table.
 func validateSignedBeaconBlock(bc *beaconclient.BeaconClient, headMessage beaconclient.Head, correctParentRoot string, correctEth1BlockHash string, correctMhKey string) {
 	dbSlot, blockRoot, parentRoot, eth1BlockHash, mhKey := queryDbSignedBeaconBlock(bc.Db, headMessage.Slot, headMessage.Block)
+	log.Info("validateSignedBeaconBlock: ", headMessage)
 	baseSlot, err := strconv.Atoi(headMessage.Slot)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(dbSlot).To(Equal(baseSlot))
 	Expect(blockRoot).To(Equal(headMessage.Block))
-	Expect(parentRoot, correctParentRoot)
-	Expect(eth1BlockHash, correctEth1BlockHash)
-	Expect(mhKey, correctMhKey)
+	Expect(parentRoot).To(Equal(correctParentRoot))
+	Expect(eth1BlockHash).To(Equal(correctEth1BlockHash))
+	Expect(mhKey).To(Equal(correctMhKey))
 
 }
 
 // A helper function to validate the expected output from the ethcl.beacon_state table.
 func validateBeaconState(bc *beaconclient.BeaconClient, headMessage beaconclient.Head, correctMhKey string) {
 	dbSlot, stateRoot, mhKey := queryDbBeaconState(bc.Db, headMessage.Slot, headMessage.State)
+	log.Info("validateBeaconState: ", headMessage)
 	baseSlot, err := strconv.Atoi(headMessage.Slot)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(dbSlot).To(Equal(baseSlot))
 	Expect(stateRoot).To(Equal(headMessage.State))
-	Expect(mhKey, correctMhKey)
+	Expect(mhKey).To(Equal(correctMhKey))
 
 }
 
@@ -593,12 +601,11 @@ func queryKnownGaps(db sql.Database, queryStartGap string, QueryEndGap string) (
 	err := row.Scan(&startGap, &endGap)
 	Expect(err).ToNot(HaveOccurred())
 	return startGap, endGap
-
 }
 
 // A function that will remove all entries from the ethcl tables for you.
 func clearEthclDbTables(db sql.Database) {
-	deleteQueries := []string{"DELETE FROM ethcl.slots;", "DELETE FROM ethcl.signed_beacon_block;", "DELETE FROM ethcl.beacon_state;", "DELETE FROM ethcl.known_gaps;", "DELETE FROM ethcl.historic_process;"}
+	deleteQueries := []string{"DELETE FROM ethcl.slots;", "DELETE FROM ethcl.signed_beacon_block;", "DELETE FROM ethcl.beacon_state;", "DELETE FROM ethcl.known_gaps;", "DELETE FROM ethcl.historic_process;", "DELETE FROM public.blocks;"}
 	for _, queries := range deleteQueries {
 		_, err := db.Exec(context.Background(), queries)
 		Expect(err).ToNot(HaveOccurred())
@@ -717,7 +724,6 @@ func (tbc TestBeaconNode) SetupBeaconNodeMock(TestEvents map[string]Message, pro
 
 // Provide the Block root
 func (tbc TestBeaconNode) provideBlockRoot(slot string) ([]byte, error) {
-
 	for _, val := range tbc.TestEvents {
 		if val.HeadMessage.Slot == slot && val.MimicConfig == nil {
 			block, err := hex.DecodeString(val.HeadMessage.Block[2:])

@@ -16,7 +16,7 @@ import (
 var _ = Describe("Capturehistoric", func() {
 
 	Describe("Run the application in historic mode", Label("unit", "behavioral", "historical"), func() {
-		Context("Phase0 + Altairs: When we need to process a multiple blocks in a multiple entries in the ethcl.historic_process table.", func() {
+		Context("Phase0 + Altairs: When we need to process a multiple blocks in a multiple entries in the ethcl.historic_process table.", Label("deb"), func() {
 			It("Successfully Process the Blocks", func() {
 				bc := setUpTest(BeaconNodeTester.TestConfig, "99")
 				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
@@ -40,7 +40,7 @@ var _ = Describe("Capturehistoric", func() {
 				BeaconNodeTester.runHistoricalProcess(bc, 2, 0, 0, 2, 0)
 			})
 		})
-		Context("Processing the Genesis block", func() {
+		Context("Processing the Genesis block", Label("genesis"), func() {
 			It("Should Process properly", func() {
 				bc := setUpTest(BeaconNodeTester.TestConfig, "100")
 				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
@@ -48,8 +48,8 @@ var _ = Describe("Capturehistoric", func() {
 				BeaconNodeTester.writeEventToHistoricProcess(bc, 0, 0, 10)
 				BeaconNodeTester.runHistoricalProcess(bc, 2, 1, 0, 0, 0)
 				validateSlot(bc, BeaconNodeTester.TestEvents["0"].HeadMessage, 0, "proposed")
-				validateSignedBeaconBlock(bc, BeaconNodeTester.TestEvents["0"].HeadMessage, BeaconNodeTester.TestEvents["0"].CorrectParentRoot, BeaconNodeTester.TestEvents["0"].CorrectEth1BlockHash, BeaconNodeTester.TestEvents["0"].CorrectMhKey)
-				validateBeaconState(bc, BeaconNodeTester.TestEvents["0"].HeadMessage, BeaconNodeTester.TestEvents["0"].CorrectMhKey)
+				validateSignedBeaconBlock(bc, BeaconNodeTester.TestEvents["0"].HeadMessage, BeaconNodeTester.TestEvents["0"].CorrectParentRoot, BeaconNodeTester.TestEvents["0"].CorrectEth1BlockHash, BeaconNodeTester.TestEvents["0"].CorrectSignedBeaconBlockMhKey)
+				validateBeaconState(bc, BeaconNodeTester.TestEvents["0"].HeadMessage, BeaconNodeTester.TestEvents["0"].CorrectBeaconStateMhKey)
 			})
 		})
 		Context("When there is a skipped slot", func() {
@@ -79,9 +79,8 @@ var _ = Describe("Capturehistoric", func() {
 				validatePopularBatchBlocks(bc)
 			})
 		})
-		Context("When the start block is greater than the endBlock", Label("now", "now-1"), func() {
+		Context("When the start block is greater than the endBlock", func() {
 			It("Should Add two entries to the knownGaps table", func() {
-				log.SetLevel(log.DebugLevel)
 				bc := setUpTest(BeaconNodeTester.TestConfig, "104")
 				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
 				defer httpmock.DeactivateAndReset()
@@ -89,9 +88,8 @@ var _ = Describe("Capturehistoric", func() {
 				BeaconNodeTester.runKnownGapsProcess(bc, 2, 2, 0, 2, 0)
 			})
 		})
-		Context("When theres a reprocessing error", Label("now", "now-2"), func() {
+		Context("When theres a reprocessing error", func() {
 			It("Should update the reprocessing error.", func() {
-				log.SetLevel(log.DebugLevel)
 				bc := setUpTest(BeaconNodeTester.TestConfig, "99")
 				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
 				defer httpmock.DeactivateAndReset()
@@ -200,14 +198,14 @@ func validateMetrics(bc *beaconclient.BeaconClient, expectedInserts, expectedReo
 // A wrapper function to validate a few popular blocks
 func validatePopularBatchBlocks(bc *beaconclient.BeaconClient) {
 	validateSlot(bc, BeaconNodeTester.TestEvents["100"].HeadMessage, 3, "proposed")
-	validateSignedBeaconBlock(bc, BeaconNodeTester.TestEvents["100"].HeadMessage, BeaconNodeTester.TestEvents["100"].CorrectParentRoot, BeaconNodeTester.TestEvents["100"].CorrectEth1BlockHash, BeaconNodeTester.TestEvents["100"].CorrectMhKey)
-	validateBeaconState(bc, BeaconNodeTester.TestEvents["100"].HeadMessage, BeaconNodeTester.TestEvents["100"].CorrectMhKey)
+	validateSignedBeaconBlock(bc, BeaconNodeTester.TestEvents["100"].HeadMessage, BeaconNodeTester.TestEvents["100"].CorrectParentRoot, BeaconNodeTester.TestEvents["100"].CorrectEth1BlockHash, BeaconNodeTester.TestEvents["100"].CorrectSignedBeaconBlockMhKey)
+	validateBeaconState(bc, BeaconNodeTester.TestEvents["100"].HeadMessage, BeaconNodeTester.TestEvents["100"].CorrectBeaconStateMhKey)
 
 	validateSlot(bc, BeaconNodeTester.TestEvents["101"].HeadMessage, 3, "proposed")
-	validateSignedBeaconBlock(bc, BeaconNodeTester.TestEvents["101"].HeadMessage, BeaconNodeTester.TestEvents["100"].HeadMessage.Block, BeaconNodeTester.TestEvents["101"].CorrectEth1BlockHash, BeaconNodeTester.TestEvents["101"].CorrectMhKey)
-	validateBeaconState(bc, BeaconNodeTester.TestEvents["101"].HeadMessage, BeaconNodeTester.TestEvents["101"].CorrectMhKey)
+	validateSignedBeaconBlock(bc, BeaconNodeTester.TestEvents["101"].HeadMessage, BeaconNodeTester.TestEvents["100"].HeadMessage.Block, BeaconNodeTester.TestEvents["101"].CorrectEth1BlockHash, BeaconNodeTester.TestEvents["101"].CorrectSignedBeaconBlockMhKey)
+	validateBeaconState(bc, BeaconNodeTester.TestEvents["101"].HeadMessage, BeaconNodeTester.TestEvents["101"].CorrectBeaconStateMhKey)
 
 	validateSlot(bc, BeaconNodeTester.TestEvents["2375703"].HeadMessage, 74240, "proposed")
-	validateSignedBeaconBlock(bc, BeaconNodeTester.TestEvents["2375703"].HeadMessage, BeaconNodeTester.TestEvents["2375703"].CorrectParentRoot, BeaconNodeTester.TestEvents["2375703"].CorrectEth1BlockHash, BeaconNodeTester.TestEvents["2375703"].CorrectMhKey)
-	validateBeaconState(bc, BeaconNodeTester.TestEvents["2375703"].HeadMessage, BeaconNodeTester.TestEvents["2375703"].CorrectMhKey)
+	validateSignedBeaconBlock(bc, BeaconNodeTester.TestEvents["2375703"].HeadMessage, BeaconNodeTester.TestEvents["2375703"].CorrectParentRoot, BeaconNodeTester.TestEvents["2375703"].CorrectEth1BlockHash, BeaconNodeTester.TestEvents["2375703"].CorrectSignedBeaconBlockMhKey)
+	validateBeaconState(bc, BeaconNodeTester.TestEvents["2375703"].HeadMessage, BeaconNodeTester.TestEvents["2375703"].CorrectBeaconStateMhKey)
 }
