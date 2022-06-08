@@ -47,7 +47,7 @@ var (
 	WHERE start_slot=$1 AND end_slot=$2;`
 	// Used to update every single row that this node has checked out.
 	releaseHpLockStmt string = `UPDATE ethcl.historic_process
-	SET checked_out=false
+	SET checked_out=false, checked_out_by=null
 	WHERE checked_out_by=$1`
 )
 

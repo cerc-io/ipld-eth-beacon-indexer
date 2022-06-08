@@ -11,6 +11,12 @@ import (
 	. "github.com/onsi/gomega"
 	log "github.com/sirupsen/logrus"
 	"github.com/vulcanize/ipld-ethcl-indexer/pkg/beaconclient"
+	"github.com/vulcanize/ipld-ethcl-indexer/pkg/database/sql"
+)
+
+var (
+	kgCheckCheckedOutStmt = `SELECT * FROM ethcl.known_gaps WHERE checked_out=true `
+	hpCheckCheckedOutStmt = `SELECT * FROM ethcl.historic_process WHERE checked_out=true `
 )
 
 var _ = Describe("Capturehistoric", func() {
@@ -137,8 +143,9 @@ func (tbc TestBeaconNode) runHistoricalProcess(bc *beaconclient.BeaconClient, ma
 	validateMetrics(bc, expectedInserts, expectedReorgs, expectedKnownGaps, expectedKnownGapsReprocessError)
 	log.Debug("Calling the stop function for historical processing..")
 	err := bc.StopHistoric(cancel)
+	time.Sleep(5 * time.Second)
 	Expect(err).ToNot(HaveOccurred())
-	time.Sleep(3 * time.Second)
+	validateAllRowsCheckedOut(bc.Db, hpCheckCheckedOutStmt)
 }
 
 // Wrapper function that processes knownGaps
@@ -147,8 +154,9 @@ func (tbc TestBeaconNode) runKnownGapsProcess(bc *beaconclient.BeaconClient, max
 	go bc.ProcessKnownGaps(ctx, maxWorkers)
 	validateMetrics(bc, expectedInserts, expectedReorgs, expectedKnownGaps, expectedKnownGapsReprocessError)
 	err := bc.StopKnownGapsProcessing(cancel)
+	time.Sleep(5 * time.Second)
 	Expect(err).ToNot(HaveOccurred())
-	time.Sleep(3 * time.Second)
+	validateAllRowsCheckedOut(bc.Db, kgCheckCheckedOutStmt)
 }
 
 func validateMetrics(bc *beaconclient.BeaconClient, expectedInserts, expectedReorgs, expectedKnownGaps, expectedKnownGapsReprocessError uint64) {
@@ -208,4 +216,14 @@ func validatePopularBatchBlocks(bc *beaconclient.BeaconClient) {
 	validateSlot(bc, BeaconNodeTester.TestEvents["2375703"].HeadMessage, 74240, "proposed")
 	validateSignedBeaconBlock(bc, BeaconNodeTester.TestEvents["2375703"].HeadMessage, BeaconNodeTester.TestEvents["2375703"].CorrectParentRoot, BeaconNodeTester.TestEvents["2375703"].CorrectEth1BlockHash, BeaconNodeTester.TestEvents["2375703"].CorrectSignedBeaconBlockMhKey)
 	validateBeaconState(bc, BeaconNodeTester.TestEvents["2375703"].HeadMessage, BeaconNodeTester.TestEvents["2375703"].CorrectBeaconStateMhKey)
+}
+
+// Make sure all rows have checked_out as false.
+func validateAllRowsCheckedOut(db sql.Database, checkStmt string) {
+	res, err := db.Exec(context.Background(), checkStmt)
+	Expect(err).ToNot(HaveOccurred())
+	rows, err := res.RowsAffected()
+	log.Info("rows: ", rows)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(rows).To(Equal(int64(0)))
 }
