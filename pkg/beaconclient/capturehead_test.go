@@ -57,7 +57,7 @@ var (
 	bcUniqueIdentifier      int    = 100
 	dummyParentRoot         string = "46f98c08b54a71dfda4d56e29ec3952b8300cd8d6b67a9b6c562ae96a7a25a42"
 	knownGapsTableIncrement int    = 100000
-	maxRetry                int    = 120
+	maxRetry                int    = 160
 
 	TestEvents = map[string]Message{
 		"0": {
