@@ -55,9 +55,7 @@ jobs:
 
       - name: Create config file
         run: |
-          echo vulcanize_ipld_ethcl_db=./ipld-ethcl-db/ > ./config.sh
-          echo vulcanize_ipld_ethcl_indexer=./ipld-ethcl-indexer >> ./config.sh
-          echo ethcl_capture_mode=boot >> ./config.sh
+          echo vulcanize_ipld_ethcl_db=$(pwd)/ipld-ethcl-db > ./config.sh
           cat ./config.sh
 
       - name: Run docker compose
