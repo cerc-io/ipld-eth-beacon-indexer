@@ -29,6 +29,7 @@ on:
 
 jobs:
   trigger-tests:
+    if: github.event_name != 'schedule'
     uses: ./.github/workflows/generic-testing.yml
     with:
       stack-orchestrator-ref: ${{ github.event.inputs.stack-orchestrator-ref }}
