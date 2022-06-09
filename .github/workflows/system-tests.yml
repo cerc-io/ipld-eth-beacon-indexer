@@ -26,7 +26,6 @@ env:
   db_user: vdbm
   db_password: password
   db_driver: "pgx"
-  DOCKER_HOST: /var/run/docker.sock
 
 jobs:
   system-testing:
