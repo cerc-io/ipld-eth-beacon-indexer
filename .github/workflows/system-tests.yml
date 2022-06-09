@@ -26,7 +26,7 @@ env:
   db_user: vdbm
   db_password: password
   db_driver: "pgx"
-  DOCKER_HOST: 127.0.0.1:2375
+  #DOCKER_HOST: 127.0.0.1:2375
 
 jobs:
   system-testing:
@@ -62,7 +62,8 @@ jobs:
       - name: Run docker compose
         id: compose
         run: |
-          docker-compose  \
+          ls "./stack-orchestrator/docker/local/docker-compose-ethcl-db.yml"
+          sudo docker-compose  \
           -f "./stack-orchestrator/docker/local/docker-compose-ethcl-db.yml" \
           --env-file ./config.sh \
           up -d --build
@@ -85,7 +86,7 @@ jobs:
       - name: Clean up the docker containers
         if: steps.compose.outcome == 'success'
         run: |
-          docker-compose  \
+          sudo docker-compose  \
           -f "./stack-orchestrator/docker/local/docker-compose-ethcl-db.yml" \
           --env-file ./config.sh \
           down -v

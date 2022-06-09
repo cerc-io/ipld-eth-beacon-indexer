@@ -82,7 +82,7 @@ func (hp HistoricProcessing) handleProcessingErrors(ctx context.Context, errMess
 
 // "un"-checkout the rows held by this DB in the ethcl.historical_process table.
 func (hp HistoricProcessing) releaseDbLocks(cancel context.CancelFunc) error {
-	go func() { cancel() }()
+	cancel()
 	log.Debug("Updating all the entries to ethcl.historical processing")
 	log.Debug("Db: ", hp.db)
 	log.Debug("hp.uniqueNodeIdentifier ", hp.uniqueNodeIdentifier)
@@ -107,7 +107,7 @@ func processSlotRangeWorker(ctx context.Context, workCh <-chan int, errCh chan<-
 			return
 		case slot := <-workCh:
 			log.Debug("Handling slot: ", slot)
-			err, errProcess := handleHistoricSlot(db, serverAddress, slot, metrics, checkDb)
+			err, errProcess := handleHistoricSlot(ctx, db, serverAddress, slot, metrics, checkDb)
 			if err != nil {
 				errMs := batchHistoricError{
 					err:        err,

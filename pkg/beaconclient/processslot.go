@@ -77,88 +77,103 @@ type ProcessSlot struct {
 // This function will do all the work to process the slot and write it to the DB.
 // It will return the error and error process. The error process is used for providing reach detail to the
 // known_gaps table.
-func processFullSlot(db sql.Database, serverAddress string, slot int, blockRoot string, stateRoot string, previousSlot int, previousBlockRoot string, headOrHistoric string, metrics *BeaconClientMetrics, knownGapsTableIncrement int, checkDb bool) (error, string) {
-	ps := &ProcessSlot{
-		Slot:           slot,
-		BlockRoot:      blockRoot,
-		StateRoot:      stateRoot,
-		HeadOrHistoric: headOrHistoric,
-		Db:             db,
-		Metrics:        metrics,
-	}
+func processFullSlot(ctx context.Context, db sql.Database, serverAddress string, slot int, blockRoot string, stateRoot string, previousSlot int, previousBlockRoot string, headOrHistoric string, metrics *BeaconClientMetrics, knownGapsTableIncrement int, checkDb bool) (error, string) {
+	select {
+	case <-ctx.Done():
+		return nil, ""
+	default:
+		ps := &ProcessSlot{
+			Slot:           slot,
+			BlockRoot:      blockRoot,
+			StateRoot:      stateRoot,
+			HeadOrHistoric: headOrHistoric,
+			Db:             db,
+			Metrics:        metrics,
+		}
 
-	g, _ := errgroup.WithContext(context.Background())
-	vUnmarshalerCh := make(chan *dt.VersionedUnmarshaler, 1)
+		g, _ := errgroup.WithContext(context.Background())
+		vUnmarshalerCh := make(chan *dt.VersionedUnmarshaler, 1)
 
-	// Get the BeaconState.
-	g.Go(func() error {
-		err := ps.getBeaconState(serverAddress, vUnmarshalerCh)
+		// Get the BeaconState.
+		g.Go(func() error {
+			select {
+			case <-ctx.Done():
+				return nil
+			default:
+				err := ps.getBeaconState(serverAddress, vUnmarshalerCh)
+				if err != nil {
+					return err
+				}
+				return nil
+			}
+		})
+
+		// Get the SignedBeaconBlock.
+		g.Go(func() error {
+			select {
+			case <-ctx.Done():
+				return nil
+			default:
+				err := ps.getSignedBeaconBlock(serverAddress, vUnmarshalerCh)
+				if err != nil {
+					return err
+				}
+				return nil
+			}
+		})
+
+		if err := g.Wait(); err != nil {
+			return err, "processSlot"
+		}
+
+		finalBlockRoot, finalStateRoot, finalEth1BlockHash, err := ps.provideFinalHash()
 		if err != nil {
-			return err
+			return err, "CalculateBlockRoot"
 		}
-		return nil
-	})
+		if checkDb {
+			inDb, err := IsSlotInDb(ctx, ps.Db, strconv.Itoa(ps.Slot), finalBlockRoot, finalStateRoot)
+			if err != nil {
+				return err, "checkDb"
+			}
+			if inDb {
+				log.WithField("slot", slot).Info("Slot already in the DB.")
+				return nil, ""
+			}
+		}
 
-	// Get the SignedBeaconBlock.
-	g.Go(func() error {
-		err := ps.getSignedBeaconBlock(serverAddress, vUnmarshalerCh)
+		// Get this object ready to write
+		dw, err := ps.createWriteObjects(finalBlockRoot, finalStateRoot, finalEth1BlockHash)
 		if err != nil {
-			return err
+			return err, "blockRoot"
 		}
-		return nil
-	})
-
-	if err := g.Wait(); err != nil {
-		return err, "processSlot"
-	}
-
-	finalBlockRoot, finalStateRoot, finalEth1BlockHash, err := ps.provideFinalHash()
-	if err != nil {
-		return err, "CalculateBlockRoot"
-	}
-	if checkDb {
-		inDb, err := IsSlotInDb(ps.Db, strconv.Itoa(ps.Slot), finalBlockRoot, finalStateRoot)
+		// Write the object to the DB.
+		defer func() {
+			err := dw.Tx.Rollback(dw.Ctx)
+			if err != nil && err != pgx.ErrTxClosed {
+				loghelper.LogError(err).Error("We were unable to Rollback a transaction")
+			}
+		}()
+		err = dw.transactFullSlot()
 		if err != nil {
-			return err, "checkDb"
+			return err, "processSlot"
 		}
-		if inDb {
-			log.WithField("slot", slot).Info("Slot already in the DB.")
-			return nil, ""
+
+		// Handle any reorgs or skipped slots.
+		headOrHistoric = strings.ToLower(headOrHistoric)
+		if headOrHistoric != "head" && headOrHistoric != "historic" {
+			return fmt.Errorf("headOrHistoric must be either historic or head!"), ""
 		}
-	}
-
-	// Get this object ready to write
-	dw, err := ps.createWriteObjects(finalBlockRoot, finalStateRoot, finalEth1BlockHash)
-	if err != nil {
-		return err, "blockRoot"
-	}
-	// Write the object to the DB.
-	defer func() {
-		err := dw.Tx.Rollback(dw.Ctx)
-		if err != nil && err != pgx.ErrTxClosed {
-			loghelper.LogError(err).Error("We were unable to Rollback a transaction")
+		if ps.HeadOrHistoric == "head" && previousSlot != 0 && previousBlockRoot != "" && ps.Status != "skipped" {
+			ps.checkPreviousSlot(dw.Tx, dw.Ctx, previousSlot, previousBlockRoot, knownGapsTableIncrement)
 		}
-	}()
-	err = dw.transactFullSlot()
-	if err != nil {
-		return err, "processSlot"
-	}
 
-	// Handle any reorgs or skipped slots.
-	headOrHistoric = strings.ToLower(headOrHistoric)
-	if headOrHistoric != "head" && headOrHistoric != "historic" {
-		return fmt.Errorf("headOrHistoric must be either historic or head!"), ""
-	}
-	if ps.HeadOrHistoric == "head" && previousSlot != 0 && previousBlockRoot != "" && ps.Status != "skipped" {
-		ps.checkPreviousSlot(dw.Tx, dw.Ctx, previousSlot, previousBlockRoot, knownGapsTableIncrement)
-	}
+		// Commit the transaction
+		if err = dw.Tx.Commit(dw.Ctx); err != nil {
+			return err, "transactionCommit"
+		}
 
-	// Commit the transaction
-	if err = dw.Tx.Commit(dw.Ctx); err != nil {
-		return err, "transactionCommit"
+		return nil, ""
 	}
-
-	return nil, ""
 }
 
 // Handle a slot that is at head. A wrapper function for calling `handleFullSlot`.
@@ -167,15 +182,15 @@ func processHeadSlot(db sql.Database, serverAddress string, slot int, blockRoot 
 	if previousSlot == 0 && previousBlockRoot == "" {
 		writeStartUpGaps(db, knownGapsTableIncrement, slot, metrics)
 	}
-	err, errReason := processFullSlot(db, serverAddress, slot, blockRoot, stateRoot, previousSlot, previousBlockRoot, "head", metrics, knownGapsTableIncrement, checkDb)
+	err, errReason := processFullSlot(context.Background(), db, serverAddress, slot, blockRoot, stateRoot, previousSlot, previousBlockRoot, "head", metrics, knownGapsTableIncrement, checkDb)
 	if err != nil {
 		writeKnownGaps(db, knownGapsTableIncrement, slot, slot, err, errReason, metrics)
 	}
 }
 
 // Handle a historic slot. A wrapper function for calling `handleFullSlot`.
-func handleHistoricSlot(db sql.Database, serverAddress string, slot int, metrics *BeaconClientMetrics, checkDb bool) (error, string) {
-	return processFullSlot(db, serverAddress, slot, "", "", 0, "", "historic", metrics, 1, checkDb)
+func handleHistoricSlot(ctx context.Context, db sql.Database, serverAddress string, slot int, metrics *BeaconClientMetrics, checkDb bool) (error, string) {
+	return processFullSlot(ctx, db, serverAddress, slot, "", "", 0, "", "historic", metrics, 1, checkDb)
 }
 
 // Update the SszSignedBeaconBlock and FullSignedBeaconBlock object with their respective values.

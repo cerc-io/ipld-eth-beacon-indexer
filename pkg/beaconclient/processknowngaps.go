@@ -122,7 +122,7 @@ func (kgp KnownGapsProcessing) handleProcessingErrors(ctx context.Context, errMe
 
 // Updated checked_out column for the uniqueNodeIdentifier.
 func (kgp KnownGapsProcessing) releaseDbLocks(cancel context.CancelFunc) error {
-	go func() { cancel() }()
+	cancel()
 	log.Debug("Updating all the entries to ethcl.known_gaps")
 	log.Debug("Db: ", kgp.db)
 	log.Debug("kgp.uniqueNodeIdentifier ", kgp.uniqueNodeIdentifier)

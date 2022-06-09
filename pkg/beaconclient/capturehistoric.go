@@ -162,9 +162,6 @@ func handleBatchProcess(ctx context.Context, maxWorkers int, bp BatchProcessing,
 	log.Debug("Waiting for shutdown signal from channel")
 	select {
 	case <-ctx.Done():
-		close(workCh)
-		close(processedCh)
-		close(errCh)
 		log.Debug("Received shutdown signal from channel")
 		return nil
 	case errs := <-finalErrCh:

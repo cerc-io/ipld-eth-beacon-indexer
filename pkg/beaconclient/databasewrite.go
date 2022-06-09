@@ -480,7 +480,11 @@ func writeStartUpGaps(db sql.Database, tableIncrement int, firstSlot int, metric
 	}
 	if maxSlot != firstSlot-1 {
 		if maxSlot < firstSlot-1 {
-			writeKnownGaps(db, tableIncrement, maxSlot+1, firstSlot-1, fmt.Errorf(""), "startup", metric)
+			if maxSlot == 0 {
+				writeKnownGaps(db, tableIncrement, maxSlot, firstSlot-1, fmt.Errorf(""), "startup", metric)
+			} else {
+				writeKnownGaps(db, tableIncrement, maxSlot+1, firstSlot-1, fmt.Errorf(""), "startup", metric)
+			}
 		} else {
 			log.WithFields(log.Fields{
 				"maxSlot":   maxSlot,
@@ -537,7 +541,7 @@ func isSlotProcessed(db sql.Database, checkProcessStmt string, slot string) (boo
 
 // Check to see if this slot is in the DB. Check ethcl.slots, ethcl.signed_beacon_block
 // and ethcl.beacon_state. If the slot exists, return true
-func IsSlotInDb(db sql.Database, slot string, blockRoot string, stateRoot string) (bool, error) {
+func IsSlotInDb(ctx context.Context, db sql.Database, slot string, blockRoot string, stateRoot string) (bool, error) {
 	var (
 		isInBeaconState       bool
 		isInSignedBeaconBlock bool
@@ -545,18 +549,28 @@ func IsSlotInDb(db sql.Database, slot string, blockRoot string, stateRoot string
 	)
 	errG, _ := errgroup.WithContext(context.Background())
 	errG.Go(func() error {
-		isInBeaconState, err = checkSlotAndRoot(db, CheckBeaconStateStmt, slot, stateRoot)
-		if err != nil {
-			loghelper.LogError(err).Error("Unable to check if the slot and stateroot exist in ethcl.beacon_state")
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+			isInBeaconState, err = checkSlotAndRoot(db, CheckBeaconStateStmt, slot, stateRoot)
+			if err != nil {
+				loghelper.LogError(err).Error("Unable to check if the slot and stateroot exist in ethcl.beacon_state")
+			}
+			return err
 		}
-		return err
 	})
 	errG.Go(func() error {
-		isInSignedBeaconBlock, err = checkSlotAndRoot(db, CheckSignedBeaconBlockStmt, slot, blockRoot)
-		if err != nil {
-			loghelper.LogError(err).Error("Unable to check if the slot and block_root exist in ethcl.signed_beacon_block")
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+			isInSignedBeaconBlock, err = checkSlotAndRoot(db, CheckSignedBeaconBlockStmt, slot, blockRoot)
+			if err != nil {
+				loghelper.LogError(err).Error("Unable to check if the slot and block_root exist in ethcl.signed_beacon_block")
+			}
+			return err
 		}
-		return err
 	})
 	if err := errG.Wait(); err != nil {
 		return false, err
