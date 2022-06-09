@@ -65,7 +65,7 @@ jobs:
         run: |
           ls "./stack-orchestrator/docker/local/docker-compose-ipld-eth-beacon-db.yml"
           whoami
-          docker-compose  \
+          /usr/local/bin/docker-compose  \
           -f "./stack-orchestrator/docker/local/docker-compose-ipld-eth-beacon-db.yml" \
           --env-file ./config.sh \
           up -d --build
@@ -89,7 +89,7 @@ jobs:
         if: steps.compose.outcome == 'success'
         shell: bash
         run: |
-          docker-compose  \
+          /usr/local/bin/docker-compose \
           -f "./stack-orchestrator/docker/local/docker-compose-ipld-eth-beacon-db.yml" \
           --env-file ./config.sh \
           down -v
