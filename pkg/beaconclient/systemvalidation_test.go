@@ -8,7 +8,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	//. "github.com/onsi/gomega"
 	"github.com/vulcanize/ipld-ethcl-indexer/pkg/beaconclient"
-	"github.com/vulcanize/ipld-ethcl-indexer/pkg/loghelper"
 )
 
 var (
@@ -57,7 +56,7 @@ var _ = Describe("Systemvalidation", Label("system"), func() {
 func getEnvInt(envVar string) int {
 	val, err := strconv.Atoi(envVar)
 	if err != nil {
-		loghelper.LogError(err).WithField("envVar", envVar).Fatal("Unable to turn env string to int")
+		return 0
 	}
 	return val
 }
