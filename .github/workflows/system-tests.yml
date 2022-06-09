@@ -61,10 +61,11 @@ jobs:
 
       - name: Run docker compose
         id: compose
+        shell: bash
         run: |
           ls "./stack-orchestrator/docker/local/docker-compose-ipld-eth-beacon-db.yml"
           whoami
-          /bin/bash docker-compose  \
+          docker-compose  \
           -f "./stack-orchestrator/docker/local/docker-compose-ipld-eth-beacon-db.yml" \
           --env-file ./config.sh \
           up -d --build
@@ -86,8 +87,9 @@ jobs:
 
       - name: Clean up the docker containers
         if: steps.compose.outcome == 'success'
+        shell: bash
         run: |
-          /bin/bash docker-compose  \
+          docker-compose  \
           -f "./stack-orchestrator/docker/local/docker-compose-ipld-eth-beacon-db.yml" \
           --env-file ./config.sh \
           down -v
