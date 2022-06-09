@@ -11,10 +11,17 @@ jobs:
       ssz-data-ref: ${{ github.event.inputs.ssz-data-ref }}
     secrets:
       GHA_KEY: ${{secrets.GHA_KEY}}
+  system-testing:
+    uses: ./.github/workflows/system-tests.yml
+    with:
+      stack-orchestrator-ref: ${{ github.event.inputs.stack-orchestrator-ref }}
+      ipld-ethcl-db-ref: ${{ github.event.inputs.ipld-ethcl-db-ref }}
   build:
     name: Run docker build
     runs-on: ubuntu-latest
-    needs: trigger-tests
+    needs:
+      - trigger-tests
+      - system-testing
     steps:
       - uses: actions/checkout@v2
       - name: Get the version

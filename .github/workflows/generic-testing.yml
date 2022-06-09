@@ -187,12 +187,6 @@ jobs:
           cd ipld-ethcl-indexer
           make integration-test-ci
 
-  system-testing:
-    uses: ./.github/workflows/system-tests.yml
-    with:
-      stack-orchestrator-ref: ${{ env.stack-orchestrator-ref }}
-      ipld-ethcl-db-ref: ${{ env.ipld-ethcl-db-ref }}
-
   golangci:
     runs-on: ubuntu-latest
     steps:

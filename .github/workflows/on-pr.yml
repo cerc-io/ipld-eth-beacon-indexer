@@ -25,7 +25,7 @@ on:
       - ".github/workflows/tests.yml"
       - "**"
   schedule:
-    - cron: '0 13 * * *'
+    - cron: '0 13 * * *' # Must be single quotes!!
 
 jobs:
   trigger-tests:
@@ -36,3 +36,8 @@ jobs:
       ssz-data-ref: ${{ github.event.inputs.ssz-data-ref }}
     secrets:
       GHA_KEY: ${{secrets.GHA_KEY}}
+  system-testing:
+    uses: ./.github/workflows/system-tests.yml
+    with:
+      stack-orchestrator-ref: ${{ github.event.inputs.stack-orchestrator-ref }}
+      ipld-ethcl-db-ref: ${{ github.event.inputs.ipld-ethcl-db-ref }}
