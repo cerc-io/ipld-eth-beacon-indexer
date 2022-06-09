@@ -43,3 +43,4 @@ jobs:
       ipld-ethcl-db-ref: ${{ github.event.inputs.ipld-ethcl-db-ref }}
     secrets:
       GHA_KEY: ${{secrets.GHA_KEY}}
+      BC_ADDRESS: ${{secrets.BC_ADDRESS}}

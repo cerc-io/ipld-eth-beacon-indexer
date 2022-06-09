@@ -11,6 +11,8 @@ on:
     secrets:
       GHA_KEY:
         required: true
+      BC_ADDRESS:
+        required: true
 env:
   stack-orchestrator-ref: ${{ inputs.stack-orchestrator-ref || '2e0d4f4f3cba4dc526df96818351a109dc295efa' }}
   ipld-ethcl-db-ref: ${{ inputs.ipld-ethcl-db-ref  || 'feature/historic-processing' }}
