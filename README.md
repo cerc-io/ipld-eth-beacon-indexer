@@ -27,7 +27,7 @@ To run the application, do as follows:
 
    ```
    ./wrapper.sh -e skip \
-   -d ../docker/local/docker-compose-eth-beacon-db.yml \
+   -d ../docker/local/docker-compose-ipld-eth-beacon-db.yml \
    -d ../docker/latest/docker-compose-lighthouse.yml \
    -v remove \
    -p ../local-config.sh
@@ -37,7 +37,7 @@ To run the application, do as follows:
 2. Run the start up command.
 
 ```
-go run -race main.go capture historic --config ./example.ipld-eth-beacon-indexer-config.json
+go run -race main.go capture full --config ./example.ipld-eth-beacon-indexer-config.json
 ```
 
 ## Running Tests

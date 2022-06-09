@@ -85,7 +85,7 @@ jobs:
           make system-test-ci
 
       - name: Clean up the docker containers
-        if: steps.compose.outcome == 'success'
+        if: always() && steps.compose.outcome == 'success'
         shell: bash
         run: |
           /usr/local/bin/docker-compose \
