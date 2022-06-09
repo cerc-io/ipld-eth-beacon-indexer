@@ -26,6 +26,7 @@ env:
   db_user: vdbm
   db_password: password
   db_driver: "pgx"
+  DOCKER_HOST: 127.0.0.1
 
 jobs:
   system-testing:
