@@ -107,4 +107,4 @@ build:
 ## Build docker image
 .PHONY: docker-build
 docker-build:
-	docker build -t vulcanize/ipld-ethcl-indexer .
+	docker build -t vulcanize/ipld-eth-beacon-indexer .

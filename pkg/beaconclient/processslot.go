@@ -36,8 +36,8 @@ import (
 
 	state "github.com/prysmaticlabs/prysm/beacon-chain/state"
 	log "github.com/sirupsen/logrus"
-	"github.com/vulcanize/ipld-ethcl-indexer/pkg/database/sql"
-	"github.com/vulcanize/ipld-ethcl-indexer/pkg/loghelper"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/database/sql"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/loghelper"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -70,8 +70,8 @@ type ProcessSlot struct {
 
 	// DB Write objects
 	DbSlotsModel             *DbSlots             // The model being written to the slots table.
-	DbSignedBeaconBlockModel *DbSignedBeaconBlock // The model being written to the signed_beacon_block table.
-	DbBeaconState            *DbBeaconState       // The model being written to the beacon_state table.
+	DbSignedBeaconBlockModel *DbSignedBeaconBlock // The model being written to the signed_block table.
+	DbBeaconState            *DbBeaconState       // The model being written to the state table.
 }
 
 // This function will do all the work to process the slot and write it to the DB.

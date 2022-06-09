@@ -20,7 +20,7 @@ import (
 	dshelp "github.com/ipfs/go-ipfs-ds-help"
 	"github.com/multiformats/go-multihash"
 	log "github.com/sirupsen/logrus"
-	"github.com/vulcanize/ipld-ethcl-indexer/pkg/loghelper"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/loghelper"
 )
 
 const SSZ_SHA2_256_PREFIX uint64 = 0xb502

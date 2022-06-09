@@ -28,11 +28,11 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/r3labs/sse"
 	log "github.com/sirupsen/logrus"
-	"github.com/vulcanize/ipld-ethcl-indexer/internal/boot"
-	"github.com/vulcanize/ipld-ethcl-indexer/internal/shutdown"
-	"github.com/vulcanize/ipld-ethcl-indexer/pkg/beaconclient"
-	"github.com/vulcanize/ipld-ethcl-indexer/pkg/database/sql"
-	"github.com/vulcanize/ipld-ethcl-indexer/pkg/gracefulshutdown"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/internal/boot"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/internal/shutdown"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/beaconclient"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/database/sql"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/gracefulshutdown"
 )
 
 var (

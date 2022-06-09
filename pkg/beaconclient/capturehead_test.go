@@ -39,9 +39,9 @@ import (
 
 	. "github.com/onsi/gomega"
 
-	"github.com/vulcanize/ipld-ethcl-indexer/pkg/beaconclient"
-	"github.com/vulcanize/ipld-ethcl-indexer/pkg/database/sql"
-	"github.com/vulcanize/ipld-ethcl-indexer/pkg/database/sql/postgres"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/beaconclient"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/database/sql"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/database/sql/postgres"
 )
 
 var (
@@ -474,16 +474,16 @@ func setUpTest(config Config, maxSlot string) *beaconclient.BeaconClient {
 	Expect(err).ToNot(HaveOccurred())
 
 	// Drop all records from the DB.
-	clearEthclDbTables(db)
+	clearEthBeaconDbTables(db)
 
-	// Add an slot to the ethcl.slots table so it we can control how known_gaps are handled.
+	// Add an slot to the eth_beacon.slots table so it we can control how known_gaps are handled.
 	writeSlot(db, maxSlot)
 	bc.Db = db
 
 	return bc
 }
 
-// A helper function to validate the expected output from the ethcl.slots table.
+// A helper function to validate the expected output from the eth_beacon.slots table.
 func validateSlot(bc *beaconclient.BeaconClient, headMessage beaconclient.Head, correctEpoch int, correctStatus string) {
 	epoch, dbSlot, blockRoot, stateRoot, status := queryDbSlotAndBlock(bc.Db, headMessage.Slot, headMessage.Block)
 	log.Info("validateSlot: ", headMessage)
@@ -496,7 +496,7 @@ func validateSlot(bc *beaconclient.BeaconClient, headMessage beaconclient.Head, 
 	Expect(status).To(Equal(correctStatus))
 }
 
-// A helper function to validate the expected output from the ethcl.signed_beacon_block table.
+// A helper function to validate the expected output from the eth_beacon.signed_block table.
 func validateSignedBeaconBlock(bc *beaconclient.BeaconClient, headMessage beaconclient.Head, correctParentRoot string, correctEth1BlockHash string, correctMhKey string) {
 	dbSlot, blockRoot, parentRoot, eth1BlockHash, mhKey := queryDbSignedBeaconBlock(bc.Db, headMessage.Slot, headMessage.Block)
 	log.Info("validateSignedBeaconBlock: ", headMessage)
@@ -510,7 +510,7 @@ func validateSignedBeaconBlock(bc *beaconclient.BeaconClient, headMessage beacon
 
 }
 
-// A helper function to validate the expected output from the ethcl.beacon_state table.
+// A helper function to validate the expected output from the eth_beacon.state table.
 func validateBeaconState(bc *beaconclient.BeaconClient, headMessage beaconclient.Head, correctMhKey string) {
 	dbSlot, stateRoot, mhKey := queryDbBeaconState(bc.Db, headMessage.Slot, headMessage.State)
 	log.Info("validateBeaconState: ", headMessage)
@@ -550,21 +550,21 @@ func sendHeadMessage(bc *beaconclient.BeaconClient, head beaconclient.Head, maxR
 	}
 }
 
-// A helper function to query the ethcl.slots table based on the slot and block_root
+// A helper function to query the eth_beacon.slots table based on the slot and block_root
 func queryDbSlotAndBlock(db sql.Database, querySlot string, queryBlockRoot string) (int, int, string, string, string) {
-	sqlStatement := `SELECT epoch, slot, block_root, state_root, status FROM ethcl.slots WHERE slot=$1 AND block_root=$2;`
+	sqlStatement := `SELECT epoch, slot, block_root, state_root, status FROM eth_beacon.slots WHERE slot=$1 AND block_root=$2;`
 	var epoch, slot int
 	var blockRoot, stateRoot, status string
-	log.Debug("Starting to query the ethcl.slots table, ", querySlot, " ", queryBlockRoot)
+	log.Debug("Starting to query the eth_beacon.slots table, ", querySlot, " ", queryBlockRoot)
 	err := db.QueryRow(context.Background(), sqlStatement, querySlot, queryBlockRoot).Scan(&epoch, &slot, &blockRoot, &stateRoot, &status)
 	Expect(err).ToNot(HaveOccurred())
-	log.Debug("Querying the ethcl.slots table complete")
+	log.Debug("Querying the eth_beacon.slots table complete")
 	return epoch, slot, blockRoot, stateRoot, status
 }
 
-// A helper function to query the ethcl.signed_beacon_block table based on the slot and block_root.
+// A helper function to query the eth_beacon.signed_block table based on the slot and block_root.
 func queryDbSignedBeaconBlock(db sql.Database, querySlot string, queryBlockRoot string) (int, string, string, string, string) {
-	sqlStatement := `SELECT slot, block_root, parent_block_root, eth1_block_hash, mh_key FROM ethcl.signed_beacon_block WHERE slot=$1 AND block_root=$2;`
+	sqlStatement := `SELECT slot, block_root, parent_block_root, eth1_block_hash, mh_key FROM eth_beacon.signed_block WHERE slot=$1 AND block_root=$2;`
 	var slot int
 	var blockRoot, parent_block_root, eth1_block_hash, mh_key string
 	row := db.QueryRow(context.Background(), sqlStatement, querySlot, queryBlockRoot)
@@ -573,9 +573,9 @@ func queryDbSignedBeaconBlock(db sql.Database, querySlot string, queryBlockRoot 
 	return slot, blockRoot, parent_block_root, eth1_block_hash, mh_key
 }
 
-// A helper function to query the ethcl.signed_beacon_block table based on the slot and block_root.
+// A helper function to query the eth_beacon.signed_block table based on the slot and block_root.
 func queryDbBeaconState(db sql.Database, querySlot string, queryStateRoot string) (int, string, string) {
-	sqlStatement := `SELECT slot, state_root, mh_key FROM ethcl.beacon_state WHERE slot=$1 AND state_root=$2;`
+	sqlStatement := `SELECT slot, state_root, mh_key FROM eth_beacon.state WHERE slot=$1 AND state_root=$2;`
 	var slot int
 	var stateRoot, mh_key string
 	row := db.QueryRow(context.Background(), sqlStatement, querySlot, queryStateRoot)
@@ -587,7 +587,7 @@ func queryDbBeaconState(db sql.Database, querySlot string, queryStateRoot string
 // Count the entries in the knownGaps table.
 func countKnownGapsTable(db sql.Database) int {
 	var count int
-	sqlStatement := "SELECT COUNT(*) FROM ethcl.known_gaps"
+	sqlStatement := "SELECT COUNT(*) FROM eth_beacon.known_gaps"
 	err := db.QueryRow(context.Background(), sqlStatement).Scan(&count)
 	Expect(err).ToNot(HaveOccurred())
 	return count
@@ -595,7 +595,7 @@ func countKnownGapsTable(db sql.Database) int {
 
 // Return the start and end slot
 func queryKnownGaps(db sql.Database, queryStartGap string, QueryEndGap string) (int, int) {
-	sqlStatement := `SELECT start_slot, end_slot FROM ethcl.known_gaps WHERE start_slot=$1 AND end_slot=$2;`
+	sqlStatement := `SELECT start_slot, end_slot FROM eth_beacon.known_gaps WHERE start_slot=$1 AND end_slot=$2;`
 	var startGap, endGap int
 	row := db.QueryRow(context.Background(), sqlStatement, queryStartGap, QueryEndGap)
 	err := row.Scan(&startGap, &endGap)
@@ -603,16 +603,16 @@ func queryKnownGaps(db sql.Database, queryStartGap string, QueryEndGap string) (
 	return startGap, endGap
 }
 
-// A function that will remove all entries from the ethcl tables for you.
-func clearEthclDbTables(db sql.Database) {
-	deleteQueries := []string{"DELETE FROM ethcl.slots;", "DELETE FROM ethcl.signed_beacon_block;", "DELETE FROM ethcl.beacon_state;", "DELETE FROM ethcl.known_gaps;", "DELETE FROM ethcl.historic_process;", "DELETE FROM public.blocks;"}
+// A function that will remove all entries from the eth_beacon tables for you.
+func clearEthBeaconDbTables(db sql.Database) {
+	deleteQueries := []string{"DELETE FROM eth_beacon.slots;", "DELETE FROM eth_beacon.signed_block;", "DELETE FROM eth_beacon.state;", "DELETE FROM eth_beacon.known_gaps;", "DELETE FROM eth_beacon.historic_process;", "DELETE FROM public.blocks;"}
 	for _, queries := range deleteQueries {
 		_, err := db.Exec(context.Background(), queries)
 		Expect(err).ToNot(HaveOccurred())
 	}
 }
 
-// Write an entry to the ethcl.slots table with just a slot number
+// Write an entry to the eth_beacon.slots table with just a slot number
 func writeSlot(db sql.Database, slot string) {
 	_, err := db.Exec(context.Background(), beaconclient.UpsertSlotsStmt, "0", slot, "", "", "")
 	Expect(err).ToNot(HaveOccurred())

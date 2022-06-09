@@ -23,30 +23,30 @@ import (
 	"strconv"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/vulcanize/ipld-ethcl-indexer/pkg/database/sql"
-	"github.com/vulcanize/ipld-ethcl-indexer/pkg/loghelper"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/database/sql"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/loghelper"
 )
 
 var (
-	// Get a single non-checked out row row from ethcl.known_gaps.
-	getKgEntryStmt string = `SELECT start_slot, end_slot FROM ethcl.known_gaps
+	// Get a single non-checked out row row from eth_beacon.known_gaps.
+	getKgEntryStmt string = `SELECT start_slot, end_slot FROM eth_beacon.known_gaps
 	WHERE checked_out=false
 	ORDER BY priority ASC
 	LIMIT 1;`
-	// Used to periodically check to see if there is a new entry in the ethcl.known_gaps table.
-	checkKgEntryStmt string = `SELECT * FROM ethcl.known_gaps WHERE checked_out=false;`
-	// Used to checkout a row from the ethcl.known_gaps table
-	lockKgEntryStmt string = `UPDATE ethcl.known_gaps
+	// Used to periodically check to see if there is a new entry in the eth_beacon.known_gaps table.
+	checkKgEntryStmt string = `SELECT * FROM eth_beacon.known_gaps WHERE checked_out=false;`
+	// Used to checkout a row from the eth_beacon.known_gaps table
+	lockKgEntryStmt string = `UPDATE eth_beacon.known_gaps
 	SET checked_out=true, checked_out_by=$3
 	WHERE start_slot=$1 AND end_slot=$2;`
 	// Used to delete an entry from the knownGaps table
-	deleteKgEntryStmt string = `DELETE FROM ethcl.known_gaps
+	deleteKgEntryStmt string = `DELETE FROM eth_beacon.known_gaps
 	WHERE start_slot=$1 AND end_slot=$2;`
 	// Used to check to see if a single slot exists in the known_gaps table.
-	checkKgSingleSlotStmt string = `SELECT start_slot, end_slot FROM ethcl.known_gaps
+	checkKgSingleSlotStmt string = `SELECT start_slot, end_slot FROM eth_beacon.known_gaps
 	WHERE start_slot=$1 AND end_slot=$2;`
 	// Used to update every single row that this node has checked out.
-	releaseKgLockStmt string = `UPDATE ethcl.known_gaps
+	releaseKgLockStmt string = `UPDATE eth_beacon.known_gaps
 	SET checked_out=false, checked_out_by=null
 	WHERE checked_out_by=$1`
 )
@@ -71,7 +71,7 @@ func (bc *BeaconClient) StopKnownGapsProcessing(cancel context.CancelFunc) error
 	log.Info("We are stopping the known gaps processing service.")
 	err := bc.KnownGapsProcess.releaseDbLocks(cancel)
 	if err != nil {
-		loghelper.LogError(err).WithField("uniqueIdentifier", bc.UniqueNodeIdentifier).Error("We were unable to remove the locks from the ethcl.known_gaps table. Manual Intervention is needed!")
+		loghelper.LogError(err).WithField("uniqueIdentifier", bc.UniqueNodeIdentifier).Error("We were unable to remove the locks from the eth_beacon.known_gaps table. Manual Intervention is needed!")
 	}
 	return nil
 }
@@ -96,7 +96,7 @@ func (kgp KnownGapsProcessing) handleProcessingErrors(ctx context.Context, errMe
 			// Check to see if this if this entry already exists.
 			res, err := kgp.db.Exec(context.Background(), checkKgSingleSlotStmt, errMs.slot, errMs.slot)
 			if err != nil {
-				loghelper.LogSlotError(strconv.Itoa(errMs.slot), err).Error("Unable to see if this slot is in the ethcl.known_gaps table")
+				loghelper.LogSlotError(strconv.Itoa(errMs.slot), err).Error("Unable to see if this slot is in the eth_beacon.known_gaps table")
 			}
 
 			rows, err := res.RowsAffected()
@@ -123,7 +123,7 @@ func (kgp KnownGapsProcessing) handleProcessingErrors(ctx context.Context, errMe
 // Updated checked_out column for the uniqueNodeIdentifier.
 func (kgp KnownGapsProcessing) releaseDbLocks(cancel context.CancelFunc) error {
 	cancel()
-	log.Debug("Updating all the entries to ethcl.known_gaps")
+	log.Debug("Updating all the entries to eth_beacon.known_gaps")
 	log.Debug("Db: ", kgp.db)
 	log.Debug("kgp.uniqueNodeIdentifier ", kgp.uniqueNodeIdentifier)
 	res, err := kgp.db.Exec(context.Background(), releaseKgLockStmt, kgp.uniqueNodeIdentifier)

@@ -10,19 +10,19 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	log "github.com/sirupsen/logrus"
-	"github.com/vulcanize/ipld-ethcl-indexer/pkg/beaconclient"
-	"github.com/vulcanize/ipld-ethcl-indexer/pkg/database/sql"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/beaconclient"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/database/sql"
 )
 
 var (
-	kgCheckCheckedOutStmt = `SELECT * FROM ethcl.known_gaps WHERE checked_out=true `
-	hpCheckCheckedOutStmt = `SELECT * FROM ethcl.historic_process WHERE checked_out=true `
+	kgCheckCheckedOutStmt = `SELECT * FROM eth_beacon.known_gaps WHERE checked_out=true `
+	hpCheckCheckedOutStmt = `SELECT * FROM eth_beacon.historic_process WHERE checked_out=true `
 )
 
 var _ = Describe("Capturehistoric", func() {
 
 	Describe("Run the application in historic mode", Label("unit", "behavioral", "historical"), func() {
-		Context("Phase0 + Altairs: When we need to process a multiple blocks in a multiple entries in the ethcl.historic_process table.", Label("deb"), func() {
+		Context("Phase0 + Altairs: When we need to process a multiple blocks in a multiple entries in the eth_beacon.historic_process table.", Label("deb"), func() {
 			It("Successfully Process the Blocks", func() {
 				bc := setUpTest(BeaconNodeTester.TestConfig, "99")
 				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
@@ -70,7 +70,7 @@ var _ = Describe("Capturehistoric", func() {
 		})
 	})
 	Describe("Running the Application to process Known Gaps", Label("unit", "behavioral", "knownGaps"), func() {
-		Context("Phase0 + Altairs: When we need to process a multiple blocks in a multiple entries in the ethcl.known_gaps table.", func() {
+		Context("Phase0 + Altairs: When we need to process a multiple blocks in a multiple entries in the eth_beacon.known_gaps table.", func() {
 			It("Successfully Process the Blocks", func() {
 				bc := setUpTest(BeaconNodeTester.TestConfig, "99")
 				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
@@ -170,10 +170,10 @@ var _ = Describe("Capturehistoric", func() {
 	})
 })
 
-// This function will write an even to the ethcl.known_gaps table
+// This function will write an even to the eth_beacon.known_gaps table
 func (tbc TestBeaconNode) writeEventToKnownGaps(bc *beaconclient.BeaconClient, startSlot, endSlot int) {
 	log.Debug("We are writing the necessary events to batch process")
-	insertKnownGapsStmt := `INSERT INTO ethcl.known_gaps (start_slot, end_slot)
+	insertKnownGapsStmt := `INSERT INTO eth_beacon.known_gaps (start_slot, end_slot)
 	VALUES ($1, $2);`
 	res, err := bc.Db.Exec(context.Background(), insertKnownGapsStmt, startSlot, endSlot)
 	Expect(err).ToNot(HaveOccurred())
@@ -184,10 +184,10 @@ func (tbc TestBeaconNode) writeEventToKnownGaps(bc *beaconclient.BeaconClient, s
 	Expect(err).ToNot(HaveOccurred())
 }
 
-// This function will write an even to the ethcl.known_gaps table
+// This function will write an even to the eth_beacon.known_gaps table
 func (tbc TestBeaconNode) writeEventToHistoricProcess(bc *beaconclient.BeaconClient, startSlot, endSlot, priority int) {
 	log.Debug("We are writing the necessary events to batch process")
-	insertHistoricProcessingStmt := `INSERT INTO ethcl.historic_process (start_slot, end_slot, priority)
+	insertHistoricProcessingStmt := `INSERT INTO eth_beacon.historic_process (start_slot, end_slot, priority)
 	VALUES ($1, $2, $3);`
 	res, err := bc.Db.Exec(context.Background(), insertHistoricProcessingStmt, startSlot, endSlot, priority)
 	Expect(err).ToNot(HaveOccurred())

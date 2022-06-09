@@ -24,9 +24,9 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/vulcanize/ipld-ethcl-indexer/internal/boot"
-	"github.com/vulcanize/ipld-ethcl-indexer/internal/shutdown"
-	"github.com/vulcanize/ipld-ethcl-indexer/pkg/loghelper"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/internal/boot"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/internal/shutdown"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/loghelper"
 )
 
 // bootCmd represents the boot command
@@ -62,9 +62,9 @@ func bootApp() {
 
 	err = shutdown.ShutdownBoot(ctx, notifierCh, maxWaitSecondsShutdown, Db, Bc)
 	if err != nil {
-		loghelper.LogError(err).Error("Ungracefully Shutdown ipld-ethcl-indexer!")
+		loghelper.LogError(err).Error("Ungracefully Shutdown ipld-eth-beacon-indexer!")
 	} else {
-		log.Info("Gracefully shutdown ipld-ethcl-indexer")
+		log.Info("Gracefully shutdown ipld-eth-beacon-indexer")
 	}
 }
 

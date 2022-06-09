@@ -24,7 +24,7 @@
   "log": {
     "level": "debug",
     "output": true,
-    "file": "./ipld-ethcl-indexer.log",
+    "file": "./ipld-eth-beacon-indexer.log",
     "format": "json"
   },
   "kg": {

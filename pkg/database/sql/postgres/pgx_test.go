@@ -23,9 +23,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/vulcanize/ipld-ethcl-indexer/pkg/database/sql"
-	"github.com/vulcanize/ipld-ethcl-indexer/pkg/database/sql/postgres"
-	"github.com/vulcanize/ipld-ethcl-indexer/pkg/testhelpers"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/database/sql"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/database/sql/postgres"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/testhelpers"
 )
 
 var _ = Describe("Pgx", func() {

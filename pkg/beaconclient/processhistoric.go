@@ -26,27 +26,27 @@ import (
 
 	"github.com/jackc/pgx/v4"
 	log "github.com/sirupsen/logrus"
-	"github.com/vulcanize/ipld-ethcl-indexer/pkg/database/sql"
-	"github.com/vulcanize/ipld-ethcl-indexer/pkg/loghelper"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/database/sql"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/loghelper"
 )
 
 var (
-	// Get a single highest priority and non-checked out row row from ethcl.historical_process
-	getHpEntryStmt string = `SELECT start_slot, end_slot FROM ethcl.historic_process
+	// Get a single highest priority and non-checked out row row from eth_beacon.historical_process
+	getHpEntryStmt string = `SELECT start_slot, end_slot FROM eth_beacon.historic_process
 	WHERE checked_out=false
 	ORDER BY priority ASC
 	LIMIT 1;`
-	// Used to periodically check to see if there is a new entry in the ethcl.historic_process table.
-	checkHpEntryStmt string = `SELECT * FROM ethcl.historic_process WHERE checked_out=false;`
-	// Used to checkout a row from the ethcl.historic_process table
-	lockHpEntryStmt string = `UPDATE ethcl.historic_process
+	// Used to periodically check to see if there is a new entry in the eth_beacon.historic_process table.
+	checkHpEntryStmt string = `SELECT * FROM eth_beacon.historic_process WHERE checked_out=false;`
+	// Used to checkout a row from the eth_beacon.historic_process table
+	lockHpEntryStmt string = `UPDATE eth_beacon.historic_process
 	SET checked_out=true, checked_out_by=$3
 	WHERE start_slot=$1 AND end_slot=$2;`
-	// Used to delete an entry from the ethcl.historic_process table
-	deleteHpEntryStmt string = `DELETE FROM ethcl.historic_process
+	// Used to delete an entry from the eth_beacon.historic_process table
+	deleteHpEntryStmt string = `DELETE FROM eth_beacon.historic_process
 	WHERE start_slot=$1 AND end_slot=$2;`
 	// Used to update every single row that this node has checked out.
-	releaseHpLockStmt string = `UPDATE ethcl.historic_process
+	releaseHpLockStmt string = `UPDATE eth_beacon.historic_process
 	SET checked_out=false, checked_out_by=null
 	WHERE checked_out_by=$1`
 )
@@ -80,20 +80,20 @@ func (hp HistoricProcessing) handleProcessingErrors(ctx context.Context, errMess
 	}
 }
 
-// "un"-checkout the rows held by this DB in the ethcl.historical_process table.
+// "un"-checkout the rows held by this DB in the eth_beacon.historical_process table.
 func (hp HistoricProcessing) releaseDbLocks(cancel context.CancelFunc) error {
 	cancel()
-	log.Debug("Updating all the entries to ethcl.historical processing")
+	log.Debug("Updating all the entries to eth_beacon.historical processing")
 	log.Debug("Db: ", hp.db)
 	log.Debug("hp.uniqueNodeIdentifier ", hp.uniqueNodeIdentifier)
 	res, err := hp.db.Exec(context.Background(), releaseHpLockStmt, hp.uniqueNodeIdentifier)
 	if err != nil {
-		return fmt.Errorf("Unable to remove lock from ethcl.historical_processing table for node %d, error is %e", hp.uniqueNodeIdentifier, err)
+		return fmt.Errorf("Unable to remove lock from eth_beacon.historical_processing table for node %d, error is %e", hp.uniqueNodeIdentifier, err)
 	}
-	log.Debug("Update all the entries to ethcl.historical processing")
+	log.Debug("Update all the entries to eth_beacon.historical processing")
 	rows, err := res.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("Unable to calculated number of rows affected by releasing locks from ethcl.historical_processing table for node %d, error is %e", hp.uniqueNodeIdentifier, err)
+		return fmt.Errorf("Unable to calculated number of rows affected by releasing locks from eth_beacon.historical_processing table for node %d, error is %e", hp.uniqueNodeIdentifier, err)
 	}
 	log.WithField("rowCount", rows).Info("Released historicalProcess locks for specified rows.")
 	return nil

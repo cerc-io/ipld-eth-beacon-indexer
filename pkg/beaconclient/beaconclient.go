@@ -22,7 +22,7 @@ import (
 
 	"github.com/r3labs/sse"
 	log "github.com/sirupsen/logrus"
-	"github.com/vulcanize/ipld-ethcl-indexer/pkg/database/sql"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/database/sql"
 )
 
 // TODO: Use prysms config values instead of hardcoding them here.
