@@ -20,7 +20,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	v "github.com/vulcanize/ipld-ethcl-indexer/pkg/version"
+	v "github.com/vulcanize/ipld-eth-beacon-indexer/pkg/version"
 )
 
 var (
@@ -47,7 +47,7 @@ to quickly create a Cobra application.`,
 			Patch: Patch,
 			Meta:  Meta,
 		}
-		log.Infof("ipld-ethcl-indexer version: %s", version.GetVersionWithMeta())
+		log.Infof("ipld-eth-beacon-indexer version: %s", version.GetVersionWithMeta())
 		fmt.Println(version.GetVersionWithMeta())
 	},
 }

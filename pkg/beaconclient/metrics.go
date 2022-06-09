@@ -19,20 +19,20 @@ import (
 	"sync/atomic"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/sirupsen/logrus"
-	"github.com/vulcanize/ipld-ethcl-indexer/pkg/loghelper"
+	log "github.com/sirupsen/logrus"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/loghelper"
 )
 
 //Create a metric struct and register each channel with prometheus
 func CreateBeaconClientMetrics() (*BeaconClientMetrics, error) {
 	metrics := &BeaconClientMetrics{
-		SlotInserts:              0,
-		ReorgInserts:             0,
-		KnownGapsInserts:         0,
-		knownGapsProcessed:       0,
-		KnownGapsProcessingError: 0,
-		HeadError:                0,
-		HeadReorgError:           0,
+		SlotInserts:             0,
+		ReorgInserts:            0,
+		KnownGapsInserts:        0,
+		KnownGapsProcessed:      0,
+		KnownGapsReprocessError: 0,
+		HeadError:               0,
+		HeadReorgError:          0,
 	}
 	err := prometheusRegisterHelper("slot_inserts", "Keeps track of the number of slots we have inserted.", &metrics.SlotInserts)
 	if err != nil {
@@ -46,11 +46,11 @@ func CreateBeaconClientMetrics() (*BeaconClientMetrics, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = prometheusRegisterHelper("known_gaps_processed", "Keeps track of the number of known gaps we processed.", &metrics.knownGapsProcessed)
+	err = prometheusRegisterHelper("known_gaps_reprocess_error", "Keeps track of the number of known gaps that had errors when reprocessing, but the error was updated successfully.", &metrics.KnownGapsReprocessError)
 	if err != nil {
 		return nil, err
 	}
-	err = prometheusRegisterHelper("known_gaps_processing_error", "Keeps track of the number of known gaps we had errors processing.", &metrics.KnownGapsProcessingError)
+	err = prometheusRegisterHelper("known_gaps_processed", "Keeps track of the number of known gaps we successfully processed.", &metrics.KnownGapsProcessed)
 	if err != nil {
 		return nil, err
 	}
@@ -86,19 +86,19 @@ func prometheusRegisterHelper(name string, help string, varPointer *uint64) erro
 
 // A structure utilized for keeping track of various metrics. Currently, mostly used in testing.
 type BeaconClientMetrics struct {
-	SlotInserts              uint64 // Number of head events we successfully wrote to the DB.
-	ReorgInserts             uint64 // Number of reorg events we successfully wrote to the DB.
-	KnownGapsInserts         uint64 // Number of known_gaps we successfully wrote to the DB.
-	knownGapsProcessed       uint64 // Number of knownGaps processed.
-	KnownGapsProcessingError uint64 // Number of errors that occurred while processing a knownGap
-	HeadError                uint64 // Number of errors that occurred when decoding the head message.
-	HeadReorgError           uint64 // Number of errors that occurred when decoding the reorg message.
+	SlotInserts             uint64 // Number of head events we successfully wrote to the DB.
+	ReorgInserts            uint64 // Number of reorg events we successfully wrote to the DB.
+	KnownGapsInserts        uint64 // Number of known_gaps we successfully wrote to the DB.
+	KnownGapsProcessed      uint64 // Number of knownGaps processed.
+	KnownGapsReprocessError uint64 // Number of knownGaps that were updated with an error.
+	HeadError               uint64 // Number of errors that occurred when decoding the head message.
+	HeadReorgError          uint64 // Number of errors that occurred when decoding the reorg message.
 }
 
 // Wrapper function to increment inserts. If we want to use mutexes later we can easily update all
 // occurrences here.
 func (m *BeaconClientMetrics) IncrementSlotInserts(inc uint64) {
-	logrus.Debug("Incrementing Slot Insert")
+	log.Debug("Incrementing Slot Insert")
 	atomic.AddUint64(&m.SlotInserts, inc)
 }
 
@@ -117,13 +117,7 @@ func (m *BeaconClientMetrics) IncrementKnownGapsInserts(inc uint64) {
 // Wrapper function to increment known gaps processed. If we want to use mutexes later we can easily update all
 // occurrences here.
 func (m *BeaconClientMetrics) IncrementKnownGapsProcessed(inc uint64) {
-	atomic.AddUint64(&m.knownGapsProcessed, inc)
-}
-
-// Wrapper function to increment known gaps processing error. If we want to use mutexes later we can easily update all
-// occurrences here.
-func (m *BeaconClientMetrics) IncrementKnownGapsProcessingError(inc uint64) {
-	atomic.AddUint64(&m.KnownGapsProcessingError, inc)
+	atomic.AddUint64(&m.KnownGapsProcessed, inc)
 }
 
 // Wrapper function to increment head errors. If we want to use mutexes later we can easily update all
@@ -136,4 +130,11 @@ func (m *BeaconClientMetrics) IncrementHeadError(inc uint64) {
 // occurrences here.
 func (m *BeaconClientMetrics) IncrementReorgError(inc uint64) {
 	atomic.AddUint64(&m.HeadReorgError, inc)
+}
+
+// Wrapper function to increment the number of knownGaps that were updated with reprocessing errors.
+//If we want to use mutexes later we can easily update all occurrences here.
+func (m *BeaconClientMetrics) IncrementKnownGapsReprocessError(inc uint64) {
+	log.Debug("Incrementing Known Gap Reprocessing: ", &m.KnownGapsReprocessError)
+	atomic.AddUint64(&m.KnownGapsReprocessError, inc)
 }

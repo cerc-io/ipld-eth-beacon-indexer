@@ -7,8 +7,8 @@ on:
         description: "The branch, commit or sha from stack-orchestrator to checkout"
         required: false
         default: "main"
-      ipld-ethcl-db-ref:
-        description: "The branch, commit or sha from ipld-ethcl-db to checkout"
+      ipld-eth-beacon-db-ref:
+        description: "The branch, commit or sha from ipld-eth-beacon-db to checkout"
         required: false
         default: "main"
       ssz-data-ref:
@@ -24,13 +24,24 @@ on:
       - ".github/workflows/on-pr.yml"
       - ".github/workflows/tests.yml"
       - "**"
+  schedule:
+    - cron: '0 13 * * *' # Must be single quotes!!
 
 jobs:
   trigger-tests:
-    uses: ./.github/workflows/tests.yml
+    if: github.event_name != 'schedule'
+    uses: ./.github/workflows/generic-testing.yml
     with:
       stack-orchestrator-ref: ${{ github.event.inputs.stack-orchestrator-ref }}
-      ipld-ethcl-db-ref: ${{ github.event.inputs.ipld-ethcl-db-ref }}
+      ipld-eth-beacon-db-ref: ${{ github.event.inputs.ipld-eth-beacon-db-ref }}
       ssz-data-ref: ${{ github.event.inputs.ssz-data-ref }}
     secrets:
       GHA_KEY: ${{secrets.GHA_KEY}}
+  system-testing:
+    uses: ./.github/workflows/system-tests.yml
+    with:
+      stack-orchestrator-ref: ${{ github.event.inputs.stack-orchestrator-ref }}
+      ipld-eth-beacon-db-ref: ${{ github.event.inputs.ipld-eth-beacon-db-ref }}
+    secrets:
+      GHA_KEY: ${{secrets.GHA_KEY}}
+      BC_ADDRESS: ${{secrets.BC_ADDRESS}}

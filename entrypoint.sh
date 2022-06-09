@@ -1,9 +1,9 @@
 #!/bin/bash
 
 sleep 10
-echo "Starting ipld-ethcl-indexer"
+echo "Starting ipld-eth-beacon-indexer"
 
-echo /root/ipld-ethcl-indexer capture ${CAPTURE_MODE} --db.address $DB_ADDRESS \
+echo /root/ipld-eth-beacon-indexer capture ${CAPTURE_MODE} --db.address $DB_ADDRESS \
   --db.password $DB_PASSWORD \
   --db.port $DB_PORT \
   --db.username $DB_USER \
@@ -15,7 +15,7 @@ echo /root/ipld-ethcl-indexer capture ${CAPTURE_MODE} --db.address $DB_ADDRESS \
   --t.skipSync=$SKIP_SYNC \
   --kg.increment $KNOWN_GAP_INCREMENT
 
-/root/ipld-ethcl-indexer capture ${CAPTURE_MODE} --db.address $DB_ADDRESS \
+/root/ipld-eth-beacon-indexer capture ${CAPTURE_MODE} --db.address $DB_ADDRESS \
   --db.password $DB_PASSWORD \
   --db.port $DB_PORT \
   --db.username $DB_USER \
@@ -30,10 +30,10 @@ echo /root/ipld-ethcl-indexer capture ${CAPTURE_MODE} --db.address $DB_ADDRESS \
 rv=$?
 
 if [ $rv != 0 ]; then
-  echo "ipld-ethcl-indexer startup failed"
+  echo "ipld-eth-beacon-indexer startup failed"
   echo 1 > /root/HEALTH
 else
-  echo "ipld-ethcl-indexer startup succeeded"
+  echo "ipld-eth-beacon-indexer startup succeeded"
   echo 0 > /root/HEALTH
 fi
 

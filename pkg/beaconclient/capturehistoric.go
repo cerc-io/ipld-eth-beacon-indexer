@@ -18,29 +18,30 @@
 package beaconclient
 
 import (
+	"context"
 	"fmt"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/vulcanize/ipld-ethcl-indexer/pkg/database/sql"
-	"github.com/vulcanize/ipld-ethcl-indexer/pkg/loghelper"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/database/sql"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/loghelper"
 	"golang.org/x/sync/errgroup"
 )
 
 // This function will perform all the heavy lifting for tracking the head of the chain.
-func (bc *BeaconClient) CaptureHistoric(maxWorkers int) []error {
+func (bc *BeaconClient) CaptureHistoric(ctx context.Context, maxWorkers int) []error {
 	log.Info("We are starting the historical processing service.")
-	bc.HistoricalProcess = historicProcessing{db: bc.Db, metrics: bc.Metrics}
-	errs := handleBatchProcess(maxWorkers, bc.HistoricalProcess, bc.HistoricalProcess.finishProcessing, bc.HistoricalProcess.db, bc.ServerEndpoint, bc.Metrics, bc.CheckDb)
+	bc.HistoricalProcess = HistoricProcessing{db: bc.Db, metrics: bc.Metrics, uniqueNodeIdentifier: bc.UniqueNodeIdentifier}
+	errs := handleBatchProcess(ctx, maxWorkers, bc.HistoricalProcess, bc.HistoricalProcess.db, bc.ServerEndpoint, bc.Metrics, bc.CheckDb)
 	log.Debug("Exiting Historical")
 	return errs
 }
 
 // This function will perform all the necessary clean up tasks for stopping historical processing.
-func (bc *BeaconClient) StopHistoric() error {
+func (bc *BeaconClient) StopHistoric(cancel context.CancelFunc) error {
 	log.Info("We are stopping the historical processing service.")
-	err := bc.HistoricalProcess.releaseDbLocks()
+	err := bc.HistoricalProcess.releaseDbLocks(cancel)
 	if err != nil {
-		loghelper.LogError(err).WithField("uniqueIdentifier", bc.UniqueNodeIdentifier).Error("We were unable to remove the locks from the ethcl.historic_processing table. Manual Intervention is needed!")
+		loghelper.LogError(err).WithField("uniqueIdentifier", bc.UniqueNodeIdentifier).Error("We were unable to remove the locks from the eth_beacon.historic_processing table. Manual Intervention is needed!")
 	}
 	return nil
 }
@@ -51,10 +52,10 @@ func (bc *BeaconClient) StopHistoric() error {
 //
 // 2. Known Gaps Processing
 type BatchProcessing interface {
-	getSlotRange(chan<- slotsToProcess) []error       // Write the slots to process in a channel, return an error if you cant get the next slots to write.
-	handleProcessingErrors(<-chan batchHistoricError) // Custom logic to handle errors.
-	removeTableEntry(<-chan slotsToProcess) error     // With the provided start and end slot, remove the entry from the database.
-	releaseDbLocks() error                            // Update the checked_out column to false for whatever table is being updated.
+	getSlotRange(context.Context, chan<- slotsToProcess) []error       // Write the slots to process in a channel, return an error if you cant get the next slots to write.
+	handleProcessingErrors(context.Context, <-chan batchHistoricError) // Custom logic to handle errors.
+	removeTableEntry(context.Context, <-chan slotsToProcess) error     // With the provided start and end slot, remove the entry from the database.
+	releaseDbLocks(context.CancelFunc) error                           // Update the checked_out column to false for whatever table is being updated.
 }
 
 /// ^^^
@@ -89,7 +90,7 @@ type batchHistoricError struct {
 // 4. Remove the slot entry from the DB.
 //
 // 5. Handle any errors.
-func handleBatchProcess(maxWorkers int, bp BatchProcessing, finishCh chan int, db sql.Database, serverEndpoint string, metrics *BeaconClientMetrics, checkDb bool) []error {
+func handleBatchProcess(ctx context.Context, maxWorkers int, bp BatchProcessing, db sql.Database, serverEndpoint string, metrics *BeaconClientMetrics, checkDb bool) []error {
 	slotsCh := make(chan slotsToProcess)
 	workCh := make(chan int)
 	processedCh := make(chan slotsToProcess)
@@ -99,30 +100,40 @@ func handleBatchProcess(maxWorkers int, bp BatchProcessing, finishCh chan int, d
 	// Start workers
 	for w := 1; w <= maxWorkers; w++ {
 		log.WithFields(log.Fields{"maxWorkers": maxWorkers}).Debug("Starting batch  processing workers")
-		go processSlotRangeWorker(workCh, errCh, db, serverEndpoint, metrics, checkDb)
+		go processSlotRangeWorker(ctx, workCh, errCh, db, serverEndpoint, metrics, checkDb)
 	}
 
 	// Process all ranges and send each individual slot to the worker.
 	go func() {
-		for slots := range slotsCh {
-			if slots.startSlot > slots.endSlot {
-				log.Error("We received a batch process request where the startSlot is greater than the end slot.")
-				errCh <- batchHistoricError{
-					err:        fmt.Errorf("We received a startSlot where the start was greater than the end."),
-					errProcess: "RangeOrder",
-					slot:       slots.startSlot,
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case slots := <-slotsCh:
+				if slots.startSlot > slots.endSlot {
+					log.Error("We received a batch process request where the startSlot is greater than the end slot.")
+					errCh <- batchHistoricError{
+						err:        fmt.Errorf("We received a startSlot where the start was greater than the end."),
+						errProcess: "RangeOrder",
+						slot:       slots.startSlot,
+					}
+					errCh <- batchHistoricError{
+						err:        fmt.Errorf("We received a endSlot where the start was greater than the end."),
+						errProcess: "RangeOrder",
+						slot:       slots.endSlot,
+					}
+				} else if slots.startSlot == slots.endSlot {
+					log.WithField("slot", slots.startSlot).Debug("Added new slot to workCh")
+					workCh <- slots.startSlot
+				} else {
+					for i := slots.startSlot; i <= slots.endSlot; i++ {
+						workCh <- i
+						log.WithField("slot", i).Debug("Added new slot to workCh")
+					}
+					processedCh <- slots
 				}
-				errCh <- batchHistoricError{
-					err:        fmt.Errorf("We received a endSlot where the start was greater than the end."),
-					errProcess: "RangeOrder",
-					slot:       slots.endSlot,
-				}
-			} else {
-				for i := slots.startSlot; i <= slots.endSlot; i++ {
-					workCh <- i
-				}
-				processedCh <- slots
 			}
+
 		}
 	}()
 
@@ -130,26 +141,27 @@ func handleBatchProcess(maxWorkers int, bp BatchProcessing, finishCh chan int, d
 	go func() {
 		errG := new(errgroup.Group)
 		errG.Go(func() error {
-			return bp.removeTableEntry(processedCh)
+			return bp.removeTableEntry(ctx, processedCh)
 		})
 		if err := errG.Wait(); err != nil {
 			finalErrCh <- []error{err}
 		}
 	}()
 	// Process errors from slot processing.
-	go bp.handleProcessingErrors(errCh)
+	go bp.handleProcessingErrors(ctx, errCh)
 
 	// Get slots from the DB.
 	go func() {
-		errs := bp.getSlotRange(slotsCh) // Periodically adds new entries....
+		errs := bp.getSlotRange(ctx, slotsCh) // Periodically adds new entries....
 		if errs != nil {
 			finalErrCh <- errs
 		}
 		finalErrCh <- nil
+		log.Debug("We are stopping the processing of adding new entries")
 	}()
 	log.Debug("Waiting for shutdown signal from channel")
 	select {
-	case <-finishCh:
+	case <-ctx.Done():
 		log.Debug("Received shutdown signal from channel")
 		return nil
 	case errs := <-finalErrCh:

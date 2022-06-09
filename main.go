@@ -19,7 +19,7 @@ Copyright © 2022 NAME HERE <EMAIL ADDRESS>
 */
 package main
 
-import "github.com/vulcanize/ipld-ethcl-indexer/cmd"
+import "github.com/vulcanize/ipld-eth-beacon-indexer/cmd"
 
 func main() {
 	cmd.Execute()

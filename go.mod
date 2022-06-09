@@ -1,4 +1,4 @@
-module github.com/vulcanize/ipld-ethcl-indexer
+module github.com/vulcanize/ipld-eth-beacon-indexer
 
 go 1.18
 

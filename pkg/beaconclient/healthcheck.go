@@ -20,7 +20,7 @@ import (
 	"net/http"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/vulcanize/ipld-ethcl-indexer/pkg/loghelper"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/loghelper"
 )
 
 // This function will ensure that we can connect to the beacon client.

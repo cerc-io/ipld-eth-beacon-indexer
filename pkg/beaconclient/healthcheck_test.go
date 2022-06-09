@@ -20,7 +20,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	beaconclient "github.com/vulcanize/ipld-ethcl-indexer/pkg/beaconclient"
+	beaconclient "github.com/vulcanize/ipld-eth-beacon-indexer/pkg/beaconclient"
 )
 
 var _ = Describe("Healthcheck", func() {

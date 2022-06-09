@@ -23,30 +23,31 @@ import (
 	"strconv"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/vulcanize/ipld-ethcl-indexer/pkg/database/sql"
-	"github.com/vulcanize/ipld-ethcl-indexer/pkg/loghelper"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/database/sql"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/loghelper"
 )
 
 var (
-	// Get a single non-checked out row row from ethcl.known_gaps.
-	getKgEntryStmt string = `SELECT start_slot, end_slot FROM ethcl.known_gaps
+	// Get a single non-checked out row row from eth_beacon.known_gaps.
+	getKgEntryStmt string = `SELECT start_slot, end_slot FROM eth_beacon.known_gaps
 	WHERE checked_out=false
+	ORDER BY priority ASC
 	LIMIT 1;`
-	// Used to periodically check to see if there is a new entry in the ethcl.known_gaps table.
-	checkKgEntryStmt string = `SELECT * FROM ethcl.known_gaps WHERE checked_out=false;`
-	// Used to checkout a row from the ethcl.known_gaps table
-	lockKgEntryStmt string = `UPDATE ethcl.known_gaps
+	// Used to periodically check to see if there is a new entry in the eth_beacon.known_gaps table.
+	checkKgEntryStmt string = `SELECT * FROM eth_beacon.known_gaps WHERE checked_out=false;`
+	// Used to checkout a row from the eth_beacon.known_gaps table
+	lockKgEntryStmt string = `UPDATE eth_beacon.known_gaps
 	SET checked_out=true, checked_out_by=$3
 	WHERE start_slot=$1 AND end_slot=$2;`
 	// Used to delete an entry from the knownGaps table
-	deleteKgEntryStmt string = `DELETE FROM ethcl.known_gaps
+	deleteKgEntryStmt string = `DELETE FROM eth_beacon.known_gaps
 	WHERE start_slot=$1 AND end_slot=$2;`
 	// Used to check to see if a single slot exists in the known_gaps table.
-	checkKgSingleSlotStmt string = `SELECT start_slot, end_slot FROM ethcl.known_gaps
+	checkKgSingleSlotStmt string = `SELECT start_slot, end_slot FROM eth_beacon.known_gaps
 	WHERE start_slot=$1 AND end_slot=$2;`
 	// Used to update every single row that this node has checked out.
-	releaseKgLockStmt string = `UPDATE ethcl.known_gaps
-	SET checked_out=false
+	releaseKgLockStmt string = `UPDATE eth_beacon.known_gaps
+	SET checked_out=false, checked_out_by=null
 	WHERE checked_out_by=$1`
 )
 
@@ -54,71 +55,77 @@ type KnownGapsProcessing struct {
 	db                   sql.Database         //db connection
 	metrics              *BeaconClientMetrics // metrics for beaconclient
 	uniqueNodeIdentifier int                  // node unique identifier.
-	finishProcessing     chan int             // A channel which indicates to the process handleBatchProcess function that its time to end.
 }
 
 // This function will perform all the heavy lifting for tracking the head of the chain.
-func (bc *BeaconClient) ProcessKnownGaps(maxWorkers int) []error {
+func (bc *BeaconClient) ProcessKnownGaps(ctx context.Context, maxWorkers int) []error {
 	log.Info("We are starting the known gaps processing service.")
-	bc.KnownGapsProcess = KnownGapsProcessing{db: bc.Db, uniqueNodeIdentifier: bc.UniqueNodeIdentifier, metrics: bc.Metrics, finishProcessing: make(chan int)}
-	errs := handleBatchProcess(maxWorkers, bc.KnownGapsProcess, bc.KnownGapsProcess.finishProcessing, bc.KnownGapsProcess.db, bc.ServerEndpoint, bc.Metrics, bc.CheckDb)
+	bc.KnownGapsProcess = KnownGapsProcessing{db: bc.Db, uniqueNodeIdentifier: bc.UniqueNodeIdentifier, metrics: bc.Metrics}
+	errs := handleBatchProcess(ctx, maxWorkers, bc.KnownGapsProcess, bc.KnownGapsProcess.db, bc.ServerEndpoint, bc.Metrics, bc.CheckDb)
 	log.Debug("Exiting known gaps processing service")
 	return errs
 }
 
 // This function will perform all the necessary clean up tasks for stopping historical processing.
-func (bc *BeaconClient) StopKnownGapsProcessing() error {
-	log.Info("We are stopping the historical processing service.")
-	err := bc.KnownGapsProcess.releaseDbLocks()
+func (bc *BeaconClient) StopKnownGapsProcessing(cancel context.CancelFunc) error {
+	log.Info("We are stopping the known gaps processing service.")
+	err := bc.KnownGapsProcess.releaseDbLocks(cancel)
 	if err != nil {
-		loghelper.LogError(err).WithField("uniqueIdentifier", bc.UniqueNodeIdentifier).Error("We were unable to remove the locks from the ethcl.known_gaps table. Manual Intervention is needed!")
+		loghelper.LogError(err).WithField("uniqueIdentifier", bc.UniqueNodeIdentifier).Error("We were unable to remove the locks from the eth_beacon.known_gaps table. Manual Intervention is needed!")
 	}
 	return nil
 }
 
 // Get a single row of historical slots from the table.
-func (kgp KnownGapsProcessing) getSlotRange(slotCh chan<- slotsToProcess) []error {
-	return getBatchProcessRow(kgp.db, getKgEntryStmt, checkKgEntryStmt, lockKgEntryStmt, slotCh, strconv.Itoa(kgp.uniqueNodeIdentifier))
+func (kgp KnownGapsProcessing) getSlotRange(ctx context.Context, slotCh chan<- slotsToProcess) []error {
+	return getBatchProcessRow(ctx, kgp.db, getKgEntryStmt, checkKgEntryStmt, lockKgEntryStmt, slotCh, strconv.Itoa(kgp.uniqueNodeIdentifier))
 }
 
 // Remove the table entry.
-func (kgp KnownGapsProcessing) removeTableEntry(processCh <-chan slotsToProcess) error {
-	return removeRowPostProcess(kgp.db, processCh, QueryBySlotStmt, deleteKgEntryStmt)
+func (kgp KnownGapsProcessing) removeTableEntry(ctx context.Context, processCh <-chan slotsToProcess) error {
+	return removeRowPostProcess(ctx, kgp.db, processCh, QueryBySlotStmt, deleteKgEntryStmt)
 }
 
 // Remove the table entry.
-func (kgp KnownGapsProcessing) handleProcessingErrors(errMessages <-chan batchHistoricError) {
+func (kgp KnownGapsProcessing) handleProcessingErrors(ctx context.Context, errMessages <-chan batchHistoricError) {
 	for {
-		errMs := <-errMessages
-
-		// Check to see if this if this entry already exists.
-		res, err := kgp.db.Exec(context.Background(), checkKgSingleSlotStmt, errMs.slot, errMs.slot)
-		if err != nil {
-			loghelper.LogSlotError(strconv.Itoa(errMs.slot), err).Error("Unable to see if this slot is in the ethcl.known_gaps table")
-		}
-
-		rows, err := res.RowsAffected()
-		if err != nil {
-			loghelper.LogSlotError(strconv.Itoa(errMs.slot), err).WithFields(log.Fields{
-				"queryStatement": checkKgSingleSlotStmt,
-			}).Error("Unable to get the number of rows affected by this statement.")
-		}
-
-		if rows > 0 {
-			loghelper.LogSlotError(strconv.Itoa(errMs.slot), errMs.err).Error("We received an error when processing a knownGap")
-			err = updateKnownGapErrors(kgp.db, errMs.slot, errMs.slot, errMs.err, kgp.metrics)
+		select {
+		case <-ctx.Done():
+			return
+		case errMs := <-errMessages:
+			// Check to see if this if this entry already exists.
+			res, err := kgp.db.Exec(context.Background(), checkKgSingleSlotStmt, errMs.slot, errMs.slot)
 			if err != nil {
-				loghelper.LogSlotError(strconv.Itoa(errMs.slot), err).Error("Error processing known gap")
+				loghelper.LogSlotError(strconv.Itoa(errMs.slot), err).Error("Unable to see if this slot is in the eth_beacon.known_gaps table")
 			}
-		} else {
-			writeKnownGaps(kgp.db, 1, errMs.slot, errMs.slot, errMs.err, errMs.errProcess, kgp.metrics)
+
+			rows, err := res.RowsAffected()
+			if err != nil {
+				loghelper.LogSlotError(strconv.Itoa(errMs.slot), err).WithFields(log.Fields{
+					"queryStatement": checkKgSingleSlotStmt,
+				}).Error("Unable to get the number of rows affected by this statement.")
+			}
+
+			if rows > 0 {
+				loghelper.LogSlotError(strconv.Itoa(errMs.slot), errMs.err).Error("We received an error when processing a knownGap")
+				err = updateKnownGapErrors(kgp.db, errMs.slot, errMs.slot, errMs.err, kgp.metrics)
+				if err != nil {
+					loghelper.LogSlotError(strconv.Itoa(errMs.slot), err).Error("Error processing known gap")
+				}
+			} else {
+				writeKnownGaps(kgp.db, 1, errMs.slot, errMs.slot, errMs.err, errMs.errProcess, kgp.metrics)
+			}
 		}
 	}
+
 }
 
 // Updated checked_out column for the uniqueNodeIdentifier.
-func (kgp KnownGapsProcessing) releaseDbLocks() error {
-	go func() { kgp.finishProcessing <- 1 }()
+func (kgp KnownGapsProcessing) releaseDbLocks(cancel context.CancelFunc) error {
+	cancel()
+	log.Debug("Updating all the entries to eth_beacon.known_gaps")
+	log.Debug("Db: ", kgp.db)
+	log.Debug("kgp.uniqueNodeIdentifier ", kgp.uniqueNodeIdentifier)
 	res, err := kgp.db.Exec(context.Background(), releaseKgLockStmt, kgp.uniqueNodeIdentifier)
 	if err != nil {
 		return err

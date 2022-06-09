@@ -26,9 +26,9 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/vulcanize/ipld-ethcl-indexer/internal/boot"
-	"github.com/vulcanize/ipld-ethcl-indexer/internal/shutdown"
-	"github.com/vulcanize/ipld-ethcl-indexer/pkg/loghelper"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/internal/boot"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/internal/shutdown"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/loghelper"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -63,11 +63,12 @@ func startHeadTracking() {
 	log.Info("The Beacon Client has booted successfully!")
 	// Capture head blocks
 	go Bc.CaptureHead()
+	kgCtx, KgCancel := context.WithCancel(context.Background())
 	if viper.GetBool("kg.processKnownGaps") {
 		go func() {
 			errG := new(errgroup.Group)
 			errG.Go(func() error {
-				errs := Bc.ProcessKnownGaps(viper.GetInt("kg.maxKnownGapsWorker"))
+				errs := Bc.ProcessKnownGaps(kgCtx, viper.GetInt("kg.maxKnownGapsWorker"))
 				if len(errs) != 0 {
 					log.WithFields(log.Fields{"errs": errs}).Error("All errors when processing knownGaps")
 					return fmt.Errorf("Application ended because there were too many error when attempting to process knownGaps")
@@ -81,11 +82,11 @@ func startHeadTracking() {
 	}
 
 	// Shutdown when the time is right.
-	err = shutdown.ShutdownHeadTracking(ctx, notifierCh, maxWaitSecondsShutdown, Db, Bc)
+	err = shutdown.ShutdownHeadTracking(ctx, KgCancel, notifierCh, maxWaitSecondsShutdown, Db, Bc)
 	if err != nil {
-		loghelper.LogError(err).Error("Ungracefully Shutdown ipld-ethcl-indexer!")
+		loghelper.LogError(err).Error("Ungracefully Shutdown ipld-eth-beacon-indexer!")
 	} else {
-		log.Info("Gracefully shutdown ipld-ethcl-indexer")
+		log.Info("Gracefully shutdown ipld-eth-beacon-indexer")
 	}
 
 }

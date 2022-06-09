@@ -25,7 +25,7 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/vulcanize/ipld-ethcl-indexer/pkg/loghelper"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/loghelper"
 )
 
 // operation is a clean up function on shutting down

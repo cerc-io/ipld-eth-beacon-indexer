@@ -20,10 +20,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/vulcanize/ipld-ethcl-indexer/pkg/beaconclient"
-	"github.com/vulcanize/ipld-ethcl-indexer/pkg/database/sql"
-	"github.com/vulcanize/ipld-ethcl-indexer/pkg/gracefulshutdown"
-	"github.com/vulcanize/ipld-ethcl-indexer/pkg/loghelper"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/beaconclient"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/database/sql"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/gracefulshutdown"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/loghelper"
 )
 
 // Shutdown all the internal services for the application.
@@ -40,7 +40,7 @@ func ShutdownServices(ctx context.Context, notifierCh chan os.Signal, waitTime t
 }
 
 // Wrapper function for shutting down the head tracking process.
-func ShutdownHeadTracking(ctx context.Context, notifierCh chan os.Signal, waitTime time.Duration, DB sql.Database, BC *beaconclient.BeaconClient) error {
+func ShutdownHeadTracking(ctx context.Context, kgCancel context.CancelFunc, notifierCh chan os.Signal, waitTime time.Duration, DB sql.Database, BC *beaconclient.BeaconClient) error {
 	return ShutdownServices(ctx, notifierCh, waitTime, DB, BC, map[string]gracefulshutdown.Operation{
 		// Combining DB shutdown with BC because BC needs DB open to cleanly shutdown.
 		"beaconClient": func(ctx context.Context) error {
@@ -50,7 +50,7 @@ func ShutdownHeadTracking(ctx context.Context, notifierCh chan os.Signal, waitTi
 				loghelper.LogError(err).Error("Unable to trigger shutdown of head tracking")
 			}
 			if BC.KnownGapsProcess != (beaconclient.KnownGapsProcessing{}) {
-				err = BC.StopKnownGapsProcessing()
+				err = BC.StopKnownGapsProcessing(kgCancel)
 				if err != nil {
 					loghelper.LogError(err).Error("Unable to stop processing known gaps")
 				}
@@ -61,17 +61,17 @@ func ShutdownHeadTracking(ctx context.Context, notifierCh chan os.Signal, waitTi
 }
 
 // Wrapper function for shutting down the head tracking process.
-func ShutdownHistoricProcessing(ctx context.Context, notifierCh chan os.Signal, waitTime time.Duration, DB sql.Database, BC *beaconclient.BeaconClient) error {
+func ShutdownHistoricProcessing(ctx context.Context, kgCancel, hpCancel context.CancelFunc, notifierCh chan os.Signal, waitTime time.Duration, DB sql.Database, BC *beaconclient.BeaconClient) error {
 	return ShutdownServices(ctx, notifierCh, waitTime, DB, BC, map[string]gracefulshutdown.Operation{
 		// Combining DB shutdown with BC because BC needs DB open to cleanly shutdown.
 		"beaconClient": func(ctx context.Context) error {
 			defer DB.Close()
-			err := BC.StopHistoric()
+			err := BC.StopHistoric(hpCancel)
 			if err != nil {
 				loghelper.LogError(err).Error("Unable to stop processing historic")
 			}
 			if BC.KnownGapsProcess != (beaconclient.KnownGapsProcessing{}) {
-				err = BC.StopKnownGapsProcessing()
+				err = BC.StopKnownGapsProcessing(kgCancel)
 				if err != nil {
 					loghelper.LogError(err).Error("Unable to stop processing known gaps")
 				}
@@ -79,6 +79,33 @@ func ShutdownHistoricProcessing(ctx context.Context, notifierCh chan os.Signal, 
 			return err
 		},
 	})
+}
+
+// Shutdown the head and historical processing
+func ShutdownFull(ctx context.Context, kgCancel, hpCancel context.CancelFunc, notifierCh chan os.Signal, waitTime time.Duration, DB sql.Database, BC *beaconclient.BeaconClient) error {
+	return ShutdownServices(ctx, notifierCh, waitTime, DB, BC, map[string]gracefulshutdown.Operation{
+		// Combining DB shutdown with BC because BC needs DB open to cleanly shutdown.
+		"beaconClient": func(ctx context.Context) error {
+			defer DB.Close()
+			err := BC.StopHistoric(hpCancel)
+			if err != nil {
+				loghelper.LogError(err).Error("Unable to stop processing historic")
+			}
+			if BC.KnownGapsProcess != (beaconclient.KnownGapsProcessing{}) {
+				err = BC.StopKnownGapsProcessing(kgCancel)
+				if err != nil {
+					loghelper.LogError(err).Error("Unable to stop processing known gaps")
+				}
+			}
+			err = BC.StopHeadTracking()
+			if err != nil {
+				loghelper.LogError(err).Error("Unable to trigger shutdown of head tracking")
+			}
+
+			return err
+		},
+	})
+
 }
 
 // Wrapper function for shutting down the application in boot mode.

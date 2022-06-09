@@ -22,7 +22,7 @@ import (
 
 	"github.com/r3labs/sse"
 	log "github.com/sirupsen/logrus"
-	"github.com/vulcanize/ipld-ethcl-indexer/pkg/database/sql"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/database/sql"
 )
 
 // TODO: Use prysms config values instead of hardcoding them here.
@@ -59,7 +59,6 @@ type BeaconClient struct {
 	StartingSlot        int                    // If we're performing head tracking. What is the first slot we processed.
 	PreviousSlot        int                    // Whats the previous slot we processed
 	PreviousBlockRoot   string                 // Whats the previous block root, used to check the next blocks parent.
-	CheckKnownGaps      bool                   // Should we check for gaps at start up.
 	HeadTracking        *SseEvents[Head]       // Track the head block
 	ReOrgTracking       *SseEvents[ChainReorg] // Track all Reorgs
 	//FinalizationTracking        *SseEvents[FinalizedCheckpoint] // Track all finalization checkpoints
@@ -70,7 +69,7 @@ type BeaconClient struct {
 	// This value is lazily updated. Therefore at times it will be outdated.
 	LatestSlotInBeaconServer    int64
 	PerformHistoricalProcessing bool               // Should we perform historical processing?
-	HistoricalProcess           historicProcessing // object keeping track of historical processing
+	HistoricalProcess           HistoricProcessing // object keeping track of historical processing
 }
 
 // A struct to keep track of relevant the head event topic.
