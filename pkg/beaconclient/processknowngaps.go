@@ -31,6 +31,7 @@ var (
 	// Get a single non-checked out row row from ethcl.known_gaps.
 	getKgEntryStmt string = `SELECT start_slot, end_slot FROM ethcl.known_gaps
 	WHERE checked_out=false
+	ORDER BY priority ASC
 	LIMIT 1;`
 	// Used to periodically check to see if there is a new entry in the ethcl.known_gaps table.
 	checkKgEntryStmt string = `SELECT * FROM ethcl.known_gaps WHERE checked_out=false;`

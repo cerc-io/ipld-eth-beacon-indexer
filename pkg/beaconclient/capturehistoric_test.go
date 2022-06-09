@@ -94,7 +94,7 @@ var _ = Describe("Capturehistoric", func() {
 				BeaconNodeTester.runKnownGapsProcess(bc, 2, 2, 0, 2, 0)
 			})
 		})
-		Context("When theres a reprocessing error", func() {
+		Context("When theres a reprocessing error", Label("reprocessingError"), func() {
 			It("Should update the reprocessing error.", func() {
 				bc := setUpTest(BeaconNodeTester.TestConfig, "99")
 				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
@@ -103,6 +103,68 @@ var _ = Describe("Capturehistoric", func() {
 				BeaconNodeTester.writeEventToHistoricProcess(bc, 105, 105, 10)
 				BeaconNodeTester.runHistoricalProcess(bc, 2, 0, 0, 1, 0)
 				BeaconNodeTester.runKnownGapsProcess(bc, 2, 0, 0, 1, 1)
+			})
+		})
+	})
+	Describe("Running the application in Historic, Head, and KnownGaps mode", Label("unit", "historical", "full"), func() {
+		Context("When it recieves a head, historic and known Gaps message (in order)", func() {
+			It("Should process them all successfully.", func() {
+				bc := setUpTest(BeaconNodeTester.TestConfig, "2375702")
+				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
+				defer httpmock.DeactivateAndReset()
+				// Head
+				BeaconNodeTester.testProcessBlock(bc, BeaconNodeTester.TestEvents["2375703"].HeadMessage, 74240, maxRetry, 1, 0, 0)
+
+				// Historical
+				BeaconNodeTester.writeEventToHistoricProcess(bc, 100, 100, 10)
+				BeaconNodeTester.runHistoricalProcess(bc, 2, 2, 0, 0, 0)
+
+				// Known Gaps
+				BeaconNodeTester.writeEventToKnownGaps(bc, 101, 101)
+				BeaconNodeTester.runKnownGapsProcess(bc, 2, 3, 0, 0, 0)
+
+				time.Sleep(2 * time.Second)
+				validatePopularBatchBlocks(bc)
+			})
+		})
+		Context("When it recieves a historic, head and known Gaps message (in order)", func() {
+			It("Should process them all successfully.", func() {
+				bc := setUpTest(BeaconNodeTester.TestConfig, "2375702")
+				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
+				defer httpmock.DeactivateAndReset()
+				// Historical
+				BeaconNodeTester.writeEventToHistoricProcess(bc, 100, 100, 10)
+				BeaconNodeTester.runHistoricalProcess(bc, 2, 1, 0, 0, 0)
+
+				// Head
+				BeaconNodeTester.testProcessBlock(bc, BeaconNodeTester.TestEvents["2375703"].HeadMessage, 74240, maxRetry, 1, 0, 0)
+
+				// Known Gaps
+				BeaconNodeTester.writeEventToKnownGaps(bc, 101, 101)
+				BeaconNodeTester.runKnownGapsProcess(bc, 2, 3, 0, 0, 0)
+
+				time.Sleep(2 * time.Second)
+				validatePopularBatchBlocks(bc)
+			})
+		})
+		Context("When it recieves a known Gaps, historic and head  message (in order)", func() {
+			It("Should process them all successfully.", func() {
+				bc := setUpTest(BeaconNodeTester.TestConfig, "2375702")
+				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
+				defer httpmock.DeactivateAndReset()
+				// Known Gaps
+				BeaconNodeTester.writeEventToKnownGaps(bc, 101, 101)
+				BeaconNodeTester.runKnownGapsProcess(bc, 2, 1, 0, 0, 0)
+
+				// Historical
+				BeaconNodeTester.writeEventToHistoricProcess(bc, 100, 100, 10)
+				BeaconNodeTester.runHistoricalProcess(bc, 2, 2, 0, 0, 0)
+
+				// Head
+				BeaconNodeTester.testProcessBlock(bc, BeaconNodeTester.TestEvents["2375703"].HeadMessage, 74240, maxRetry, 1, 0, 0)
+
+				time.Sleep(2 * time.Second)
+				validatePopularBatchBlocks(bc)
 			})
 		})
 	})
@@ -223,7 +285,6 @@ func validateAllRowsCheckedOut(db sql.Database, checkStmt string) {
 	res, err := db.Exec(context.Background(), checkStmt)
 	Expect(err).ToNot(HaveOccurred())
 	rows, err := res.RowsAffected()
-	log.Info("rows: ", rows)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(rows).To(Equal(int64(0)))
 }

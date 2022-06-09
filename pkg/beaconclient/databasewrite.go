@@ -73,7 +73,7 @@ INSERT INTO ethcl.known_gaps (start_slot, end_slot, checked_out, reprocessing_er
 VALUES ($1, $2, $3, $4, $5, $6) on CONFLICT (start_slot, end_slot) DO NOTHING`
 	UpsertKnownGapsErrorStmt string = `
 	UPDATE ethcl.known_gaps
-	SET reprocessing_error=$3
+	SET reprocessing_error=$3, priority=priority+1
 	WHERE start_slot=$1 AND end_slot=$2;`
 	// Get the highest slot if one exists
 	QueryHighestSlotStmt string = "SELECT COALESCE(MAX(slot), 0) FROM ethcl.slots"
