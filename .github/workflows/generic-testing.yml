@@ -16,7 +16,7 @@ on:
         required: true
 
 env:
-  stack-orchestrator-ref: ${{ inputs.stack-orchestrator-ref || 'develop' }}
+  stack-orchestrator-ref: ${{ inputs.stack-orchestrator-ref || '2e0d4f4f3cba4dc526df96818351a109dc295efa' }}
   ipld-ethcl-db-ref: ${{ inputs.ipld-ethcl-db-ref  || 'feature/historic-processing' }}
   ssz-data-ref: ${{ inputs.ssz-data-ref || 'main' }}
   GOPATH: /tmp/go
@@ -118,7 +118,7 @@ jobs:
 
       - uses: actions/setup-go@v3
         with:
-          go-version: ">=1.17.0"
+          go-version: ">=1.18.0"
           check-latest: true
 
       - name: Install packages
@@ -174,7 +174,7 @@ jobs:
 
       - uses: actions/setup-go@v3
         with:
-          go-version: ">=1.17.0"
+          go-version: ">=1.18.0"
           check-latest: true
 
       - name: Install packages
@@ -187,12 +187,18 @@ jobs:
           cd ipld-ethcl-indexer
           make integration-test-ci
 
+  system-testing:
+    uses: ./.github/workflows/system-tests.yml
+    with:
+      stack-orchestrator-ref: ${{ env.stack-orchestrator-ref }}
+      ipld-ethcl-db-ref: ${{ env.ipld-ethcl-db-ref }}
+
   golangci:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/setup-go@v3
         with:
-          go-version: ">=1.17.0"
+          go-version: ">=1.18.0"
       - uses: actions/checkout@v3
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3

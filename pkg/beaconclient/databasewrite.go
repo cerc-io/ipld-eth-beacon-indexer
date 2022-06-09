@@ -479,7 +479,14 @@ func writeStartUpGaps(db sql.Database, tableIncrement int, firstSlot int, metric
 		}).Fatal("Unable to get convert max block from DB to int. We must close the application or we might have undetected gaps.")
 	}
 	if maxSlot != firstSlot-1 {
-		writeKnownGaps(db, tableIncrement, maxSlot+1, firstSlot-1, fmt.Errorf(""), "startup", metric)
+		if maxSlot < firstSlot-1 {
+			writeKnownGaps(db, tableIncrement, maxSlot+1, firstSlot-1, fmt.Errorf(""), "startup", metric)
+		} else {
+			log.WithFields(log.Fields{
+				"maxSlot":   maxSlot,
+				"firstSlot": firstSlot,
+			}).Warn("The maxSlot in the DB is greater than or equal to the first Slot we are processing.")
+		}
 	}
 }
 

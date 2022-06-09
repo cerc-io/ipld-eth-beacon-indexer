@@ -1,0 +1,90 @@
+name: System Testing for the stack.
+on:
+  workflow_call:
+    inputs:
+      stack-orchestrator-ref:
+        required: false
+        type: string
+      ipld-ethcl-db-ref:
+        required: false
+        type: string
+    secrets:
+      GHA_KEY:
+        required: true
+env:
+  stack-orchestrator-ref: ${{ inputs.stack-orchestrator-ref || '2e0d4f4f3cba4dc526df96818351a109dc295efa' }}
+  ipld-ethcl-db-ref: ${{ inputs.ipld-ethcl-db-ref  || 'feature/historic-processing' }}
+  GOPATH: /tmp/go
+  bc_protocol: "http"
+  bc_address: ${{secrets.BC_ADDRESS}}
+  bc_port: 5052
+  db_host: localhost
+  db_port: 8076
+  db_name: vulcanize_testing
+  db_user: vdbm
+  db_password: password
+  db_driver: "pgx"
+
+jobs:
+  system-testing:
+    runs-on: self-hosted
+    steps:
+      - name: Create GOPATH
+        run: mkdir -p /tmp/go
+
+      - uses: actions/checkout@v2
+        with:
+          path: "./ipld-ethcl-indexer"
+
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ env.stack-orchestrator-ref }}
+          path: "./stack-orchestrator/"
+          repository: vulcanize/stack-orchestrator
+          fetch-depth: 0
+
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ env.ipld-ethcl-db-ref }}
+          repository: vulcanize/ipld-ethcl-db
+          path: "./ipld-ethcl-db/"
+          ssh-key: ${{secrets.GHA_KEY}}
+          fetch-depth: 0
+
+      - name: Create config file
+        run: |
+          echo vulcanize_ipld_ethcl_db=$GITHUB_WORKSPACE/ipld-ethcl-db/ > ./config.sh
+          echo vulcanize_ipld_ethcl_indexer=$GITHUB_WORKSPACE/ipld-ethcl-indexer >> ./config.sh
+          echo ethcl_capture_mode=boot >> ./config.sh
+          cat ./config.sh
+
+      - name: Run docker compose
+        id: compose
+        run: |
+          docker-compose  \
+          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-ethcl-db.yml" \
+          --env-file ./config.sh \
+          up -d --build
+
+      - uses: actions/setup-go@v3
+        with:
+          go-version: ">=1.18.0"
+          check-latest: true
+
+      - name: Install packages
+        run: |
+          go install github.com/onsi/ginkgo/v2/ginkgo@latest
+          which ginkgo
+
+      - name: Run the tests using Make
+        run: |
+          cd ipld-ethcl-indexer
+          make system-test-ci
+
+      - name: Clean up the docker containers
+        if: steps.compose.outcome == 'success'
+        run: |
+          docker-compose  \
+          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-ethcl-db.yml" \
+          --env-file ./config.sh \
+          down

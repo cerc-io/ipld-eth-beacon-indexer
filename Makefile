@@ -80,6 +80,24 @@ unit-test-ci:
 	--cover --coverprofile=cover.profile \
 	--trace --json-report=report.json
 
+.PHONY: system-test-ci
+system-test-ci:
+	go vet ./...
+	go fmt ./...
+	$(GINKGO) -r --label-filter system \
+	--randomize-all --randomize-suites \
+	--fail-on-pending --keep-going \
+	--cover --coverprofile=cover.profile \
+	--trace --json-report=report.json
+
+.PHONY: system-test-local
+system-test-local:
+	go vet ./...
+	go fmt ./...
+	$(GINKGO) -r --label-filter system \
+	--randomize-all --randomize-suites \
+	--fail-on-pending --keep-going \
+	--trace
 
 .PHONY: build
 build:

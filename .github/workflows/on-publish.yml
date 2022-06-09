@@ -4,7 +4,7 @@ on:
     types: [published, edited]
 jobs:
   trigger-tests:
-    uses: ./.github/workflows/tests.yml
+    uses: ./.github/workflows/generic-testing.yml
     with:
       stack-orchestrator-ref: ${{ github.event.inputs.stack-orchestrator-ref }}
       ipld-ethcl-db-ref: ${{ github.event.inputs.ipld-ethcl-db-ref }}
