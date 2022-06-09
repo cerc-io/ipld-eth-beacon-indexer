@@ -87,4 +87,4 @@ jobs:
           docker-compose  \
           -f "./stack-orchestrator/docker/local/docker-compose-ethcl-db.yml" \
           --env-file ./config.sh \
-          down
+          down -v
