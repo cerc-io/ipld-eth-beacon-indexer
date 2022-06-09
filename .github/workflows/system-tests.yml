@@ -55,8 +55,8 @@ jobs:
 
       - name: Create config file
         run: |
-          echo vulcanize_ipld_ethcl_db=$GITHUB_WORKSPACE/ipld-ethcl-db/ > ./config.sh
-          echo vulcanize_ipld_ethcl_indexer=$GITHUB_WORKSPACE/ipld-ethcl-indexer >> ./config.sh
+          echo vulcanize_ipld_ethcl_db=./ipld-ethcl-db/ > ./config.sh
+          echo vulcanize_ipld_ethcl_indexer=./ipld-ethcl-indexer >> ./config.sh
           echo ethcl_capture_mode=boot >> ./config.sh
           cat ./config.sh
 
@@ -64,7 +64,7 @@ jobs:
         id: compose
         run: |
           docker-compose  \
-          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-ethcl-db.yml" \
+          -f "./stack-orchestrator/docker/local/docker-compose-ethcl-db.yml" \
           --env-file ./config.sh \
           up -d --build
 
@@ -87,6 +87,6 @@ jobs:
         if: steps.compose.outcome == 'success'
         run: |
           docker-compose  \
-          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-ethcl-db.yml" \
+          -f "./stack-orchestrator/docker/local/docker-compose-ethcl-db.yml" \
           --env-file ./config.sh \
           down
