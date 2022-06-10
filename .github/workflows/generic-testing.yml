@@ -16,7 +16,7 @@ on:
         required: true
 
 env:
-  stack-orchestrator-ref: ${{ inputs.stack-orchestrator-ref || '3048a224100ceb122d6da71328bf3803dff72a01' }}
+  stack-orchestrator-ref: ${{ inputs.stack-orchestrator-ref || '7fb664270a0ba09e2caa3095e8c91f3fdb5b38af' }}
   ipld-eth-beacon-db-ref: ${{ inputs.ipld-eth-beacon-db-ref  || '3dfe416302d553f8240f6051c08a7899b0e39e12' }}
   ssz-data-ref: ${{ inputs.ssz-data-ref || 'main' }}
   GOPATH: /tmp/go
@@ -48,9 +48,7 @@ jobs:
         run: |
           echo vulcanize_ipld_eth_beacon_db=$GITHUB_WORKSPACE/ipld-eth-beacon-db/ > ./config.sh
           echo vulcanize_ipld_eth_beacon_indexer=$GITHUB_WORKSPACE/ipld-eth-beacon-indexer >> ./config.sh
-          echo eth_beacon_capture_mode=boot >> ./config.sh
-          echo eth_beacon_skip_sync=true >> ./config.sh
-          echo eth_beacon_known_gap_increment=1000000 >> ./config.sh
+          echo eth_beacon_config_file=$GITHUB_WORKSPACE/ipld-eth-beacon-indexer/config/cicd/boot.ipld-eth-beacon-indexer.json >> ./config.sh
           cat ./config.sh
 
       - name: Run docker compose
