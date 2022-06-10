@@ -81,6 +81,7 @@ jobs:
 
       - name: Run the tests using Make
         run: |
+          sleep 20
           cd ipld-eth-beacon-indexer
           make system-test-ci
 
