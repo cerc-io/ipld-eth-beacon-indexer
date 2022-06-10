@@ -18,19 +18,18 @@ package boot
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/vulcanize/ipld-ethcl-indexer/pkg/beaconclient"
-	"github.com/vulcanize/ipld-ethcl-indexer/pkg/database/sql"
-	"github.com/vulcanize/ipld-ethcl-indexer/pkg/database/sql/postgres"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/beaconclient"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/database/sql"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/database/sql/postgres"
 )
 
 var (
-	maxRetry                                 = 5  // Max times to try to connect to the DB or BC at boot.
-	retryInterval                            = 30 // The time to wait between each try.
-	DB            sql.Database               = &postgres.DB{}
-	BC            *beaconclient.BeaconClient = &beaconclient.BeaconClient{}
+	DB sql.Database               = &postgres.DB{}
+	BC *beaconclient.BeaconClient = &beaconclient.BeaconClient{}
 )
 
 // This function will perform some boot operations. If any steps fail, the application will fail to start.
@@ -42,14 +41,18 @@ var (
 // 2. Connect to the database.
 //
 // 3. Make sure the node is synced, unless disregardSync is true.
-func BootApplication(ctx context.Context, dbHostname string, dbPort int, dbName string, dbUsername string, dbPassword string, driverName string, bcAddress string, bcPort int, bcConnectionProtocol string, disregardSync bool) (*beaconclient.BeaconClient, sql.Database, error) {
+func BootApplication(ctx context.Context, dbHostname string, dbPort int, dbName string, dbUsername string, dbPassword string, driverName string,
+	bcAddress string, bcPort int, bcConnectionProtocol string, bcKgTableIncrement int, disregardSync bool, uniqueNodeIdentifier int, checkDb bool) (*beaconclient.BeaconClient, sql.Database, error) {
 	log.Info("Booting the Application")
 
 	log.Debug("Creating the Beacon Client")
-	BC = beaconclient.CreateBeaconClient(ctx, bcConnectionProtocol, bcAddress, bcPort)
+	Bc, err := beaconclient.CreateBeaconClient(ctx, bcConnectionProtocol, bcAddress, bcPort, bcKgTableIncrement, uniqueNodeIdentifier, checkDb)
+	if err != nil {
+		return Bc, nil, err
+	}
 
 	log.Debug("Checking Beacon Client")
-	err := BC.CheckBeaconClient()
+	err = Bc.CheckBeaconClient()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -60,40 +63,90 @@ func BootApplication(ctx context.Context, dbHostname string, dbPort int, dbName 
 		return nil, nil, err
 	}
 
-	BC.Db = DB
+	Bc.Db = DB
 
 	var status bool
 	if !disregardSync {
-		status, err = BC.CheckHeadSync()
+		status, err = Bc.CheckHeadSync()
 		if err != nil {
 			log.Error("Unable to get the nodes sync status")
-			return BC, DB, err
+			return Bc, DB, err
 		}
 		if status {
 			log.Error("The node is still syncing..")
 			err = fmt.Errorf("The node is still syncing.")
-			return BC, DB, err
+			return Bc, DB, err
 		}
 	} else {
 		log.Warn("We are not checking to see if the node has synced to head.")
 	}
-	return BC, DB, nil
+	return Bc, DB, nil
 }
 
 // Add retry logic to ensure that we are give the Beacon Client and the DB time to start.
-func BootApplicationWithRetry(ctx context.Context, dbHostname string, dbPort int, dbName string, dbUsername string, dbPassword string, driverName string, bcAddress string, bcPort int, bcConnectionProtocol string, disregardSync bool) (*beaconclient.BeaconClient, sql.Database, error) {
+func BootApplicationWithRetry(ctx context.Context, dbHostname string, dbPort int, dbName string, dbUsername string, dbPassword string, driverName string,
+	bcAddress string, bcPort int, bcConnectionProtocol string, bcType string, bcRetryInterval int, bcMaxRetry int, bcKgTableIncrement int,
+	startUpMode string, disregardSync bool, uniqueNodeIdentifier int, checkDb bool) (*beaconclient.BeaconClient, sql.Database, error) {
 	var err error
-	for i := 0; i < maxRetry; i++ {
-		BC, DB, err = BootApplication(ctx, dbHostname, dbPort, dbName, dbUsername, dbPassword, driverName, bcAddress, bcPort, bcConnectionProtocol, disregardSync)
-		if err != nil {
-			log.WithFields(log.Fields{
-				"retryNumber": i,
-				"err":         err,
-			}).Warn("Unable to boot application. Going to try again")
-			time.Sleep(time.Duration(retryInterval) * time.Second)
-			continue
+
+	if bcMaxRetry < 0 {
+		i := 0
+		for {
+			BC, DB, err = BootApplication(ctx, dbHostname, dbPort, dbName, dbUsername, dbPassword, driverName,
+				bcAddress, bcPort, bcConnectionProtocol, bcKgTableIncrement, disregardSync, uniqueNodeIdentifier, checkDb)
+			if err != nil {
+				log.WithFields(log.Fields{
+					"retryNumber": i,
+					"err":         err,
+				}).Warn("Unable to boot application. Going to try again")
+				time.Sleep(time.Duration(bcRetryInterval) * time.Second)
+				i = i + 1
+				continue
+			}
+			break
 		}
-		break
+	} else {
+		for i := 0; i < bcMaxRetry; i++ {
+			BC, DB, err = BootApplication(ctx, dbHostname, dbPort, dbName, dbUsername, dbPassword, driverName,
+				bcAddress, bcPort, bcConnectionProtocol, bcKgTableIncrement, disregardSync, uniqueNodeIdentifier, checkDb)
+			if err != nil {
+				log.WithFields(log.Fields{
+					"retryNumber": i,
+					"err":         err,
+				}).Warn("Unable to boot application. Going to try again")
+				time.Sleep(time.Duration(bcRetryInterval) * time.Second)
+				continue
+			}
+			break
+		}
 	}
+
+	switch strings.ToLower(startUpMode) {
+	case "head":
+		BC.PerformHeadTracking = true
+	case "historic":
+		log.Debug("Performing additional boot steps for historical processing")
+		BC.PerformHistoricalProcessing = true
+		// This field is not currently used.
+		// The idea is, that if we are doing historially processing and we get a slot
+		// greater than this slot, then we would rerun this function.
+		// this would ensure that we have the slots necessary for processing
+		// within the beacon server.
+
+		// We can implement this feature if we notice any errors.
+		headSlot, err := BC.GetLatestSlotInBeaconServer(bcType)
+		if err != nil {
+			return BC, DB, err
+		}
+		BC.UpdateLatestSlotInBeaconServer(int64(headSlot))
+		// Add another switch case for bcType if its ever needed.
+	case "boot":
+		log.Debug("Running application in boot mode.")
+	default:
+		log.WithFields(log.Fields{
+			"startUpMode": startUpMode,
+		}).Error("The startUpMode provided is not handled.")
+	}
+
 	return BC, DB, err
 }

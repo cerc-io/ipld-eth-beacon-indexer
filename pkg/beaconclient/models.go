@@ -51,7 +51,7 @@ type ChainReorg struct {
 	ExecutionOptimistic bool   `json:"execution_optimistic"`
 }
 
-// A struct to capture whats being written to the ethcl.slots table.
+// A struct to capture whats being written to the eth-beacon.slots table.
 type DbSlots struct {
 	Epoch     string // The epoch.
 	Slot      string // The slot.
@@ -60,7 +60,7 @@ type DbSlots struct {
 	Status    string // The status, it can be proposed | forked | skipped.
 }
 
-// A struct to capture whats being written to ethcl.signed_beacon_block table.
+// A struct to capture whats being written to eth-beacon.signed_block table.
 type DbSignedBeaconBlock struct {
 	Slot          string // The slot.
 	BlockRoot     string // The block root
@@ -70,14 +70,14 @@ type DbSignedBeaconBlock struct {
 
 }
 
-// A struct to capture whats being written to ethcl.beacon_state table.
+// A struct to capture whats being written to eth-beacon.state table.
 type DbBeaconState struct {
 	Slot      string // The slot.
 	StateRoot string // The state root
 	MhKey     string // The ipld multihash key.
 }
 
-// A structure to capture whats being written to the ethcl.known_gaps table.
+// A structure to capture whats being written to the eth-beacon.known_gaps table.
 type DbKnownGaps struct {
 	StartSlot         string // The start slot for known_gaps, inclusive.
 	EndSlot           string // The end slot for known_gaps, inclusive.

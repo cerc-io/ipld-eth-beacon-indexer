@@ -19,7 +19,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 	"strconv"
 
 	log "github.com/sirupsen/logrus"
@@ -27,30 +26,43 @@ import (
 	"github.com/spf13/viper"
 	"github.com/vulcanize/ipld-eth-beacon-indexer/internal/boot"
 	"github.com/vulcanize/ipld-eth-beacon-indexer/internal/shutdown"
-	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/database/sql"
 	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/loghelper"
 	"golang.org/x/sync/errgroup"
 )
 
-// historicCmd represents the historic command
-var historicCmd = &cobra.Command{
-	Use:   "historic",
-	Short: "Capture the historic blocks and states.",
-	Long:  `Capture the historic blocks and states.`,
+// fullCmd represents the full command
+var fullCmd = &cobra.Command{
+	Use:   "full",
+	Short: "Capture all components of the application (head and historical)",
+	Long:  `Capture all components of the application (head and historical`,
 	Run: func(cmd *cobra.Command, args []string) {
-		startHistoricProcessing()
+		startFullProcessing()
 	},
 }
 
-// Start the application to process historical slots.
-func startHistoricProcessing() {
+func init() {
+	captureCmd.AddCommand(fullCmd)
+
+	// Here you will define your flags and configuration settings.
+
+	// Cobra supports Persistent Flags which will work for this command
+	// and all subcommands, e.g.:
+	// fullCmd.PersistentFlags().String("foo", "", "A help for foo")
+
+	// Cobra supports local flags which will only run when this command
+	// is called directly, e.g.:
+	// fullCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+}
+
+// Start the application to track at head and historical processing.
+func startFullProcessing() {
 	// Boot the application
 	log.Info("Starting the application in head tracking mode.")
 	ctx := context.Background()
 
 	Bc, Db, err := boot.BootApplicationWithRetry(ctx, viper.GetString("db.address"), viper.GetInt("db.port"), viper.GetString("db.name"), viper.GetString("db.username"), viper.GetString("db.password"), viper.GetString("db.driver"),
 		viper.GetString("bc.address"), viper.GetInt("bc.port"), viper.GetString("bc.connectionProtocol"), viper.GetString("bc.type"), viper.GetInt("bc.bootRetryInterval"), viper.GetInt("bc.bootMaxRetry"),
-		viper.GetInt("kg.increment"), "historic", viper.GetBool("t.skipSync"), viper.GetInt("bc.uniqueNodeIdentifier"), viper.GetBool("bc.checkDb"))
+		viper.GetInt("kg.increment"), "head", viper.GetBool("t.skipSync"), viper.GetInt("bc.uniqueNodeIdentifier"), viper.GetBool("bc.checkDb"))
 	if err != nil {
 		StopApplicationPreBoot(err, Db)
 	}
@@ -59,6 +71,10 @@ func startHistoricProcessing() {
 		addr := viper.GetString("pm.address") + ":" + strconv.Itoa(viper.GetInt("pm.port"))
 		serveProm(addr)
 	}
+
+	log.Info("The Beacon Client has booted successfully!")
+	// Capture head blocks
+	go Bc.CaptureHead()
 
 	hpContext, hpCancel := context.WithCancel(context.Background())
 
@@ -73,13 +89,12 @@ func startHistoricProcessing() {
 		}
 		return nil
 	})
-
-	kgContext, kgCancel := context.WithCancel(context.Background())
+	kgCtx, KgCancel := context.WithCancel(context.Background())
 	if viper.GetBool("kg.processKnownGaps") {
 		go func() {
 			errG := new(errgroup.Group)
 			errG.Go(func() error {
-				errs := Bc.ProcessKnownGaps(kgContext, viper.GetInt("kg.maxKnownGapsWorker"))
+				errs := Bc.ProcessKnownGaps(kgCtx, viper.GetInt("kg.maxKnownGapsWorker"))
 				if len(errs) != 0 {
 					log.WithFields(log.Fields{"errs": errs}).Error("All errors when processing knownGaps")
 					return fmt.Errorf("Application ended because there were too many error when attempting to process knownGaps")
@@ -93,33 +108,11 @@ func startHistoricProcessing() {
 	}
 
 	// Shutdown when the time is right.
-	err = shutdown.ShutdownHistoricProcessing(ctx, kgCancel, hpCancel, notifierCh, maxWaitSecondsShutdown, Db, Bc)
+	err = shutdown.ShutdownFull(ctx, KgCancel, hpCancel, notifierCh, maxWaitSecondsShutdown, Db, Bc)
 	if err != nil {
 		loghelper.LogError(err).Error("Ungracefully Shutdown ipld-eth-beacon-indexer!")
 	} else {
 		log.Info("Gracefully shutdown ipld-eth-beacon-indexer")
 	}
-}
 
-func init() {
-	captureCmd.AddCommand(historicCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// historicCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// historicCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-}
-
-// Stop the application during its initial boot phases.
-func StopApplicationPreBoot(startErr error, db sql.Database) {
-	loghelper.LogError(startErr).Error("Unable to Start application")
-	if db != nil {
-		db.Close()
-	}
-	os.Exit(1)
 }

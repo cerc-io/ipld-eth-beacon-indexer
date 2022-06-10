@@ -51,4 +51,4 @@ This package contains useful functions for logging.
 
 ## `internal/shutdown`
 
-This package is used to shutdown the `ipld-ethcl-indexer`. It calls the `pkg/gracefulshutdown` package.
+This package is used to shutdown the `ipld-eth-beacon-indexer`. It calls the `pkg/gracefulshutdown` package.

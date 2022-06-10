@@ -22,7 +22,7 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/vulcanize/ipld-ethcl-indexer/pkg/loghelper"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/loghelper"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -94,5 +94,5 @@ func processMsg[P ProcessedEvents](msg []byte, processCh chan<- *P, errorCh chan
 func (bc *BeaconClient) captureEventTopic() {
 	log.Info("We are capturing all SSE events")
 	go handleIncomingSseEvent(bc.HeadTracking, bc.Metrics.IncrementHeadError)
-	go handleIncomingSseEvent(bc.ReOrgTracking, bc.Metrics.IncrementHeadReorgError)
+	go handleIncomingSseEvent(bc.ReOrgTracking, bc.Metrics.IncrementReorgError)
 }

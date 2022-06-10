@@ -32,7 +32,7 @@ var (
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "ipld-ethcl-indexer",
+	Use:   "ipld-eth-beacon-indexer",
 	Short: "This application will keep track of all BeaconState's and SignedBeaconBlock's on the Beacon Chain.",
 	Long: `This is an application that will capture the BeaconState's and SignedBeaconBlock's on the Beacon Chain.
 It can either do this will keeping track of head, or backfilling historic data.`,
@@ -47,6 +47,7 @@ It can either do this will keeping track of head, or backfilling historic data.`
 func Execute() {
 	err := rootCmd.Execute()
 	if err != nil {
+		fmt.Println("Err when executing rootCmd", err)
 		os.Exit(1)
 	}
 }
@@ -126,9 +127,9 @@ func init() {
 	// will be global for your application.
 
 	// Optional Flags
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.ipld-ethcl-indexer.yaml)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.ipld-eth-beacon-indexer.yaml)")
 	rootCmd.PersistentFlags().String("log.level", log.InfoLevel.String(), "log level (trace, debug, info, warn, error, fatal, panic)")
-	rootCmd.PersistentFlags().String("log.file", "ipld-ethcl-indexer.log", "file path for logging")
+	rootCmd.PersistentFlags().String("log.file", "ipld-eth-beacon-indexer.log", "file path for logging")
 	rootCmd.PersistentFlags().Bool("log.output", true, "Should we log to STDOUT")
 	rootCmd.PersistentFlags().String("log.format", "json", "json or text")
 
@@ -159,10 +160,10 @@ func initConfig() {
 		home, err := os.UserHomeDir()
 		cobra.CheckErr(err)
 
-		// Search config in home directory with name ".ipld-ethcl-indexer" (without extension).
+		// Search config in home directory with name ".ipld-eth-beacon-indexer" (without extension).
 		viper.AddConfigPath(home)
 		viper.SetConfigType("yaml")
-		viper.SetConfigName(".ipld-ethcl-indexer")
+		viper.SetConfigName(".ipld-eth-beacon-indexer")
 	}
 
 	viper.AutomaticEnv() // read in environment variables that match

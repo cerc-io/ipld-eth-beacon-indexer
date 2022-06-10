@@ -20,7 +20,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/vulcanize/ipld-ethcl-indexer/internal/boot"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/internal/boot"
 )
 
 var _ = Describe("Boot", func() {
@@ -34,37 +34,57 @@ var _ = Describe("Boot", func() {
 		bcAddress            string = "localhost"
 		bcPort               int    = 5052
 		bcConnectionProtocol string = "http"
+		bcType               string = "lighthouse"
+		bcBootRetryInterval  int    = 1
+		bcBootMaxRetry       int    = 5
+		bcKgTableIncrement   int    = 10
+		bcUniqueIdentifier   int    = 100
+		bcCheckDb            bool   = false
 	)
 	Describe("Booting the application", Label("integration"), func() {
-		Context("When the DB and BC are both up and running, and we skip checking for a synced head", func() {
+		Context("When the DB and BC are both up and running, we skip checking for a synced head, and we are processing head", func() {
 			It("Should connect successfully", func() {
-				_, db, err := boot.BootApplicationWithRetry(context.Background(), dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver, bcAddress, bcPort, bcConnectionProtocol, true)
+				_, db, err := boot.BootApplicationWithRetry(context.Background(), dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver, bcAddress, bcPort, bcConnectionProtocol, bcType, bcBootRetryInterval, bcBootMaxRetry, bcKgTableIncrement, "head", true, bcUniqueIdentifier, bcCheckDb)
+				defer db.Close()
+				Expect(err).ToNot(HaveOccurred())
+			})
+		})
+		Context("When the DB and BC are both up and running, we skip checking for a synced head, and we are processing historic ", func() {
+			It("Should connect successfully", func() {
+				_, db, err := boot.BootApplicationWithRetry(context.Background(), dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver, bcAddress, bcPort, bcConnectionProtocol, bcType, bcBootRetryInterval, bcBootMaxRetry, bcKgTableIncrement, "historic", true, bcUniqueIdentifier, bcCheckDb)
 				defer db.Close()
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 		Context("When the DB and BC are both up and running, and we check for a synced head", func() {
 			It("Should not connect successfully", func() {
-				_, db, err := boot.BootApplicationWithRetry(context.Background(), dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver, bcAddress, bcPort, bcConnectionProtocol, false)
+				_, db, err := boot.BootApplicationWithRetry(context.Background(), dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver, bcAddress, bcPort, bcConnectionProtocol, bcType, bcBootRetryInterval, bcBootMaxRetry, bcKgTableIncrement, "head", false, bcUniqueIdentifier, bcCheckDb)
+				defer db.Close()
+				Expect(err).To(HaveOccurred())
+			})
+		})
+		Context("When the DB and BC are both up and running, we skip checking for a synced head, but the unique identifier is 0", func() {
+			It("Should not connect successfully", func() {
+				_, db, err := boot.BootApplicationWithRetry(context.Background(), dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver, bcAddress, bcPort, bcConnectionProtocol, bcType, bcBootRetryInterval, bcBootMaxRetry, bcKgTableIncrement, "head", false, 0, bcCheckDb)
 				defer db.Close()
 				Expect(err).To(HaveOccurred())
 			})
 		})
 		Context("When the DB is running but not the BC", func() {
 			It("Should not connect successfully", func() {
-				_, _, err := boot.BootApplication(context.Background(), dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver, "hi", 100, bcConnectionProtocol, true)
+				_, _, err := boot.BootApplication(context.Background(), dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver, "hi", 100, bcConnectionProtocol, bcKgTableIncrement, true, bcUniqueIdentifier, bcCheckDb)
 				Expect(err).To(HaveOccurred())
 			})
 		})
 		Context("When the BC is running but not the DB", func() {
 			It("Should not connect successfully", func() {
-				_, _, err := boot.BootApplication(context.Background(), "hi", 10, dbName, dbUsername, dbPassword, dbDriver, bcAddress, bcPort, bcConnectionProtocol, true)
+				_, _, err := boot.BootApplication(context.Background(), "hi", 10, dbName, dbUsername, dbPassword, dbDriver, bcAddress, bcPort, bcConnectionProtocol, bcKgTableIncrement, true, bcUniqueIdentifier, bcCheckDb)
 				Expect(err).To(HaveOccurred())
 			})
 		})
 		Context("When neither the BC or DB are running", func() {
 			It("Should not connect successfully", func() {
-				_, _, err := boot.BootApplication(context.Background(), "hi", 10, dbName, dbUsername, dbPassword, dbDriver, "hi", 100, bcConnectionProtocol, true)
+				_, _, err := boot.BootApplication(context.Background(), "hi", 10, dbName, dbUsername, dbPassword, dbDriver, "hi", 100, bcConnectionProtocol, bcKgTableIncrement, true, bcUniqueIdentifier, bcCheckDb)
 				Expect(err).To(HaveOccurred())
 			})
 		})

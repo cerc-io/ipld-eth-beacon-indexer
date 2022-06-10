@@ -28,44 +28,53 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/r3labs/sse"
 	log "github.com/sirupsen/logrus"
-	"github.com/vulcanize/ipld-ethcl-indexer/internal/boot"
-	"github.com/vulcanize/ipld-ethcl-indexer/internal/shutdown"
-	"github.com/vulcanize/ipld-ethcl-indexer/pkg/beaconclient"
-	"github.com/vulcanize/ipld-ethcl-indexer/pkg/database/sql"
-	"github.com/vulcanize/ipld-ethcl-indexer/pkg/gracefulshutdown"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/internal/boot"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/internal/shutdown"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/beaconclient"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/database/sql"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/gracefulshutdown"
+)
+
+var (
+	dbAddress              string        = "localhost"
+	dbPort                 int           = 8076
+	dbName                 string        = "vulcanize_testing"
+	dbUsername             string        = "vdbm"
+	dbPassword             string        = "password"
+	dbDriver               string        = "PGX"
+	bcAddress              string        = "localhost"
+	bcPort                 int           = 5052
+	bcConnectionProtocol   string        = "http"
+	bcType                 string        = "lighthouse"
+	bcBootRetryInterval    int           = 1
+	bcBootMaxRetry         int           = 5
+	bcKgTableIncrement     int           = 10
+	bcUniqueIdentifier     int           = 100
+	bcCheckDb              bool          = false
+	maxWaitSecondsShutdown time.Duration = time.Duration(1) * time.Second
+	DB                     sql.Database
+	BC                     *beaconclient.BeaconClient
+	err                    error
+	ctx                    context.Context
+	notifierCh             chan os.Signal
 )
 
 var _ = Describe("Shutdown", func() {
-	var (
-		dbAddress              string        = "localhost"
-		dbPort                 int           = 8076
-		dbName                 string        = "vulcanize_testing"
-		dbUsername             string        = "vdbm"
-		dbPassword             string        = "password"
-		dbDriver               string        = "PGX"
-		bcAddress              string        = "localhost"
-		bcPort                 int           = 5052
-		bcConnectionProtocol   string        = "http"
-		maxWaitSecondsShutdown time.Duration = time.Duration(1) * time.Second
-		DB                     sql.Database
-		BC                     *beaconclient.BeaconClient
-		err                    error
-		ctx                    context.Context
-		notifierCh             chan os.Signal
-	)
 	BeforeEach(func() {
 		ctx = context.Background()
-		BC, DB, err = boot.BootApplicationWithRetry(ctx, dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver, bcAddress, bcPort, bcConnectionProtocol, true)
+		BC, DB, err = boot.BootApplicationWithRetry(ctx, dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver, bcAddress,
+			bcPort, bcConnectionProtocol, bcType, bcBootRetryInterval, bcBootMaxRetry, bcKgTableIncrement, "head", true, bcUniqueIdentifier, bcCheckDb)
 		notifierCh = make(chan os.Signal, 1)
 		Expect(err).To(BeNil())
 	})
 
-	Describe("Run Shutdown Function,", Label("integration"), func() {
+	Describe("Run Shutdown Function for head tracking,", Label("integration"), func() {
 		Context("When Channels are empty,", func() {
 			It("Should Shutdown Successfully.", func() {
 				go func() {
+					_, cancel := context.WithCancel(context.Background())
 					log.Debug("Starting shutdown chan")
-					err = shutdown.ShutdownServices(ctx, notifierCh, maxWaitSecondsShutdown, DB, BC)
+					err = shutdown.ShutdownHeadTracking(ctx, cancel, notifierCh, maxWaitSecondsShutdown, DB, BC)
 					log.Debug("We have completed the shutdown...")
 					Expect(err).ToNot(HaveOccurred())
 				}()
@@ -76,8 +85,9 @@ var _ = Describe("Shutdown", func() {
 				shutdownCh := make(chan bool)
 				//log.SetLevel(log.DebugLevel)
 				go func() {
+					_, cancel := context.WithCancel(context.Background())
 					log.Debug("Starting shutdown chan")
-					err = shutdown.ShutdownServices(ctx, notifierCh, maxWaitSecondsShutdown, DB, BC)
+					err = shutdown.ShutdownHeadTracking(ctx, cancel, notifierCh, maxWaitSecondsShutdown, DB, BC)
 					log.Debug("We have completed the shutdown...")
 					Expect(err).ToNot(HaveOccurred())
 					shutdownCh <- true
@@ -110,7 +120,8 @@ var _ = Describe("Shutdown", func() {
 				//log.SetLevel(log.DebugLevel)
 				go func() {
 					log.Debug("Starting shutdown chan")
-					err = shutdown.ShutdownServices(ctx, notifierCh, maxWaitSecondsShutdown, DB, BC)
+					_, cancel := context.WithCancel(context.Background())
+					err = shutdown.ShutdownHeadTracking(ctx, cancel, notifierCh, maxWaitSecondsShutdown, DB, BC)
 					log.Debug("We have completed the shutdown...")
 					Expect(err).To(MatchError(gracefulshutdown.TimeoutErr(maxWaitSecondsShutdown.String())))
 					shutdownCh <- true

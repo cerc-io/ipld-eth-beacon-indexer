@@ -18,10 +18,11 @@ package beaconclient
 import (
 	"context"
 	"fmt"
+	"math/rand"
 
 	"github.com/r3labs/sse"
 	log "github.com/sirupsen/logrus"
-	"github.com/vulcanize/ipld-ethcl-indexer/pkg/database/sql"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/database/sql"
 )
 
 // TODO: Use prysms config values instead of hardcoding them here.
@@ -31,7 +32,8 @@ var (
 	bcReorgTopicEndpoint = "/eth/v1/events?topics=chain_reorg" // Endpoint used to subscribe to the head of the chain
 	BcBlockQueryEndpoint = "/eth/v2/beacon/blocks/"            // Endpoint to query individual Blocks
 	BcStateQueryEndpoint = "/eth/v2/debug/beacon/states/"      // Endpoint to query individual States
-	BcSyncStatusEndpoint = "/eth/v1/node/syncing"
+	BcSyncStatusEndpoint = "/eth/v1/node/syncing"              // The endpoint to check to see if the beacon server is still trying to sync to head.
+	LhDbInfoEndpoint     = "/lighthouse/database/info"         // The endpoint for the LIGHTHOUSE server to get the database information.
 	BcBlockRootEndpoint  = func(slot string) string {
 		return "/eth/v1/beacon/blocks/" + slot + "/root"
 	}
@@ -40,33 +42,34 @@ var (
 	//bcFinalizedTopicEndpoint  = "/eth/v1/events?topics=finalized_checkpoint" // Endpoint used to subscribe to the head of the chain
 )
 
-// A structure utilized for keeping track of various metrics. Currently, mostly used in testing.
-type BeaconClientMetrics struct {
-	HeadTrackingInserts   uint64 // Number of head events we successfully wrote to the DB.
-	HeadTrackingReorgs    uint64 // Number of reorg events we successfully wrote to the DB.
-	HeadTrackingKnownGaps uint64 // Number of known_gaps we successfully wrote to the DB.
-	HeadError             uint64 // Number of errors that occurred when decoding the head message.
-	HeadReorgError        uint64 // Number of errors that occurred when decoding the reorg message.
-}
-
 // A struct that capture the Beacon Server that the Beacon Client will be interacting with and querying.
 type BeaconClient struct {
-	Context                     context.Context      // A context generic context with multiple uses.
-	ServerEndpoint              string               // What is the endpoint of the beacon server.
-	PerformHistoricalProcessing bool                 // Should we perform historical processing?
-	Db                          sql.Database         // Database object used for reads and writes.
-	Metrics                     *BeaconClientMetrics // An object used to keep track of certain BeaconClient Metrics.
-	KnownGapTableIncrement      int                  // The max number of slots within a single known_gaps table entry.
+	Context                context.Context      // A context generic context with multiple uses.
+	ServerEndpoint         string               // What is the endpoint of the beacon server.
+	Db                     sql.Database         // Database object used for reads and writes.
+	Metrics                *BeaconClientMetrics // An object used to keep track of certain BeaconClient Metrics.
+	KnownGapTableIncrement int                  // The max number of slots within a single known_gaps table entry.
+	UniqueNodeIdentifier   int                  // The unique identifier within the cluster of this individual node.
+	KnownGapsProcess       KnownGapsProcessing  // object keeping track of knowngaps processing
+	CheckDb                bool                 // Should we check the DB to see if the slot exists before processing it?
 
 	// Used for Head Tracking
+
 	PerformHeadTracking bool                   // Should we track head?
 	StartingSlot        int                    // If we're performing head tracking. What is the first slot we processed.
 	PreviousSlot        int                    // Whats the previous slot we processed
 	PreviousBlockRoot   string                 // Whats the previous block root, used to check the next blocks parent.
-	CheckKnownGaps      bool                   // Should we check for gaps at start up.
 	HeadTracking        *SseEvents[Head]       // Track the head block
 	ReOrgTracking       *SseEvents[ChainReorg] // Track all Reorgs
 	//FinalizationTracking        *SseEvents[FinalizedCheckpoint] // Track all finalization checkpoints
+
+	// Used for Historical Processing
+
+	// The latest available slot within the Beacon Server. We can't query any slot greater than this.
+	// This value is lazily updated. Therefore at times it will be outdated.
+	LatestSlotInBeaconServer    int64
+	PerformHistoricalProcessing bool               // Should we perform historical processing?
+	HistoricalProcess           HistoricProcessing // object keeping track of historical processing
 }
 
 // A struct to keep track of relevant the head event topic.
@@ -85,20 +88,30 @@ type SseError struct {
 }
 
 // A Function to create the BeaconClient.
-func CreateBeaconClient(ctx context.Context, connectionProtocol string, bcAddress string, bcPort int) *BeaconClient {
+func CreateBeaconClient(ctx context.Context, connectionProtocol string, bcAddress string, bcPort int, bcKgTableIncrement int, uniqueNodeIdentifier int, checkDb bool) (*BeaconClient, error) {
+	if uniqueNodeIdentifier == 0 {
+		uniqueNodeIdentifier := rand.Int()
+		log.WithField("randomUniqueNodeIdentifier", uniqueNodeIdentifier).Warn("No uniqueNodeIdentifier provided, we are going to use a randomly generated one.")
+	}
+
+	metrics, err := CreateBeaconClientMetrics()
+	if err != nil {
+		return nil, err
+	}
+
 	endpoint := fmt.Sprintf("%s://%s:%d", connectionProtocol, bcAddress, bcPort)
 	log.Info("Creating the BeaconClient")
 	return &BeaconClient{
-		Context:        ctx,
-		ServerEndpoint: endpoint,
-		HeadTracking:   createSseEvent[Head](endpoint, BcHeadTopicEndpoint),
-		ReOrgTracking:  createSseEvent[ChainReorg](endpoint, bcReorgTopicEndpoint),
-		Metrics: &BeaconClientMetrics{
-			HeadTrackingInserts: 0,
-			HeadTrackingReorgs:  0,
-		},
+		Context:                ctx,
+		ServerEndpoint:         endpoint,
+		KnownGapTableIncrement: bcKgTableIncrement,
+		HeadTracking:           createSseEvent[Head](endpoint, BcHeadTopicEndpoint),
+		ReOrgTracking:          createSseEvent[ChainReorg](endpoint, bcReorgTopicEndpoint),
+		Metrics:                metrics,
+		UniqueNodeIdentifier:   uniqueNodeIdentifier,
+		CheckDb:                checkDb,
 		//FinalizationTracking: createSseEvent[FinalizedCheckpoint](endpoint, bcFinalizedTopicEndpoint),
-	}
+	}, nil
 }
 
 // Create all the channels to handle a SSE events

@@ -23,7 +23,7 @@ import (
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/vulcanize/ipld-ethcl-indexer/pkg/database/sql"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/database/sql"
 )
 
 // pgxDriver driver, implements sql.Driver

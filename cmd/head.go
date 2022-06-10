@@ -18,18 +18,18 @@ package cmd
 
 import (
 	"context"
-	"os"
+	"fmt"
+	"net/http"
+	"strconv"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/vulcanize/ipld-ethcl-indexer/internal/boot"
-	"github.com/vulcanize/ipld-ethcl-indexer/internal/shutdown"
-	"github.com/vulcanize/ipld-ethcl-indexer/pkg/loghelper"
-)
-
-var (
-	kgTableIncrement int
+	"github.com/vulcanize/ipld-eth-beacon-indexer/internal/boot"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/internal/shutdown"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/loghelper"
+	"golang.org/x/sync/errgroup"
 )
 
 // headCmd represents the head command
@@ -48,34 +48,65 @@ func startHeadTracking() {
 	log.Info("Starting the application in head tracking mode.")
 	ctx := context.Background()
 
-	BC, DB, err := boot.BootApplicationWithRetry(ctx, dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver, bcAddress, bcPort, bcConnectionProtocol, testDisregardSync)
+	Bc, Db, err := boot.BootApplicationWithRetry(ctx, viper.GetString("db.address"), viper.GetInt("db.port"), viper.GetString("db.name"), viper.GetString("db.username"), viper.GetString("db.password"), viper.GetString("db.driver"),
+		viper.GetString("bc.address"), viper.GetInt("bc.port"), viper.GetString("bc.connectionProtocol"), viper.GetString("bc.type"), viper.GetInt("bc.bootRetryInterval"), viper.GetInt("bc.bootMaxRetry"),
+		viper.GetInt("kg.increment"), "head", viper.GetBool("t.skipSync"), viper.GetInt("bc.uniqueNodeIdentifier"), viper.GetBool("bc.checkDb"))
 	if err != nil {
-		loghelper.LogError(err).Error("Unable to Start application")
-		if DB != nil {
-			DB.Close()
-		}
-		os.Exit(1)
+		StopApplicationPreBoot(err, Db)
+	}
+
+	if viper.GetBool("pm.metrics") {
+		addr := viper.GetString("pm.address") + ":" + strconv.Itoa(viper.GetInt("pm.port"))
+		serveProm(addr)
 	}
 
 	log.Info("The Beacon Client has booted successfully!")
 	// Capture head blocks
-	go BC.CaptureHead(kgTableIncrement)
+	go Bc.CaptureHead()
+	kgCtx, KgCancel := context.WithCancel(context.Background())
+	if viper.GetBool("kg.processKnownGaps") {
+		go func() {
+			errG := new(errgroup.Group)
+			errG.Go(func() error {
+				errs := Bc.ProcessKnownGaps(kgCtx, viper.GetInt("kg.maxKnownGapsWorker"))
+				if len(errs) != 0 {
+					log.WithFields(log.Fields{"errs": errs}).Error("All errors when processing knownGaps")
+					return fmt.Errorf("Application ended because there were too many error when attempting to process knownGaps")
+				}
+				return nil
+			})
+			if err := errG.Wait(); err != nil {
+				loghelper.LogError(err).Error("Error with knownGaps processing")
+			}
+		}()
+	}
 
 	// Shutdown when the time is right.
-	err = shutdown.ShutdownServices(ctx, notifierCh, maxWaitSecondsShutdown, DB, BC)
+	err = shutdown.ShutdownHeadTracking(ctx, KgCancel, notifierCh, maxWaitSecondsShutdown, Db, Bc)
 	if err != nil {
-		loghelper.LogError(err).Error("Ungracefully Shutdown ipld-ethcl-indexer!")
+		loghelper.LogError(err).Error("Ungracefully Shutdown ipld-eth-beacon-indexer!")
 	} else {
-		log.Info("Gracefully shutdown ipld-ethcl-indexer")
+		log.Info("Gracefully shutdown ipld-eth-beacon-indexer")
 	}
 
 }
 
 func init() {
 	captureCmd.AddCommand(headCmd)
+}
 
-	// Known Gaps specific
-	captureCmd.PersistentFlags().IntVarP(&kgTableIncrement, "kg.increment", "", 10000, "The max slots within a single entry to the known_gaps table.")
-	err := viper.BindPFlag("kg.increment", captureCmd.PersistentFlags().Lookup("kg.increment"))
-	exitErr(err)
+// Start prometheus server
+func serveProm(addr string) {
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", promhttp.Handler())
+
+	srv := http.Server{
+		Addr:    addr,
+		Handler: mux,
+	}
+	go func() {
+		if err := srv.ListenAndServe(); err != nil {
+			loghelper.LogError(err).WithField("endpoint", addr).Error("Error with prometheus")
+		}
+	}()
 }

@@ -17,6 +17,7 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 	"time"
 
@@ -25,19 +26,30 @@ import (
 )
 
 var (
-	dbUsername             string
-	dbPassword             string
-	dbName                 string
-	dbAddress              string
-	dbDriver               string
-	dbPort                 int
-	bcAddress              string
-	bcPort                 int
-	bcConnectionProtocol   string
-	bcType                 string
-	maxWaitSecondsShutdown time.Duration  = time.Duration(5) * time.Second
-	notifierCh             chan os.Signal = make(chan os.Signal, 1)
-	testDisregardSync      bool
+	dbUsername                 string
+	dbPassword                 string
+	dbName                     string
+	dbAddress                  string
+	dbDriver                   string
+	dbPort                     int
+	bcAddress                  string
+	bcPort                     int
+	bcBootRetryInterval        int
+	bcBootMaxRetry             int
+	bcConnectionProtocol       string
+	bcType                     string
+	bcMaxHistoricProcessWorker int
+	bcUniqueNodeIdentifier     int
+	bcCheckDb                  bool
+	kgMaxWorker                int
+	kgTableIncrement           int
+	kgProcessGaps              bool
+	pmMetrics                  bool
+	pmAddress                  string
+	pmPort                     int
+	maxWaitSecondsShutdown     time.Duration  = time.Duration(20) * time.Second
+	notifierCh                 chan os.Signal = make(chan os.Signal, 1)
+	testDisregardSync          bool
 )
 
 // captureCmd represents the capture command
@@ -62,35 +74,50 @@ func init() {
 	captureCmd.PersistentFlags().StringVarP(&dbName, "db.name", "n", "", "Database name connect to DB(required)")
 	captureCmd.PersistentFlags().StringVarP(&dbDriver, "db.driver", "", "", "Database Driver to connect to DB(required)")
 	captureCmd.PersistentFlags().IntVarP(&dbPort, "db.port", "", 0, "Port to connect to DB(required)")
-	err := captureCmd.MarkPersistentFlagRequired("db.username")
-	exitErr(err)
-	err = captureCmd.MarkPersistentFlagRequired("db.password")
-	exitErr(err)
-	err = captureCmd.MarkPersistentFlagRequired("db.address")
-	exitErr(err)
-	err = captureCmd.MarkPersistentFlagRequired("db.port")
-	exitErr(err)
-	err = captureCmd.MarkPersistentFlagRequired("db.name")
-	exitErr(err)
-	err = captureCmd.MarkPersistentFlagRequired("db.driver")
-	exitErr(err)
+	//err := captureCmd.MarkPersistentFlagRequired("db.username")
+	// exitErr(err)
+	// err = captureCmd.MarkPersistentFlagRequired("db.password")
+	// exitErr(err)
+	// err = captureCmd.MarkPersistentFlagRequired("db.address")
+	// exitErr(err)
+	// err = captureCmd.MarkPersistentFlagRequired("db.port")
+	// exitErr(err)
+	// err = captureCmd.MarkPersistentFlagRequired("db.name")
+	// exitErr(err)
+	// err = captureCmd.MarkPersistentFlagRequired("db.driver")
+	// exitErr(err)
 
 	//// Beacon Client Specific
 	captureCmd.PersistentFlags().StringVarP(&bcAddress, "bc.address", "l", "", "Address to connect to beacon node (required)")
 	captureCmd.PersistentFlags().StringVarP(&bcType, "bc.type", "", "lighthouse", "The beacon client we are using, options are prysm and lighthouse.")
 	captureCmd.PersistentFlags().IntVarP(&bcPort, "bc.port", "r", 0, "Port to connect to beacon node (required )")
 	captureCmd.PersistentFlags().StringVarP(&bcConnectionProtocol, "bc.connectionProtocol", "", "http", "protocol for connecting to the beacon node.")
-	err = captureCmd.MarkPersistentFlagRequired("bc.address")
-	exitErr(err)
-	err = captureCmd.MarkPersistentFlagRequired("bc.port")
-	exitErr(err)
+	captureCmd.PersistentFlags().IntVarP(&bcBootRetryInterval, "bc.bootRetryInterval", "", 30, "The amount of time to wait between retries while booting the application")
+	captureCmd.PersistentFlags().IntVarP(&bcBootMaxRetry, "bc.bootMaxRetry", "", 5, "The amount of time to wait between retries while booting the application")
+	captureCmd.PersistentFlags().IntVarP(&bcMaxHistoricProcessWorker, "bc.maxHistoricProcessWorker", "", 30, "The number of workers that should be actively processing slots from the eth-beacon.historic_process table. Be careful of system memory.")
+	captureCmd.PersistentFlags().IntVarP(&bcUniqueNodeIdentifier, "bc.uniqueNodeIdentifier", "", 0, "The unique identifier of this application. Each application connecting to the DB should have a unique identifier.")
+	captureCmd.PersistentFlags().BoolVarP(&bcCheckDb, "bc.checkDb", "", true, "Should we check to see if the slot exists in the DB before writing it?")
+	// err = captureCmd.MarkPersistentFlagRequired("bc.address")
+	// exitErr(err)
+	// err = captureCmd.MarkPersistentFlagRequired("bc.port")
+	// exitErr(err)
+
+	//// Known Gaps specific
+	captureCmd.PersistentFlags().BoolVarP(&kgProcessGaps, "kg.processKnownGaps", "", true, "Should we process the slots within the eth-beacon.known_gaps table.")
+	captureCmd.PersistentFlags().IntVarP(&kgTableIncrement, "kg.increment", "", 10000, "The max slots within a single entry to the known_gaps table.")
+	captureCmd.PersistentFlags().IntVarP(&kgMaxWorker, "kg.maxKnownGapsWorker", "", 30, "The number of workers that should be actively processing slots from the eth-beacon.known_gaps table. Be careful of system memory.")
+
+	// Prometheus Specific
+	captureCmd.PersistentFlags().BoolVarP(&pmMetrics, "pm.metrics", "", true, "Should we capture prometheus metrics.")
+	captureCmd.PersistentFlags().StringVarP(&pmAddress, "pm.address", "", "localhost", "Address to send the prometheus metrics.")
+	captureCmd.PersistentFlags().IntVarP(&pmPort, "pm.port", "", 9000, "The port to send prometheus metrics.")
 
 	//// Testing Specific
 	captureCmd.PersistentFlags().BoolVar(&testDisregardSync, "t.skipSync", false, "Should we disregard the head sync?")
 
 	// Bind Flags with Viper
 	//// DB Flags
-	err = viper.BindPFlag("db.username", captureCmd.PersistentFlags().Lookup("db.username"))
+	err := viper.BindPFlag("db.username", captureCmd.PersistentFlags().Lookup("db.username"))
 	exitErr(err)
 	err = viper.BindPFlag("db.password", captureCmd.PersistentFlags().Lookup("db.password"))
 	exitErr(err)
@@ -100,14 +127,14 @@ func init() {
 	exitErr(err)
 	err = viper.BindPFlag("db.name", captureCmd.PersistentFlags().Lookup("db.name"))
 	exitErr(err)
+	err = viper.BindPFlag("db.driver", captureCmd.PersistentFlags().Lookup("db.driver"))
+	exitErr(err)
+
+	//// Testing Specific
 	err = viper.BindPFlag("t.skipSync", captureCmd.PersistentFlags().Lookup("t.skipSync"))
 	exitErr(err)
 
-	// Testing Specific
-	err = viper.BindPFlag("t.driver", captureCmd.PersistentFlags().Lookup("db.driver"))
-	exitErr(err)
-
-	// LH specific
+	//// LH specific
 	err = viper.BindPFlag("bc.address", captureCmd.PersistentFlags().Lookup("bc.address"))
 	exitErr(err)
 	err = viper.BindPFlag("bc.type", captureCmd.PersistentFlags().Lookup("bc.type"))
@@ -116,14 +143,40 @@ func init() {
 	exitErr(err)
 	err = viper.BindPFlag("bc.connectionProtocol", captureCmd.PersistentFlags().Lookup("bc.connectionProtocol"))
 	exitErr(err)
+	err = viper.BindPFlag("bc.bootRetryInterval", captureCmd.PersistentFlags().Lookup("bc.bootRetryInterval"))
+	exitErr(err)
+	err = viper.BindPFlag("bc.bootMaxRetry", captureCmd.PersistentFlags().Lookup("bc.bootMaxRetry"))
+	exitErr(err)
+	err = viper.BindPFlag("bc.maxHistoricProcessWorker", captureCmd.PersistentFlags().Lookup("bc.maxHistoricProcessWorker"))
+	exitErr(err)
+	err = viper.BindPFlag("bc.uniqueNodeIdentifier", captureCmd.PersistentFlags().Lookup("bc.uniqueNodeIdentifier"))
+	exitErr(err)
+	err = viper.BindPFlag("bc.checkDb", captureCmd.PersistentFlags().Lookup("bc.checkDb"))
+	exitErr(err)
 	// Here you will define your flags and configuration settings.
 
+	//// Known Gap Specific
+	err = viper.BindPFlag("kg.processKnownGaps", captureCmd.PersistentFlags().Lookup("kg.processKnownGaps"))
+	exitErr(err)
+	err = viper.BindPFlag("kg.increment", captureCmd.PersistentFlags().Lookup("kg.increment"))
+	exitErr(err)
+	err = viper.BindPFlag("kg.processKnownGaps", captureCmd.PersistentFlags().Lookup("kg.maxKnownGapsWorker"))
+	exitErr(err)
+
+	// Prometheus Specific
+	err = viper.BindPFlag("pm.metrics", captureCmd.PersistentFlags().Lookup("pm.metrics"))
+	exitErr(err)
+	err = viper.BindPFlag("pm.address", captureCmd.PersistentFlags().Lookup("pm.address"))
+	exitErr(err)
+	err = viper.BindPFlag("pm.port", captureCmd.PersistentFlags().Lookup("pm.port"))
+	exitErr(err)
 }
 
 // Helper function to catch any errors.
 // We need to capture these errors for the linter.
 func exitErr(err error) {
 	if err != nil {
+		fmt.Println("Error: ", err)
 		os.Exit(1)
 	}
 }

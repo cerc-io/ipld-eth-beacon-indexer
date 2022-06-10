@@ -20,18 +20,27 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	beaconclient "github.com/vulcanize/ipld-ethcl-indexer/pkg/beaconclient"
+	beaconclient "github.com/vulcanize/ipld-eth-beacon-indexer/pkg/beaconclient"
 )
 
 var _ = Describe("Healthcheck", func() {
 	var (
-		BC    = beaconclient.CreateBeaconClient(context.Background(), "http", "localhost", 5052)
-		errBc = beaconclient.CreateBeaconClient(context.Background(), "http", "blah-blah", 1010)
+		Bc    *beaconclient.BeaconClient
+		errBc *beaconclient.BeaconClient
 	)
+
+	BeforeEach(func() {
+		var err error
+		Bc, err = beaconclient.CreateBeaconClient(context.Background(), "http", "localhost", 5052, 10, bcUniqueIdentifier, false)
+		Expect(err).ToNot(HaveOccurred())
+		errBc, err = beaconclient.CreateBeaconClient(context.Background(), "http", "blah-blah", 1010, 10, bcUniqueIdentifier, false)
+		Expect(err).ToNot(HaveOccurred())
+
+	})
 	Describe("Connecting to the lighthouse client", Label("integration"), func() {
 		Context("When the client is running", func() {
 			It("We should connect successfully", func() {
-				err := BC.CheckBeaconClient()
+				err := Bc.CheckBeaconClient()
 				Expect(err).To(BeNil())
 			})
 		})

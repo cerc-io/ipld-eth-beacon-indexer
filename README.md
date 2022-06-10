@@ -1,4 +1,4 @@
-- [ipld-ethcl-indexer](#ipld-ethcl-indexer)
+- [ipld-eth-beacon-indexer](#ipld-eth-beacon-indexer)
 - [Running the Application](#running-the-application)
 - [Development Patterns](#development-patterns)
   - [Logging](#logging)
@@ -8,7 +8,7 @@
 
 <small><i><a href='http://ecotrust-canada.github.io/markdown-toc/'>Table of contents generated with markdown-toc</a></i></small>
 
-# ipld-ethcl-indexer
+# ipld-eth-beacon-indexer
 
 This application will capture all the `BeaconState`'s and `SignedBeaconBlock`'s from the consensus chain on Ethereum. This application is going to connect to the lighthouse client, but hypothetically speaking, it should be interchangeable with any eth2 beacon node.
 
@@ -22,12 +22,12 @@ To run the application, do as follows:
 
 1. Setup the prerequisite applications.
    a. Run a beacon client (such as lighthouse).
-   b. Run a postgres DB for ethcl.
+   b. Run a postgres DB for eth-beacon.
    c. You can utilize the `stack-orchestrator` [repository](https://github.com/vulcanize/stack-orchestrato).
 
    ```
    ./wrapper.sh -e skip \
-   -d ../docker/local/docker-compose-ethcl-db.yml \
+   -d ../docker/local/docker-compose-ipld-eth-beacon-db.yml \
    -d ../docker/latest/docker-compose-lighthouse.yml \
    -v remove \
    -p ../local-config.sh
@@ -37,19 +37,7 @@ To run the application, do as follows:
 2. Run the start up command.
 
 ```
-go run -race main.go capture head --db.address localhost \
-  --db.password password \
-  --db.port 8076 \
-  --db.username vdbm \
-  --db.name vulcanize_testing \
-  --db.driver PGX \
-  --bc.address localhost \
-  --bc.port 5052 \
-  --bc.connectionProtocol http \
-  --t.skipSync=true \
-  --log.level info \
-  --log.output=true \
-  --kg.increment 100
+go run -race main.go capture full --config ./example.ipld-eth-beacon-indexer-config.json
 ```
 
 ## Running Tests

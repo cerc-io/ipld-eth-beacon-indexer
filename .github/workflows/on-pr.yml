@@ -7,8 +7,8 @@ on:
         description: "The branch, commit or sha from stack-orchestrator to checkout"
         required: false
         default: "main"
-      ipld-ethcl-db-ref:
-        description: "The branch, commit or sha from ipld-ethcl-db to checkout"
+      ipld-eth-beacon-db-ref:
+        description: "The branch, commit or sha from ipld-eth-beacon-db to checkout"
         required: false
         default: "main"
       ssz-data-ref:
@@ -22,188 +22,26 @@ on:
       - "!LICENSE"
       - "!.github/workflows/**"
       - ".github/workflows/on-pr.yml"
+      - ".github/workflows/tests.yml"
       - "**"
+  schedule:
+    - cron: '0 13 * * *' # Must be single quotes!!
 
-env:
-  stack-orchestrator-ref: ${{ github.event.inputs.stack-orchestrator-ref  || 'feature/client-build'}}
-  ipld-ethcl-db-ref: ${{ github.event.inputs.ipld-ethcl-db-ref  || 'feature/schema-ipld-ethcl-indexer' }}
-  ssz-data-ref: ${{ github.event.inputs.ssz-data-ref  || 'main' }}
-  GOPATH: /tmp/go
 jobs:
-  build:
-    name: Run Docker Build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          path: "./ipld-ethcl-indexer"
-
-      - uses: actions/checkout@v3
-        with:
-          ref: ${{ env.stack-orchestrator-ref }}
-          path: "./stack-orchestrator/"
-          repository: vulcanize/stack-orchestrator
-          fetch-depth: 0
-
-      - uses: actions/checkout@v3
-        with:
-          ref: ${{ env.ipld-ethcl-db-ref }}
-          repository: vulcanize/ipld-ethcl-db
-          path: "./ipld-ethcl-db/"
-          token: ${{ secrets.GH_PAT }}
-          fetch-depth: 0
-
-      - name: Create config file
-        run: |
-          echo vulcanize_ipld_ethcl_db=$GITHUB_WORKSPACE/ipld-ethcl-db/ > ./config.sh
-          echo vulcanize_ipld_ethcl_indexer=$GITHUB_WORKSPACE/ipld-ethcl-indexer >> ./config.sh
-          echo ethcl_capture_mode=boot >> ./config.sh
-          echo ethcl_skip_sync=true >> ./config.sh
-          echo ethcl_known_gap_increment=1000000 >> ./config.sh
-          cat ./config.sh
-
-      - name: Run docker compose
-        run: |
-          docker-compose  \
-          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-ethcl-db.yml" \
-          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/latest/docker-compose-lighthouse.yml" \
-          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-ipld-ethcl-indexer.yml" \
-          --env-file ./config.sh \
-          up -d --build
-
-      - name: Check to make sure HEALTH file is present
-        shell: bash
-        run: |
-          until $(docker compose -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-ipld-ethcl-indexer.yml" cp ipld-ethcl-indexer:/root/HEALTH ./HEALTH) ; do sleep 10; done
-          cat ./HEALTH
-          if [[ "$(cat ./HEALTH)" -eq "0" ]]; then echo "Application boot successful" && (exit 0); else docker compose -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-ipld-ethcl-indexer.yml" cp ipld-ethcl-indexer:/root/ipld-ethcl-indexer.log . && cat ipld-ethcl-indexer.log && (exit 1); fi
-
-  unit-test:
-    name: Run Unit Tests
-    runs-on: ubuntu-latest
-    ## IF you want to update the default branch for `pull_request runs, do it after the ||`
-    steps:
-      - name: Create GOPATH
-        run: mkdir -p /tmp/go
-
-      - uses: actions/checkout@v2
-        with:
-          path: "./ipld-ethcl-indexer"
-
-      - uses: actions/checkout@v3
-        with:
-          ref: ${{ env.stack-orchestrator-ref }}
-          path: "./stack-orchestrator/"
-          repository: vulcanize/stack-orchestrator
-          fetch-depth: 0
-
-      - uses: actions/checkout@v3
-        with:
-          ref: ${{ env.ipld-ethcl-db-ref }}
-          repository: vulcanize/ipld-ethcl-db
-          path: "./ipld-ethcl-db/"
-          token: ${{ secrets.GH_PAT }}
-          fetch-depth: 0
-
-      - uses: actions/checkout@v3
-        with:
-          ref: ${{ env.ssz-data-ref }}
-          repository: vulcanize/ssz-data
-          path: "./ipld-ethcl-indexer/pkg/beaconclient/ssz-data"
-          fetch-depth: 0
-
-      - name: Create config file
-        run: |
-          echo vulcanize_ipld_ethcl_db=$GITHUB_WORKSPACE/ipld-ethcl-db/ > ./config.sh
-          echo vulcanize_ipld_ethcl_indexer=$GITHUB_WORKSPACE/ipld-ethcl-indexer >> ./config.sh
-          cat ./config.sh
-
-      - name: Run docker compose
-        run: |
-          docker-compose  \
-          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-ethcl-db.yml" \
-          --env-file ./config.sh \
-          up -d --build
-
-      - uses: actions/setup-go@v3
-        with:
-          go-version: ">=1.17.0"
-          check-latest: true
-
-      - name: Install packages
-        run: |
-          go install github.com/onsi/ginkgo/v2/ginkgo@latest
-          which ginkgo
-
-      - name: Run the tests using Make
-        run: |
-          cd ipld-ethcl-indexer
-          make unit-test-ci
-
-  integration-test:
-    name: Run Integration Tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Create GOPATH
-        run: mkdir -p /tmp/go
-
-      - uses: actions/checkout@v2
-        with:
-          path: "./ipld-ethcl-indexer"
-
-      - uses: actions/checkout@v3
-        with:
-          ref: ${{ env.stack-orchestrator-ref }}
-          path: "./stack-orchestrator/"
-          repository: vulcanize/stack-orchestrator
-          fetch-depth: 0
-
-      - uses: actions/checkout@v3
-        with:
-          ref: ${{ env.ipld-ethcl-db-ref }}
-          repository: vulcanize/ipld-ethcl-db
-          path: "./ipld-ethcl-db/"
-          token: ${{ secrets.GH_PAT }}
-          fetch-depth: 0
-
-      - name: Create config file
-        run: |
-          echo vulcanize_ipld_ethcl_db=$GITHUB_WORKSPACE/ipld-ethcl-db/ > ./config.sh
-          echo vulcanize_ipld_ethcl_indexer=$GITHUB_WORKSPACE/ipld-ethcl-indexer >> ./config.sh
-          echo ethcl_capture_mode=boot >> ./config.sh
-          cat ./config.sh
-
-      - name: Run docker compose
-        run: |
-          docker-compose  \
-          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-ethcl-db.yml" \
-          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/latest/docker-compose-lighthouse.yml" \
-          --env-file ./config.sh \
-          up -d --build
-
-      - uses: actions/setup-go@v3
-        with:
-          go-version: ">=1.17.0"
-          check-latest: true
-
-      - name: Install packages
-        run: |
-          go install github.com/onsi/ginkgo/v2/ginkgo@latest
-          which ginkgo
-
-      - name: Run the tests using Make
-        run: |
-          cd ipld-ethcl-indexer
-          make integration-test-ci
-
-  golangci:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/setup-go@v3
-        with:
-          go-version: ">=1.17.0"
-      - uses: actions/checkout@v3
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v3
-        with:
-          args: --timeout 90s
+  trigger-tests:
+    if: github.event_name != 'schedule'
+    uses: ./.github/workflows/generic-testing.yml
+    with:
+      stack-orchestrator-ref: ${{ github.event.inputs.stack-orchestrator-ref }}
+      ipld-eth-beacon-db-ref: ${{ github.event.inputs.ipld-eth-beacon-db-ref }}
+      ssz-data-ref: ${{ github.event.inputs.ssz-data-ref }}
+    secrets:
+      GHA_KEY: ${{secrets.GHA_KEY}}
+  system-testing:
+    uses: ./.github/workflows/system-tests.yml
+    with:
+      stack-orchestrator-ref: ${{ github.event.inputs.stack-orchestrator-ref }}
+      ipld-eth-beacon-db-ref: ${{ github.event.inputs.ipld-eth-beacon-db-ref }}
+    secrets:
+      GHA_KEY: ${{secrets.GHA_KEY}}
+      BC_ADDRESS: ${{secrets.BC_ADDRESS}}

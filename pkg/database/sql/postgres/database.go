@@ -20,8 +20,8 @@ import (
 	"fmt"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/vulcanize/ipld-ethcl-indexer/pkg/database/sql"
-	"github.com/vulcanize/ipld-ethcl-indexer/pkg/loghelper"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/database/sql"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/loghelper"
 )
 
 var _ sql.Database = &DB{}
@@ -49,7 +49,7 @@ func SetupPostgresDb(dbHostname string, dbPort int, dbName string, dbUsername st
 			"driver_name_provided": driverName,
 		}).Error("Can't resolve driver type")
 	}
-	log.Info("Using Driver:", DbDriver)
+	log.Info("Using Driver: ", DbDriver)
 
 	postgresConfig := Config{
 		Hostname:     dbHostname,
