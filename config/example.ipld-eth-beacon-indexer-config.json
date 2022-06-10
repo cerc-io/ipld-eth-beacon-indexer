@@ -8,7 +8,7 @@
     "driver": "PGX"
   },
   "bc": {
-    "address": "10.203.8.51",
+    "address": "localhost",
     "port": 5052,
     "type": "lighthouse",
     "bootRetryInterval": 30,
