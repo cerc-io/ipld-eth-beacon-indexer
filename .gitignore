@@ -7,3 +7,4 @@ temp/*
 .vscode/*
 pkg/beaconclient/ssz-data/
 *.test
+ipld-eth-beacon-indexer.log
