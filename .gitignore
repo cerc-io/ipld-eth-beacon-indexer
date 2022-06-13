@@ -8,3 +8,4 @@ temp/*
 pkg/beaconclient/ssz-data/
 *.test
 ipld-eth-beacon-indexer.log
+config/local.ipld-eth-beacon-indexer-config.json

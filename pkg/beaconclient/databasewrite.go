@@ -545,7 +545,6 @@ func IsSlotInDb(ctx context.Context, db sql.Database, slot string, blockRoot str
 	var (
 		isInBeaconState       bool
 		isInSignedBeaconBlock bool
-		err                   error
 	)
 	errG, _ := errgroup.WithContext(context.Background())
 	errG.Go(func() error {
@@ -553,6 +552,7 @@ func IsSlotInDb(ctx context.Context, db sql.Database, slot string, blockRoot str
 		case <-ctx.Done():
 			return nil
 		default:
+			var err error
 			isInBeaconState, err = checkSlotAndRoot(db, CheckBeaconStateStmt, slot, stateRoot)
 			if err != nil {
 				loghelper.LogError(err).Error("Unable to check if the slot and stateroot exist in eth_beacon.state")
@@ -565,6 +565,7 @@ func IsSlotInDb(ctx context.Context, db sql.Database, slot string, blockRoot str
 		case <-ctx.Done():
 			return nil
 		default:
+			var err error
 			isInSignedBeaconBlock, err = checkSlotAndRoot(db, CheckSignedBeaconBlockStmt, slot, blockRoot)
 			if err != nil {
 				loghelper.LogError(err).Error("Unable to check if the slot and block_root exist in eth_beacon.signed_block")
