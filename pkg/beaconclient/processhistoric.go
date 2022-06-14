@@ -237,8 +237,11 @@ func removeRowPostProcess(ctx context.Context, db sql.Database, processCh <-chan
 		case slots := <-processCh:
 			// Make sure the start and end slot exist in the slots table.
 			go func() {
-				finishedProcess := false
-				for !finishedProcess {
+				log.WithFields(log.Fields{
+					"startSlot": slots.startSlot,
+					"endSlot":   slots.endSlot,
+				}).Debug("Starting to check to see if the following slots have been processed")
+				for {
 					isStartProcess, err := isSlotProcessed(db, checkProcessedStmt, strconv.Itoa(slots.startSlot))
 					if err != nil {
 						errCh <- err
@@ -248,8 +251,9 @@ func removeRowPostProcess(ctx context.Context, db sql.Database, processCh <-chan
 						errCh <- err
 					}
 					if isStartProcess && isEndProcess {
-						finishedProcess = true
+						break
 					}
+					time.Sleep(1000 * time.Millisecond)
 				}
 
 				_, err := db.Exec(context.Background(), removeStmt, strconv.Itoa(slots.startSlot), strconv.Itoa(slots.endSlot))
