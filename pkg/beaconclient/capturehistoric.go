@@ -100,6 +100,8 @@ func handleBatchProcess(ctx context.Context, maxWorkers int, bp BatchProcessing,
 	// Start workers
 	for w := 1; w <= maxWorkers; w++ {
 		log.WithFields(log.Fields{"maxWorkers": maxWorkers}).Debug("Starting batch  processing workers")
+
+		// Pass in function to increment metric! KnownGapProcessing or HistoricProcessing
 		go processSlotRangeWorker(ctx, workCh, errCh, db, serverEndpoint, metrics, checkDb)
 	}
 
@@ -125,6 +127,7 @@ func handleBatchProcess(ctx context.Context, maxWorkers int, bp BatchProcessing,
 				} else if slots.startSlot == slots.endSlot {
 					log.WithField("slot", slots.startSlot).Debug("Added new slot to workCh")
 					workCh <- slots.startSlot
+					processedCh <- slots
 				} else {
 					for i := slots.startSlot; i <= slots.endSlot; i++ {
 						workCh <- i
