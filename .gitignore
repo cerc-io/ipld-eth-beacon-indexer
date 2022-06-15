@@ -10,3 +10,4 @@ pkg/beaconclient/ssz-data/
 ipld-eth-beacon-indexer.log
 ipld-eth-beacon-indexer
 config/local.ipld-eth-beacon-indexer-config.json
+config/docker.ipld-eth-beacon-indexer-config.json
