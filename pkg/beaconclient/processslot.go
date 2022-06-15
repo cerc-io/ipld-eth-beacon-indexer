@@ -97,7 +97,6 @@ func processFullSlot(ctx context.Context, db sql.Database, serverAddress string,
 	case <-ctx.Done():
 		return nil, ""
 	default:
-		log.SetLevel(log.DebugLevel)
 		totalStart := time.Now()
 		ps := &ProcessSlot{
 			Slot:           slot,
@@ -230,7 +229,6 @@ func processFullSlot(ctx context.Context, db sql.Database, serverAddress string,
 			"performanceMetrics": fmt.Sprintf("%+v\n", ps.PerformanceMetrics),
 		}).Debug("Performance Metric output!")
 
-		log.SetLevel(log.InfoLevel)
 		return nil, ""
 	}
 }
