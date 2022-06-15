@@ -81,11 +81,8 @@ func (hp HistoricProcessing) handleProcessingErrors(ctx context.Context, errMess
 }
 
 // "un"-checkout the rows held by this DB in the eth_beacon.historical_process table.
-func (hp HistoricProcessing) releaseDbLocks(cancel context.CancelFunc) error {
-	cancel()
+func (hp HistoricProcessing) releaseDbLocks() error {
 	log.Debug("Updating all the entries to eth_beacon.historical processing")
-	log.Debug("Db: ", hp.db)
-	log.Debug("hp.uniqueNodeIdentifier ", hp.uniqueNodeIdentifier)
 	res, err := hp.db.Exec(context.Background(), releaseHpLockStmt, hp.uniqueNodeIdentifier)
 	if err != nil {
 		return fmt.Errorf("Unable to remove lock from eth_beacon.historical_processing table for node %d, error is %e", hp.uniqueNodeIdentifier, err)
@@ -100,7 +97,7 @@ func (hp HistoricProcessing) releaseDbLocks(cancel context.CancelFunc) error {
 }
 
 // Process the slot range.
-func processSlotRangeWorker(ctx context.Context, workCh <-chan int, errCh chan<- batchHistoricError, db sql.Database, serverAddress string, metrics *BeaconClientMetrics, checkDb bool) {
+func processSlotRangeWorker(ctx context.Context, workCh <-chan int, errCh chan<- batchHistoricError, db sql.Database, serverAddress string, metrics *BeaconClientMetrics, checkDb bool, incrementTracker func(uint64)) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -115,6 +112,8 @@ func processSlotRangeWorker(ctx context.Context, workCh <-chan int, errCh chan<-
 					slot:       slot,
 				}
 				errCh <- errMs
+			} else {
+				incrementTracker(1)
 			}
 		}
 	}
@@ -149,7 +148,7 @@ func getBatchProcessRow(ctx context.Context, db sql.Database, getStartEndSlotStm
 				errCount = append(errCount, err)
 			}
 			if row < 1 {
-				time.Sleep(1000 * time.Millisecond)
+				time.Sleep(3 * time.Second)
 				log.Debug("We are checking rows, be patient")
 				break
 			}
@@ -176,7 +175,7 @@ func getBatchProcessRow(ctx context.Context, db sql.Database, getStartEndSlotStm
 			err = tx.QueryRow(dbCtx, getStartEndSlotStmt).Scan(&sp.startSlot, &sp.endSlot)
 			if err != nil {
 				if err == pgx.ErrNoRows {
-					time.Sleep(100 * time.Millisecond)
+					time.Sleep(1 * time.Second)
 					break
 				}
 				loghelper.LogSlotRangeStatementError(strconv.Itoa(sp.startSlot), strconv.Itoa(sp.endSlot), getStartEndSlotStmt, err).Error("Unable to get a row")
@@ -253,7 +252,7 @@ func removeRowPostProcess(ctx context.Context, db sql.Database, processCh <-chan
 					if isStartProcess && isEndProcess {
 						break
 					}
-					time.Sleep(1000 * time.Millisecond)
+					time.Sleep(3 * time.Second)
 				}
 
 				_, err := db.Exec(context.Background(), removeStmt, strconv.Itoa(slots.startSlot), strconv.Itoa(slots.endSlot))

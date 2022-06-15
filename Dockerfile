@@ -9,7 +9,7 @@ COPY go.sum .
 RUN go mod tidy; go mod download
 COPY . .
 
-RUN GCO_ENABLED=0 GOOS=linux go build -race -a -installsuffix cgo -ldflags '-extldflags "-static"' -o ipld-eth-beacon-indexer .
+RUN GCO_ENABLED=0 GOOS=linux go build -race -ldflags="-s -w" -o ipld-eth-beacon-indexer .
 RUN chmod +x ipld-eth-beacon-indexer
 
 FROM frolvlad/alpine-bash:latest
