@@ -31,7 +31,7 @@ import (
 func (bc *BeaconClient) CaptureHistoric(ctx context.Context, maxWorkers int) []error {
 	log.Info("We are starting the historical processing service.")
 	bc.HistoricalProcess = HistoricProcessing{db: bc.Db, metrics: bc.Metrics, uniqueNodeIdentifier: bc.UniqueNodeIdentifier}
-	errs := handleBatchProcess(ctx, maxWorkers, bc.HistoricalProcess, bc.HistoricalProcess.db, bc.ServerEndpoint, bc.Metrics, bc.CheckDb)
+	errs := handleBatchProcess(ctx, maxWorkers, bc.HistoricalProcess, bc.HistoricalProcess.db, bc.ServerEndpoint, bc.Metrics, bc.CheckDb, bc.Metrics.IncrementHistoricSlotProcessed)
 	log.Debug("Exiting Historical")
 	return errs
 }
@@ -39,7 +39,8 @@ func (bc *BeaconClient) CaptureHistoric(ctx context.Context, maxWorkers int) []e
 // This function will perform all the necessary clean up tasks for stopping historical processing.
 func (bc *BeaconClient) StopHistoric(cancel context.CancelFunc) error {
 	log.Info("We are stopping the historical processing service.")
-	err := bc.HistoricalProcess.releaseDbLocks(cancel)
+	cancel()
+	err := bc.HistoricalProcess.releaseDbLocks()
 	if err != nil {
 		loghelper.LogError(err).WithField("uniqueIdentifier", bc.UniqueNodeIdentifier).Error("We were unable to remove the locks from the eth_beacon.historic_processing table. Manual Intervention is needed!")
 	}
@@ -55,7 +56,7 @@ type BatchProcessing interface {
 	getSlotRange(context.Context, chan<- slotsToProcess) []error       // Write the slots to process in a channel, return an error if you cant get the next slots to write.
 	handleProcessingErrors(context.Context, <-chan batchHistoricError) // Custom logic to handle errors.
 	removeTableEntry(context.Context, <-chan slotsToProcess) error     // With the provided start and end slot, remove the entry from the database.
-	releaseDbLocks(context.CancelFunc) error                           // Update the checked_out column to false for whatever table is being updated.
+	releaseDbLocks() error                                             // Update the checked_out column to false for whatever table is being updated.
 }
 
 /// ^^^
@@ -90,19 +91,24 @@ type batchHistoricError struct {
 // 4. Remove the slot entry from the DB.
 //
 // 5. Handle any errors.
-func handleBatchProcess(ctx context.Context, maxWorkers int, bp BatchProcessing, db sql.Database, serverEndpoint string, metrics *BeaconClientMetrics, checkDb bool) []error {
+func handleBatchProcess(ctx context.Context, maxWorkers int, bp BatchProcessing, db sql.Database, serverEndpoint string, metrics *BeaconClientMetrics, checkDb bool, incrementTracker func(uint64)) []error {
 	slotsCh := make(chan slotsToProcess)
 	workCh := make(chan int)
 	processedCh := make(chan slotsToProcess)
 	errCh := make(chan batchHistoricError)
 	finalErrCh := make(chan []error, 1)
 
+	// Checkout Rows with same node Identifier.
+	err := bp.releaseDbLocks()
+	if err != nil {
+		loghelper.LogError(err).Error(("We are unable to un-checkout entries at the start!"))
+	}
+
 	// Start workers
 	for w := 1; w <= maxWorkers; w++ {
-		log.WithFields(log.Fields{"maxWorkers": maxWorkers}).Debug("Starting batch  processing workers")
+		log.WithFields(log.Fields{"maxWorkers": maxWorkers}).Debug("Starting batch processing workers")
 
-		// Pass in function to increment metric! KnownGapProcessing or HistoricProcessing
-		go processSlotRangeWorker(ctx, workCh, errCh, db, serverEndpoint, metrics, checkDb)
+		go processSlotRangeWorker(ctx, workCh, errCh, db, serverEndpoint, metrics, checkDb, incrementTracker)
 	}
 
 	// Process all ranges and send each individual slot to the worker.

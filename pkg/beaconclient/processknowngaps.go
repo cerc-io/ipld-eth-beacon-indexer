@@ -61,7 +61,7 @@ type KnownGapsProcessing struct {
 func (bc *BeaconClient) ProcessKnownGaps(ctx context.Context, maxWorkers int) []error {
 	log.Info("We are starting the known gaps processing service.")
 	bc.KnownGapsProcess = KnownGapsProcessing{db: bc.Db, uniqueNodeIdentifier: bc.UniqueNodeIdentifier, metrics: bc.Metrics}
-	errs := handleBatchProcess(ctx, maxWorkers, bc.KnownGapsProcess, bc.KnownGapsProcess.db, bc.ServerEndpoint, bc.Metrics, bc.CheckDb)
+	errs := handleBatchProcess(ctx, maxWorkers, bc.KnownGapsProcess, bc.KnownGapsProcess.db, bc.ServerEndpoint, bc.Metrics, bc.CheckDb, bc.Metrics.IncrementKnownGapsProcessed)
 	log.Debug("Exiting known gaps processing service")
 	return errs
 }
@@ -69,7 +69,8 @@ func (bc *BeaconClient) ProcessKnownGaps(ctx context.Context, maxWorkers int) []
 // This function will perform all the necessary clean up tasks for stopping historical processing.
 func (bc *BeaconClient) StopKnownGapsProcessing(cancel context.CancelFunc) error {
 	log.Info("We are stopping the known gaps processing service.")
-	err := bc.KnownGapsProcess.releaseDbLocks(cancel)
+	cancel()
+	err := bc.KnownGapsProcess.releaseDbLocks()
 	if err != nil {
 		loghelper.LogError(err).WithField("uniqueIdentifier", bc.UniqueNodeIdentifier).Error("We were unable to remove the locks from the eth_beacon.known_gaps table. Manual Intervention is needed!")
 	}
@@ -121,11 +122,8 @@ func (kgp KnownGapsProcessing) handleProcessingErrors(ctx context.Context, errMe
 }
 
 // Updated checked_out column for the uniqueNodeIdentifier.
-func (kgp KnownGapsProcessing) releaseDbLocks(cancel context.CancelFunc) error {
-	cancel()
+func (kgp KnownGapsProcessing) releaseDbLocks() error {
 	log.Debug("Updating all the entries to eth_beacon.known_gaps")
-	log.Debug("Db: ", kgp.db)
-	log.Debug("kgp.uniqueNodeIdentifier ", kgp.uniqueNodeIdentifier)
 	res, err := kgp.db.Exec(context.Background(), releaseKgLockStmt, kgp.uniqueNodeIdentifier)
 	if err != nil {
 		return err

@@ -54,6 +54,10 @@ func CreateBeaconClientMetrics() (*BeaconClientMetrics, error) {
 	if err != nil {
 		return nil, err
 	}
+	err = prometheusRegisterHelper("historic_slots_processed", "Keeps track of the number of historic slots we successfully processed.", &metrics.HistoricSlotProcessed)
+	if err != nil {
+		return nil, err
+	}
 	err = prometheusRegisterHelper("head_error", "Keeps track of the number of errors we had processing head messages.", &metrics.HeadError)
 	if err != nil {
 		return nil, err
@@ -91,6 +95,7 @@ type BeaconClientMetrics struct {
 	KnownGapsInserts        uint64 // Number of known_gaps we successfully wrote to the DB.
 	KnownGapsProcessed      uint64 // Number of knownGaps processed.
 	KnownGapsReprocessError uint64 // Number of knownGaps that were updated with an error.
+	HistoricSlotProcessed   uint64 // Number of historic slots successfully processed.
 	HeadError               uint64 // Number of errors that occurred when decoding the head message.
 	HeadReorgError          uint64 // Number of errors that occurred when decoding the reorg message.
 }
@@ -135,6 +140,11 @@ func (m *BeaconClientMetrics) IncrementReorgError(inc uint64) {
 // Wrapper function to increment the number of knownGaps that were updated with reprocessing errors.
 //If we want to use mutexes later we can easily update all occurrences here.
 func (m *BeaconClientMetrics) IncrementKnownGapsReprocessError(inc uint64) {
-	log.Debug("Incrementing Known Gap Reprocessing: ", &m.KnownGapsReprocessError)
 	atomic.AddUint64(&m.KnownGapsReprocessError, inc)
+}
+
+// Wrapper function to increment the number of historicSlots that were processed successfully.
+// If we want to use mutexes later we can easily update all occurrences here.
+func (m *BeaconClientMetrics) IncrementHistoricSlotProcessed(inc uint64) {
+	atomic.AddUint64(&m.HistoricSlotProcessed, inc)
 }
