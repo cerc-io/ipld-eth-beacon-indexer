@@ -90,12 +90,12 @@ type DatabaseWriter struct {
 	DbSlots              *DbSlots
 	DbSignedBeaconBlock  *DbSignedBeaconBlock
 	DbBeaconState        *DbBeaconState
-	rawBeaconState       []byte
-	rawSignedBeaconBlock []byte
+	rawBeaconState       *[]byte
+	rawSignedBeaconBlock *[]byte
 }
 
 func CreateDatabaseWrite(db sql.Database, slot int, stateRoot string, blockRoot string, parentBlockRoot string,
-	eth1BlockHash string, status string, rawSignedBeaconBlock []byte, rawBeaconState []byte, metrics *BeaconClientMetrics) (*DatabaseWriter, error) {
+	eth1BlockHash string, status string, rawSignedBeaconBlock *[]byte, rawBeaconState *[]byte, metrics *BeaconClientMetrics) (*DatabaseWriter, error) {
 	ctx := context.Background()
 	tx, err := db.Begin(ctx)
 	if err != nil {
@@ -194,6 +194,7 @@ func (dw *DatabaseWriter) transactFullSlot() error {
 		//	return err
 		//}
 		// Might want to seperate writing to public.blocks so we can do this concurrently...
+		// Cant concurrently write because we are using a transaction.
 		err := dw.transactSignedBeaconBlocks()
 		if err != nil {
 			loghelper.LogSlotError(dw.DbSlots.Slot, err).Error("We couldn't write to the eth_beacon block table...")
@@ -240,8 +241,8 @@ func (dw *DatabaseWriter) transactSignedBeaconBlocks() error {
 }
 
 // Upsert to public.blocks.
-func (dw *DatabaseWriter) upsertPublicBlocks(key string, data []byte) error {
-	_, err := dw.Tx.Exec(dw.Ctx, UpsertBlocksStmt, key, data)
+func (dw *DatabaseWriter) upsertPublicBlocks(key string, data *[]byte) error {
+	_, err := dw.Tx.Exec(dw.Ctx, UpsertBlocksStmt, key, *data)
 	if err != nil {
 		loghelper.LogSlotError(dw.DbSlots.Slot, err).Error("Unable to write to the slot to the public.blocks table")
 		return err

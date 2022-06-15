@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v4"
 	si "github.com/prysmaticlabs/prysm/consensus-types/interfaces"
@@ -50,15 +51,16 @@ var (
 type ProcessSlot struct {
 	// Generic
 
-	Slot            int                  // The slot number.
-	Epoch           int                  // The epoch number.
-	BlockRoot       string               // The hex encoded string of the BlockRoot.
-	StateRoot       string               // The hex encoded string of the StateRoot.
-	ParentBlockRoot string               // The hex encoded string of the parent block.
-	Status          string               // The status of the block
-	HeadOrHistoric  string               // Is this the head or a historic slot. This is critical when trying to analyze errors and skipped slots.
-	Db              sql.Database         // The DB object used to write to the DB.
-	Metrics         *BeaconClientMetrics // An object to keep track of the beaconclient metrics
+	Slot               int                  // The slot number.
+	Epoch              int                  // The epoch number.
+	BlockRoot          string               // The hex encoded string of the BlockRoot.
+	StateRoot          string               // The hex encoded string of the StateRoot.
+	ParentBlockRoot    string               // The hex encoded string of the parent block.
+	Status             string               // The status of the block
+	HeadOrHistoric     string               // Is this the head or a historic slot. This is critical when trying to analyze errors and skipped slots.
+	Db                 sql.Database         // The DB object used to write to the DB.
+	Metrics            *BeaconClientMetrics // An object to keep track of the beaconclient metrics
+	PerformanceMetrics PerformanceMetrics   // An object to keep track of performance metrics.
 	// BeaconBlock
 
 	SszSignedBeaconBlock  []byte               // The entire SSZ encoded SignedBeaconBlock
@@ -74,6 +76,19 @@ type ProcessSlot struct {
 	DbBeaconState            *DbBeaconState       // The model being written to the state table.
 }
 
+type PerformanceMetrics struct {
+	BeaconNodeBlockRetrievalTime time.Duration // How long it took to get the BeaconBlock from the Beacon Node.
+	BeaconNodeStateRetrievalTime time.Duration // How long it took to get the BeaconState from the Beacon Node.
+	ParseBeaconObjectForHash     time.Duration // How long it took to get some information from the beacon objects.
+	CheckDbPreProcessing         time.Duration // How long it takes to check the DB before processing a block.
+	CreateDbWriteObject          time.Duration // How long it takes to create a DB write object.
+	TransactSlotOnly             time.Duration // How long it takes to transact the slot information only.
+	CheckReorg                   time.Duration // How long it takes to check for Reorgs
+	CommitTransaction            time.Duration // How long it takes to commit the final transaction.
+	TotalDbTransaction           time.Duration // How long it takes from start to committing the entire DB transaction.
+	TotalProcessing              time.Duration // How long it took to process the entire slot.
+}
+
 // This function will do all the work to process the slot and write it to the DB.
 // It will return the error and error process. The error process is used for providing reach detail to the
 // known_gaps table.
@@ -82,6 +97,7 @@ func processFullSlot(ctx context.Context, db sql.Database, serverAddress string,
 	case <-ctx.Done():
 		return nil, ""
 	default:
+		totalStart := time.Now()
 		ps := &ProcessSlot{
 			Slot:           slot,
 			BlockRoot:      blockRoot,
@@ -89,6 +105,18 @@ func processFullSlot(ctx context.Context, db sql.Database, serverAddress string,
 			HeadOrHistoric: headOrHistoric,
 			Db:             db,
 			Metrics:        metrics,
+			PerformanceMetrics: PerformanceMetrics{
+				BeaconNodeBlockRetrievalTime: 0,
+				BeaconNodeStateRetrievalTime: 0,
+				ParseBeaconObjectForHash:     0,
+				CheckDbPreProcessing:         0,
+				CreateDbWriteObject:          0,
+				TransactSlotOnly:             0,
+				CheckReorg:                   0,
+				CommitTransaction:            0,
+				TotalDbTransaction:           0,
+				TotalProcessing:              0,
+			},
 		}
 
 		g, _ := errgroup.WithContext(context.Background())
@@ -100,10 +128,12 @@ func processFullSlot(ctx context.Context, db sql.Database, serverAddress string,
 			case <-ctx.Done():
 				return nil
 			default:
+				start := time.Now()
 				err := ps.getBeaconState(serverAddress, vUnmarshalerCh)
 				if err != nil {
 					return err
 				}
+				ps.PerformanceMetrics.BeaconNodeStateRetrievalTime = time.Since(start)
 				return nil
 			}
 		})
@@ -114,10 +144,12 @@ func processFullSlot(ctx context.Context, db sql.Database, serverAddress string,
 			case <-ctx.Done():
 				return nil
 			default:
+				start := time.Now()
 				err := ps.getSignedBeaconBlock(serverAddress, vUnmarshalerCh)
 				if err != nil {
 					return err
 				}
+				ps.PerformanceMetrics.BeaconNodeBlockRetrievalTime = time.Since(start)
 				return nil
 			}
 		})
@@ -126,11 +158,15 @@ func processFullSlot(ctx context.Context, db sql.Database, serverAddress string,
 			return err, "processSlot"
 		}
 
+		parseBeaconTime := time.Now()
 		finalBlockRoot, finalStateRoot, finalEth1BlockHash, err := ps.provideFinalHash()
 		if err != nil {
 			return err, "CalculateBlockRoot"
 		}
+		ps.PerformanceMetrics.ParseBeaconObjectForHash = time.Since(parseBeaconTime)
+
 		if checkDb {
+			checkDbTime := time.Now()
 			inDb, err := IsSlotInDb(ctx, ps.Db, strconv.Itoa(ps.Slot), finalBlockRoot, finalStateRoot)
 			if err != nil {
 				return err, "checkDb"
@@ -139,26 +175,35 @@ func processFullSlot(ctx context.Context, db sql.Database, serverAddress string,
 				log.WithField("slot", slot).Info("Slot already in the DB.")
 				return nil, ""
 			}
+			ps.PerformanceMetrics.CheckDbPreProcessing = time.Since(checkDbTime)
 		}
 
 		// Get this object ready to write
+		createDbWriteTime := time.Now()
 		dw, err := ps.createWriteObjects(finalBlockRoot, finalStateRoot, finalEth1BlockHash)
 		if err != nil {
 			return err, "blockRoot"
 		}
+		ps.PerformanceMetrics.CreateDbWriteObject = time.Since(createDbWriteTime)
+
 		// Write the object to the DB.
+		dbFullTransactionTime := time.Now()
 		defer func() {
 			err := dw.Tx.Rollback(dw.Ctx)
 			if err != nil && err != pgx.ErrTxClosed {
 				loghelper.LogError(err).Error("We were unable to Rollback a transaction")
 			}
 		}()
+
+		transactionTime := time.Now()
 		err = dw.transactFullSlot()
 		if err != nil {
 			return err, "processSlot"
 		}
+		ps.PerformanceMetrics.TransactSlotOnly = time.Since(transactionTime)
 
 		// Handle any reorgs or skipped slots.
+		reorgTime := time.Now()
 		headOrHistoric = strings.ToLower(headOrHistoric)
 		if headOrHistoric != "head" && headOrHistoric != "historic" {
 			return fmt.Errorf("headOrHistoric must be either historic or head!"), ""
@@ -166,11 +211,23 @@ func processFullSlot(ctx context.Context, db sql.Database, serverAddress string,
 		if ps.HeadOrHistoric == "head" && previousSlot != 0 && previousBlockRoot != "" && ps.Status != "skipped" {
 			ps.checkPreviousSlot(dw.Tx, dw.Ctx, previousSlot, previousBlockRoot, knownGapsTableIncrement)
 		}
+		ps.PerformanceMetrics.CheckReorg = time.Since(reorgTime)
 
 		// Commit the transaction
+		commitTime := time.Now()
 		if err = dw.Tx.Commit(dw.Ctx); err != nil {
 			return err, "transactionCommit"
 		}
+		ps.PerformanceMetrics.CommitTransaction = time.Since(commitTime)
+
+		// Total metric capture time.
+		ps.PerformanceMetrics.TotalDbTransaction = time.Since(dbFullTransactionTime)
+		ps.PerformanceMetrics.TotalProcessing = time.Since(totalStart)
+
+		log.WithFields(log.Fields{
+			"slot":               slot,
+			"performanceMetrics": fmt.Sprintf("%+v\n", ps.PerformanceMetrics),
+		}).Debug("Performance Metric output!")
 
 		return nil, ""
 	}
@@ -261,23 +318,24 @@ func (ps *ProcessSlot) getBeaconState(serverEndpoint string, vmCh chan<- *dt.Ver
 // Check to make sure that the previous block we processed is the parent of the current block.
 func (ps *ProcessSlot) checkPreviousSlot(tx sql.Tx, ctx context.Context, previousSlot int, previousBlockRoot string, knownGapsTableIncrement int) {
 	parentRoot := "0x" + hex.EncodeToString(ps.FullSignedBeaconBlock.Block().ParentRoot())
-	if previousSlot == int(ps.FullBeaconState.Slot()) {
+	slot := int(ps.FullBeaconState.Slot())
+	if previousSlot == slot {
 		log.WithFields(log.Fields{
-			"slot": ps.FullBeaconState.Slot(),
+			"slot": slot,
 			"fork": true,
 		}).Warn("A fork occurred! The previous slot and current slot match.")
 		transactReorgs(tx, ctx, strconv.Itoa(ps.Slot), ps.BlockRoot, ps.Metrics)
-	} else if previousSlot > int(ps.FullBeaconState.Slot()) {
+	} else if previousSlot > slot {
 		log.WithFields(log.Fields{
 			"previousSlot": previousSlot,
-			"curSlot":      int(ps.FullBeaconState.Slot()),
+			"curSlot":      slot,
 		}).Warn("We noticed the previous slot is greater than the current slot.")
-	} else if previousSlot+1 != int(ps.FullBeaconState.Slot()) {
+	} else if previousSlot+1 != slot {
 		log.WithFields(log.Fields{
 			"previousSlot": previousSlot,
-			"currentSlot":  ps.FullBeaconState.Slot(),
+			"currentSlot":  slot,
 		}).Error("We skipped a few slots.")
-		transactKnownGaps(tx, ctx, knownGapsTableIncrement, previousSlot+1, int(ps.FullBeaconState.Slot())-1, fmt.Errorf("Gaps during head processing"), "headGaps", ps.Metrics)
+		transactKnownGaps(tx, ctx, knownGapsTableIncrement, previousSlot+1, slot-1, fmt.Errorf("Gaps during head processing"), "headGaps", ps.Metrics)
 	} else if previousBlockRoot != parentRoot {
 		log.WithFields(log.Fields{
 			"previousBlockRoot":  previousBlockRoot,
@@ -298,7 +356,7 @@ func (ps *ProcessSlot) createWriteObjects(blockRoot, stateRoot, eth1BlockHash st
 		status = "proposed"
 	}
 
-	dw, err := CreateDatabaseWrite(ps.Db, ps.Slot, stateRoot, blockRoot, ps.ParentBlockRoot, eth1BlockHash, status, ps.SszSignedBeaconBlock, ps.SszBeaconState, ps.Metrics)
+	dw, err := CreateDatabaseWrite(ps.Db, ps.Slot, stateRoot, blockRoot, ps.ParentBlockRoot, eth1BlockHash, status, &ps.SszSignedBeaconBlock, &ps.SszBeaconState, ps.Metrics)
 	if err != nil {
 		return dw, err
 	}

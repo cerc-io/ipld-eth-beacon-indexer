@@ -49,6 +49,7 @@ jobs:
           echo vulcanize_ipld_eth_beacon_db=$GITHUB_WORKSPACE/ipld-eth-beacon-db/ > ./config.sh
           echo vulcanize_ipld_eth_beacon_indexer=$GITHUB_WORKSPACE/ipld-eth-beacon-indexer >> ./config.sh
           echo eth_beacon_config_file=$GITHUB_WORKSPACE/ipld-eth-beacon-indexer/config/cicd/boot.ipld-eth-beacon-indexer.json >> ./config.sh
+          echo eth_beacon_capture_mode=boot >> ./config.sh
           cat ./config.sh
 
       - name: Run docker compose
@@ -159,7 +160,6 @@ jobs:
         run: |
           echo vulcanize_ipld_eth_beacon_db=$GITHUB_WORKSPACE/ipld-eth-beacon-db/ > ./config.sh
           echo vulcanize_ipld_eth_beacon_indexer=$GITHUB_WORKSPACE/ipld-eth-beacon-indexer >> ./config.sh
-          echo eth_beacon_capture_mode=boot >> ./config.sh
           cat ./config.sh
 
       - name: Run docker compose
