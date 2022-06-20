@@ -18,7 +18,7 @@ on:
 env:
   stack-orchestrator-ref: ${{ inputs.stack-orchestrator-ref }}
   ipld-eth-beacon-db-ref: ${{ inputs.ipld-eth-beacon-db-ref }}
-  ssz-data-ref: ${{ inputs.ssz-data-ref }
+  ssz-data-ref: ${{ inputs.ssz-data-ref }}
   GOPATH: /tmp/go
 jobs:
   build:
