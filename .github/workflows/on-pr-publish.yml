@@ -2,9 +2,50 @@ name: Publish Docker image
 on:
   release:
     types: [published, edited]
+  workflow_dispatch:
+    inputs:
+      stack-orchestrator-ref:
+        description: "The branch, commit or sha from stack-orchestrator to checkout"
+        required: false
+        default: "7fb664270a0ba09e2caa3095e8c91f3fdb5b38af"
+      ipld-eth-beacon-db-ref:
+        description: "The branch, commit or sha from ipld-eth-beacon-db to checkout"
+        required: false
+        default: "3dfe416302d553f8240f6051c08a7899b0e39e12"
+      ssz-data-ref:
+        description: "The branch, commit or sha from ssz-data to checkout"
+        required: false
+        default: "main"
+  pull_request:
+    paths:
+      - "!**.md"
+      - "!.gitignore"
+      - "!LICENSE"
+      - "!.github/workflows/**"
+      - ".github/workflows/on-pr.yml"
+      - ".github/workflows/tests.yml"
+      - "**"
+  schedule:
+    - cron: '0 13 * * *' # Must be single quotes!!
 jobs:
+  pre_job:
+    # continue-on-error: true # Uncomment once integration is finished
+    runs-on: ubuntu-latest
+    # Map a step output to a job output
+    outputs:
+      should_skip: ${{ steps.skip_check.outputs.should_skip }}
+    steps:
+      - id: skip_check
+        uses: fkirc/skip-duplicate-actions@v4
+        with:
+          # All of these options are optional, so you can remove them if you are happy with the defaults
+          concurrent_skipping: "never"
+          skip_after_successful_duplicate: "true"
+          do_not_skip: '["workflow_dispatch", "schedule"]'
   trigger-tests:
     uses: ./.github/workflows/generic-testing.yml
+    if: ${{ needs.pre_job.outputs.should_skip != 'true' }}
+    needs: pre_job
     with:
       stack-orchestrator-ref: ${{ github.event.inputs.stack-orchestrator-ref }}
       ipld-eth-beacon-db-ref: ${{ github.event.inputs.ipld-eth-beacon-db-ref }}
@@ -12,6 +53,8 @@ jobs:
     secrets:
       GHA_KEY: ${{secrets.GHA_KEY}}
   system-testing:
+    if: ${{ needs.pre_job.outputs.should_skip != 'true' }}
+    needs: pre_job
     uses: ./.github/workflows/system-tests.yml
     with:
       stack-orchestrator-ref: ${{ github.event.inputs.stack-orchestrator-ref }}
@@ -25,6 +68,11 @@ jobs:
     needs:
       - trigger-tests
       - system-testing
+    if: |
+      always() &&
+      (needs.trigger-tests.result == 'success' || needs.trigger-tests.result == 'skipped') &&
+      (needs.system-testing.result == 'success' || needs.system-testing.result == 'skipped') &&
+      github.event_name == 'release'
     steps:
       - uses: actions/checkout@v2
       - name: Get the version
@@ -42,6 +90,10 @@ jobs:
     name: Push Docker image to Docker Hub
     runs-on: ubuntu-latest
     needs: build
+    if: |
+      always() &&
+      (needs.build.result == 'success') &&
+      github.event_name == 'release'
     steps:
       - name: Get the version
         id: vars

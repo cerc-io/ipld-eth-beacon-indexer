@@ -3,22 +3,22 @@ on:
   workflow_call:
     inputs:
       stack-orchestrator-ref:
-        required: false
+        required: true
         type: string
       ipld-eth-beacon-db-ref:
-        required: false
+        required: true
         type: string
       ssz-data-ref:
-        required: false
+        required: true
         type: string
     secrets:
       GHA_KEY:
         required: true
 
 env:
-  stack-orchestrator-ref: ${{ inputs.stack-orchestrator-ref || '7fb664270a0ba09e2caa3095e8c91f3fdb5b38af' }}
-  ipld-eth-beacon-db-ref: ${{ inputs.ipld-eth-beacon-db-ref  || '3dfe416302d553f8240f6051c08a7899b0e39e12' }}
-  ssz-data-ref: ${{ inputs.ssz-data-ref || 'main' }}
+  stack-orchestrator-ref: ${{ inputs.stack-orchestrator-ref }}
+  ipld-eth-beacon-db-ref: ${{ inputs.ipld-eth-beacon-db-ref }}
+  ssz-data-ref: ${{ inputs.ssz-data-ref }
   GOPATH: /tmp/go
 jobs:
   build:
