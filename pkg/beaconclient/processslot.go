@@ -63,12 +63,12 @@ type ProcessSlot struct {
 	PerformanceMetrics PerformanceMetrics   // An object to keep track of performance metrics.
 	// BeaconBlock
 
-	SszSignedBeaconBlock  []byte               // The entire SSZ encoded SignedBeaconBlock
+	SszSignedBeaconBlock  *[]byte              // The entire SSZ encoded SignedBeaconBlock
 	FullSignedBeaconBlock si.SignedBeaconBlock // The unmarshaled BeaconState object, the unmarshalling could have errors.
 
 	// BeaconState
 	FullBeaconState state.BeaconState // The unmarshaled BeaconState object, the unmarshalling could have errors.
-	SszBeaconState  []byte            // The entire SSZ encoded BeaconState
+	SszBeaconState  *[]byte           // The entire SSZ encoded BeaconState
 
 	// DB Write objects
 	DbSlotsModel             *DbSlots             // The model being written to the slots table.
@@ -155,6 +155,11 @@ func processFullSlot(ctx context.Context, db sql.Database, serverAddress string,
 		})
 
 		if err := g.Wait(); err != nil {
+			// Make sure channel is empty.
+			select {
+			case <-vUnmarshalerCh:
+			default:
+			}
 			return err, "processSlot"
 		}
 
@@ -270,7 +275,7 @@ func (ps *ProcessSlot) getSignedBeaconBlock(serverAddress string, vmCh <-chan *d
 	vm := <-vmCh
 	if rc != 200 {
 		ps.FullSignedBeaconBlock = &wrapper.Phase0SignedBeaconBlock{}
-		ps.SszSignedBeaconBlock = []byte{}
+		ps.SszSignedBeaconBlock = &[]byte{}
 		ps.ParentBlockRoot = ""
 		ps.Status = "skipped"
 		return nil
@@ -280,7 +285,7 @@ func (ps *ProcessSlot) getSignedBeaconBlock(serverAddress string, vmCh <-chan *d
 		return fmt.Errorf(VersionedUnmarshalerError)
 	}
 
-	ps.FullSignedBeaconBlock, err = vm.UnmarshalBeaconBlock(ps.SszSignedBeaconBlock)
+	ps.FullSignedBeaconBlock, err = vm.UnmarshalBeaconBlock(*ps.SszSignedBeaconBlock)
 	if err != nil {
 		loghelper.LogSlotError(strconv.Itoa(ps.Slot), err).Warn("Unable to process the slots SignedBeaconBlock")
 		return nil
@@ -300,14 +305,14 @@ func (ps *ProcessSlot) getBeaconState(serverEndpoint string, vmCh chan<- *dt.Ver
 	stateEndpoint := serverEndpoint + BcStateQueryEndpoint + stateIdentifier
 	ps.SszBeaconState, _, _ = querySsz(stateEndpoint, strconv.Itoa(ps.Slot))
 
-	versionedUnmarshaler, err := dt.FromState(ps.SszBeaconState)
+	versionedUnmarshaler, err := dt.FromState(*ps.SszBeaconState)
 	if err != nil {
 		loghelper.LogSlotError(strconv.Itoa(ps.Slot), err).Error(VersionedUnmarshalerError)
 		vmCh <- nil
 		return fmt.Errorf(VersionedUnmarshalerError)
 	}
 	vmCh <- versionedUnmarshaler
-	ps.FullBeaconState, err = versionedUnmarshaler.UnmarshalBeaconState(ps.SszBeaconState)
+	ps.FullBeaconState, err = versionedUnmarshaler.UnmarshalBeaconState(*ps.SszBeaconState)
 	if err != nil {
 		loghelper.LogSlotError(strconv.Itoa(ps.Slot), err).Error("Unable to process the slots BeaconState")
 		return err
@@ -356,7 +361,7 @@ func (ps *ProcessSlot) createWriteObjects(blockRoot, stateRoot, eth1BlockHash st
 		status = "proposed"
 	}
 
-	dw, err := CreateDatabaseWrite(ps.Db, ps.Slot, stateRoot, blockRoot, ps.ParentBlockRoot, eth1BlockHash, status, &ps.SszSignedBeaconBlock, &ps.SszBeaconState, ps.Metrics)
+	dw, err := CreateDatabaseWrite(ps.Db, ps.Slot, stateRoot, blockRoot, ps.ParentBlockRoot, eth1BlockHash, status, ps.SszSignedBeaconBlock, ps.SszBeaconState, ps.Metrics)
 	if err != nil {
 		return dw, err
 	}

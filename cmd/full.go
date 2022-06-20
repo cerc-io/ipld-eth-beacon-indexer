@@ -19,6 +19,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strconv"
 
 	log "github.com/sirupsen/logrus"
@@ -104,6 +105,12 @@ func startFullProcessing() {
 			if err := errG.Wait(); err != nil {
 				loghelper.LogError(err).Error("Error with knownGaps processing")
 			}
+		}()
+	}
+
+	if viper.GetBool("t.pprof") {
+		go func() {
+			log.Println(http.ListenAndServe(fmt.Sprint("localhost:"+strconv.Itoa(viper.GetInt("t.pprofPort"))), nil))
 		}()
 	}
 

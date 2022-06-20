@@ -18,7 +18,10 @@ package cmd
 
 import (
 	"context"
+	"fmt"
+	"net/http"
 	"os"
+	"strconv"
 	"syscall"
 
 	log "github.com/sirupsen/logrus"
@@ -59,6 +62,12 @@ func bootApp() {
 	go func() {
 		notifierCh <- syscall.SIGTERM
 	}()
+
+	if viper.GetBool("t.pprof") {
+		go func() {
+			log.Println(http.ListenAndServe(fmt.Sprint("localhost:"+strconv.Itoa(viper.GetInt("t.pprofPort"))), nil))
+		}()
+	}
 
 	err = shutdown.ShutdownBoot(ctx, notifierCh, maxWaitSecondsShutdown, Db, Bc)
 	if err != nil {

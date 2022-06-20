@@ -28,7 +28,7 @@ import (
 )
 
 // A helper function to query endpoints that utilize slots.
-func querySsz(endpoint string, slot string) ([]byte, int, error) {
+func querySsz(endpoint string, slot string) (*[]byte, int, error) {
 	log.WithFields(log.Fields{"endpoint": endpoint}).Debug("Querying endpoint")
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", endpoint, nil)
@@ -49,7 +49,7 @@ func querySsz(endpoint string, slot string) ([]byte, int, error) {
 		loghelper.LogSlotError(slot, err).Error("Unable to turn response into a []bytes array!")
 		return nil, rc, fmt.Errorf("Unable to turn response into a []bytes array!: %s", err.Error())
 	}
-	return body, rc, nil
+	return &body, rc, nil
 }
 
 // Object to unmarshal the BlockRootResponse

@@ -19,7 +19,9 @@
     "checkDb": true
   },
   "t": {
-    "skipSync": true
+    "skipSync": true,
+    "pprof": true,
+    "pprofPort": 6060
   },
   "log": {
     "level": "debug",

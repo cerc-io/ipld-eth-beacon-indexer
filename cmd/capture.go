@@ -50,6 +50,8 @@ var (
 	maxWaitSecondsShutdown     time.Duration  = time.Duration(20) * time.Second
 	notifierCh                 chan os.Signal = make(chan os.Signal, 1)
 	testDisregardSync          bool
+	isTestPprof                bool
+	testPprofPort              int
 )
 
 // captureCmd represents the capture command
@@ -114,6 +116,8 @@ func init() {
 
 	//// Testing Specific
 	captureCmd.PersistentFlags().BoolVar(&testDisregardSync, "t.skipSync", false, "Should we disregard the head sync?")
+	captureCmd.PersistentFlags().BoolVar(&isTestPprof, "t.pprof", false, "Should we start pprof?")
+	captureCmd.PersistentFlags().IntVar(&testPprofPort, "t.pprofPort", 6060, "What port should we export pprof at?")
 
 	// Bind Flags with Viper
 	//// DB Flags
@@ -132,6 +136,10 @@ func init() {
 
 	//// Testing Specific
 	err = viper.BindPFlag("t.skipSync", captureCmd.PersistentFlags().Lookup("t.skipSync"))
+	exitErr(err)
+	err = viper.BindPFlag("t.pprof", captureCmd.PersistentFlags().Lookup("t.pprof"))
+	exitErr(err)
+	err = viper.BindPFlag("t.pprofPort", captureCmd.PersistentFlags().Lookup("t.pprofPort"))
 	exitErr(err)
 
 	//// LH specific

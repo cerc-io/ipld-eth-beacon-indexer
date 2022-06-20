@@ -22,6 +22,9 @@ import (
 	"os"
 	"strconv"
 
+	"net/http"
+	_ "net/http/pprof"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -89,6 +92,12 @@ func startHistoricProcessing() {
 			if err := errG.Wait(); err != nil {
 				loghelper.LogError(err).Error("Error with knownGaps processing")
 			}
+		}()
+	}
+
+	if viper.GetBool("t.pprof") {
+		go func() {
+			log.Println(http.ListenAndServe(fmt.Sprint("localhost:"+strconv.Itoa(viper.GetInt("t.pprofPort"))), nil))
 		}()
 	}
 

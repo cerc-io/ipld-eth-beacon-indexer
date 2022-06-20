@@ -81,6 +81,12 @@ func startHeadTracking() {
 		}()
 	}
 
+	if viper.GetBool("t.pprof") {
+		go func() {
+			log.Println(http.ListenAndServe(fmt.Sprint("localhost:"+strconv.Itoa(viper.GetInt("t.pprofPort"))), nil))
+		}()
+	}
+
 	// Shutdown when the time is right.
 	err = shutdown.ShutdownHeadTracking(ctx, KgCancel, notifierCh, maxWaitSecondsShutdown, Db, Bc)
 	if err != nil {
