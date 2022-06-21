@@ -239,12 +239,12 @@ func processFullSlot(ctx context.Context, db sql.Database, serverAddress string,
 }
 
 // Handle a slot that is at head. A wrapper function for calling `handleFullSlot`.
-func processHeadSlot(db sql.Database, serverAddress string, slot int, blockRoot string, stateRoot string, previousSlot int, previousBlockRoot string, metrics *BeaconClientMetrics, knownGapsTableIncrement int, checkDb bool) {
+func processHeadSlot(ctx context.Context, db sql.Database, serverAddress string, slot int, blockRoot string, stateRoot string, previousSlot int, previousBlockRoot string, metrics *BeaconClientMetrics, knownGapsTableIncrement int, checkDb bool) {
 	// Get the knownGaps at startUp.
 	if previousSlot == 0 && previousBlockRoot == "" {
 		writeStartUpGaps(db, knownGapsTableIncrement, slot, metrics)
 	}
-	err, errReason := processFullSlot(context.Background(), db, serverAddress, slot, blockRoot, stateRoot, previousSlot, previousBlockRoot, "head", metrics, knownGapsTableIncrement, checkDb)
+	err, errReason := processFullSlot(ctx, db, serverAddress, slot, blockRoot, stateRoot, previousSlot, previousBlockRoot, "head", metrics, knownGapsTableIncrement, checkDb)
 	if err != nil {
 		writeKnownGaps(db, knownGapsTableIncrement, slot, slot, err, errReason, metrics)
 	}

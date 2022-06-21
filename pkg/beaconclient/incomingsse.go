@@ -18,6 +18,7 @@
 package beaconclient
 
 import (
+	"context"
 	"encoding/json"
 	"time"
 
@@ -33,7 +34,7 @@ var (
 // This function will capture all the SSE events for a given SseEvents object.
 // When new messages come in, it will ensure that they are decoded into JSON.
 // If any errors occur, it log the error information.
-func handleIncomingSseEvent[P ProcessedEvents](eventHandler *SseEvents[P], errMetricInc func(uint64)) {
+func handleIncomingSseEvent[P ProcessedEvents](ctx context.Context, eventHandler *SseEvents[P], errMetricInc func(uint64)) {
 	go func() {
 		errG := new(errgroup.Group)
 		errG.Go(func() error {
@@ -56,6 +57,10 @@ func handleIncomingSseEvent[P ProcessedEvents](eventHandler *SseEvents[P], errMe
 	}()
 	for {
 		select {
+		case <-ctx.Done():
+			close(eventHandler.MessagesCh)
+			close(eventHandler.ErrorCh)
+			return
 		case message := <-eventHandler.MessagesCh:
 			// Message can be nil if its a keep-alive message
 			if len(message.Data) != 0 {
@@ -91,8 +96,8 @@ func processMsg[P ProcessedEvents](msg []byte, processCh chan<- *P, errorCh chan
 }
 
 // Capture all of the event topics.
-func (bc *BeaconClient) captureEventTopic() {
+func (bc *BeaconClient) captureEventTopic(ctx context.Context) {
 	log.Info("We are capturing all SSE events")
-	go handleIncomingSseEvent(bc.HeadTracking, bc.Metrics.IncrementHeadError)
-	go handleIncomingSseEvent(bc.ReOrgTracking, bc.Metrics.IncrementReorgError)
+	go handleIncomingSseEvent(ctx, bc.HeadTracking, bc.Metrics.IncrementHeadError)
+	go handleIncomingSseEvent(ctx, bc.ReOrgTracking, bc.Metrics.IncrementReorgError)
 }

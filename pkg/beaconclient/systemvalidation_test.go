@@ -1,7 +1,9 @@
 package beaconclient_test
 
 import (
+	"context"
 	"os"
+	"runtime"
 	"strconv"
 	"time"
 
@@ -63,7 +65,11 @@ func getEnvInt(envVar string) int {
 
 // Start head tracking and wait for the expected results.
 func processProdHeadBlocks(bc *beaconclient.BeaconClient, expectedInserts, expectedReorgs, expectedKnownGaps, expectedKnownGapsReprocessError uint64) {
-	go bc.CaptureHead()
+	startGoRoutines := runtime.NumGoroutine()
+	ctx, cancel := context.WithCancel(context.Background())
+	go bc.CaptureHead(ctx)
 	time.Sleep(1 * time.Second)
 	validateMetrics(bc, expectedInserts, expectedReorgs, expectedKnownGaps, expectedKnownGapsReprocessError)
+
+	testStopHeadTracking(cancel, bc, startGoRoutines)
 }

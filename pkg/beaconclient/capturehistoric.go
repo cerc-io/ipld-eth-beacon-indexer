@@ -164,8 +164,9 @@ func handleBatchProcess(ctx context.Context, maxWorkers int, bp BatchProcessing,
 		errs := bp.getSlotRange(ctx, slotsCh) // Periodically adds new entries....
 		if errs != nil {
 			finalErrCh <- errs
+		} else {
+			finalErrCh <- nil
 		}
-		finalErrCh <- nil
 		log.Debug("We are stopping the processing of adding new entries")
 	}()
 	log.Debug("Waiting for shutdown signal from channel")

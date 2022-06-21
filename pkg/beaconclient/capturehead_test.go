@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"sync/atomic"
 	"time"
@@ -264,71 +265,103 @@ type MimicConfig struct {
 var _ = Describe("Capturehead", Label("head"), func() {
 
 	Describe("Receiving New Head SSE messages", Label("unit", "behavioral"), func() {
-		Context("Correctly formatted Phase0 Block", func() {
+		Context("Correctly formatted Phase0 Block", Label("leak-head"), func() {
 			It("Should turn it into a struct successfully.", func() {
-				bc := setUpTest(BeaconNodeTester.TestConfig, "99")
+				log.SetLevel(log.DebugLevel)
+
 				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
 				defer httpmock.DeactivateAndReset()
-				BeaconNodeTester.testProcessBlock(bc, BeaconNodeTester.TestEvents["100"].HeadMessage, 3, maxRetry, 1, 0, 0)
+				startGoRoutines := runtime.NumGoroutine()
+				ctx, cancel := context.WithCancel(context.Background())
+
+				bc := setUpTest(BeaconNodeTester.TestConfig, "99")
+
+				BeaconNodeTester.testProcessBlock(ctx, bc, BeaconNodeTester.TestEvents["100"].HeadMessage, 3, maxRetry, 1, 0, 0)
 				validateSignedBeaconBlock(bc, BeaconNodeTester.TestEvents["100"].HeadMessage, BeaconNodeTester.TestEvents["100"].CorrectParentRoot, BeaconNodeTester.TestEvents["100"].CorrectEth1BlockHash, BeaconNodeTester.TestEvents["100"].CorrectSignedBeaconBlockMhKey)
 				validateBeaconState(bc, BeaconNodeTester.TestEvents["100"].HeadMessage, BeaconNodeTester.TestEvents["100"].CorrectBeaconStateMhKey)
+
+				testStopHeadTracking(cancel, bc, startGoRoutines)
 
 			})
 		})
 		Context("Correctly formatted Altair Block", func() {
 			It("Should turn it into a struct successfully.", func() {
-				bc := setUpTest(BeaconNodeTester.TestConfig, "2375702")
 				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
 				defer httpmock.DeactivateAndReset()
-				BeaconNodeTester.testProcessBlock(bc, BeaconNodeTester.TestEvents["2375703"].HeadMessage, 74240, maxRetry, 1, 0, 0)
+				startGoRoutines := runtime.NumGoroutine()
+				ctx, cancel := context.WithCancel(context.Background())
+
+				bc := setUpTest(BeaconNodeTester.TestConfig, "2375702")
+				BeaconNodeTester.testProcessBlock(ctx, bc, BeaconNodeTester.TestEvents["2375703"].HeadMessage, 74240, maxRetry, 1, 0, 0)
 				validateSignedBeaconBlock(bc, BeaconNodeTester.TestEvents["2375703"].HeadMessage, BeaconNodeTester.TestEvents["2375703"].CorrectParentRoot, BeaconNodeTester.TestEvents["2375703"].CorrectEth1BlockHash, BeaconNodeTester.TestEvents["2375703"].CorrectSignedBeaconBlockMhKey)
 				validateBeaconState(bc, BeaconNodeTester.TestEvents["2375703"].HeadMessage, BeaconNodeTester.TestEvents["2375703"].CorrectBeaconStateMhKey)
+				testStopHeadTracking(cancel, bc, startGoRoutines)
 			})
 		})
 		Context("Correctly formatted Altair Test Blocks", func() {
 			It("Should turn it into a struct successfully.", func() {
-				bc := setUpTest(BeaconNodeTester.TestConfig, "2375702")
 				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
 				defer httpmock.DeactivateAndReset()
-				BeaconNodeTester.testProcessBlock(bc, BeaconNodeTester.TestEvents["2375703-dummy"].HeadMessage, 74240, maxRetry, 1, 0, 0)
+				startGoRoutines := runtime.NumGoroutine()
+				ctx, cancel := context.WithCancel(context.Background())
+
+				bc := setUpTest(BeaconNodeTester.TestConfig, "2375702")
+				BeaconNodeTester.testProcessBlock(ctx, bc, BeaconNodeTester.TestEvents["2375703-dummy"].HeadMessage, 74240, maxRetry, 1, 0, 0)
 
 				bc = setUpTest(BeaconNodeTester.TestConfig, "2375702")
 				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
 				defer httpmock.DeactivateAndReset()
-				BeaconNodeTester.testProcessBlock(bc, BeaconNodeTester.TestEvents["2375703-dummy-2"].HeadMessage, 74240, maxRetry, 1, 0, 0)
+				BeaconNodeTester.testProcessBlock(ctx, bc, BeaconNodeTester.TestEvents["2375703-dummy-2"].HeadMessage, 74240, maxRetry, 1, 0, 0)
+
+				testStopHeadTracking(cancel, bc, startGoRoutines)
 
 			})
 		})
 		Context("Correctly formatted Phase0 Test Blocks", func() {
 			It("Should turn it into a struct successfully.", func() {
-				bc := setUpTest(BeaconNodeTester.TestConfig, "99")
 				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
 				defer httpmock.DeactivateAndReset()
-				BeaconNodeTester.testProcessBlock(bc, BeaconNodeTester.TestEvents["100-dummy"].HeadMessage, 3, maxRetry, 1, 0, 0)
+				startGoRoutines := runtime.NumGoroutine()
+				ctx, cancel := context.WithCancel(context.Background())
+
+				bc := setUpTest(BeaconNodeTester.TestConfig, "99")
+				BeaconNodeTester.testProcessBlock(ctx, bc, BeaconNodeTester.TestEvents["100-dummy"].HeadMessage, 3, maxRetry, 1, 0, 0)
 
 				bc = setUpTest(BeaconNodeTester.TestConfig, "99")
 				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
 				defer httpmock.DeactivateAndReset()
-				BeaconNodeTester.testProcessBlock(bc, BeaconNodeTester.TestEvents["100-dummy-2"].HeadMessage, 3, maxRetry, 1, 0, 0)
+				BeaconNodeTester.testProcessBlock(ctx, bc, BeaconNodeTester.TestEvents["100-dummy-2"].HeadMessage, 3, maxRetry, 1, 0, 0)
+
+				testStopHeadTracking(cancel, bc, startGoRoutines)
 			})
 
 		})
 		Context("Two consecutive correct blocks", func() {
 			It("Should handle both blocks correctly, without any reorgs or known_gaps", func() {
-				bc := setUpTest(BeaconNodeTester.TestConfig, "99")
 				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
 				defer httpmock.DeactivateAndReset()
-				BeaconNodeTester.testProcessBlock(bc, BeaconNodeTester.TestEvents["100"].HeadMessage, 3, maxRetry, 1, 0, 0)
-				BeaconNodeTester.testProcessBlock(bc, BeaconNodeTester.TestEvents["101"].HeadMessage, 3, maxRetry, 1, 0, 0)
+				startGoRoutines := runtime.NumGoroutine()
+				ctx, cancel := context.WithCancel(context.Background())
+
+				bc := setUpTest(BeaconNodeTester.TestConfig, "99")
+				BeaconNodeTester.testProcessBlock(ctx, bc, BeaconNodeTester.TestEvents["100"].HeadMessage, 3, maxRetry, 1, 0, 0)
+				BeaconNodeTester.testProcessBlock(ctx, bc, BeaconNodeTester.TestEvents["101"].HeadMessage, 3, maxRetry, 1, 0, 0)
+
+				testStopHeadTracking(cancel, bc, startGoRoutines)
 			})
 		})
 		Context("Two consecutive blocks with a bad parent", func() {
 			It("Should add the previous block to the knownGaps table.", func() {
-				bc := setUpTest(BeaconNodeTester.TestConfig, "99")
 				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
 				defer httpmock.DeactivateAndReset()
-				BeaconNodeTester.testProcessBlock(bc, BeaconNodeTester.TestEvents["100-dummy"].HeadMessage, 3, maxRetry, 1, 0, 0)
-				BeaconNodeTester.testProcessBlock(bc, BeaconNodeTester.TestEvents["101"].HeadMessage, 3, maxRetry, 1, 1, 1)
+				startGoRoutines := runtime.NumGoroutine()
+				ctx, cancel := context.WithCancel(context.Background())
+
+				bc := setUpTest(BeaconNodeTester.TestConfig, "99")
+				BeaconNodeTester.testProcessBlock(ctx, bc, BeaconNodeTester.TestEvents["100-dummy"].HeadMessage, 3, maxRetry, 1, 0, 0)
+				BeaconNodeTester.testProcessBlock(ctx, bc, BeaconNodeTester.TestEvents["101"].HeadMessage, 3, maxRetry, 1, 1, 1)
+
+				testStopHeadTracking(cancel, bc, startGoRoutines)
 			})
 		})
 		Context("Phase 0: We have a correctly formated SSZ SignedBeaconBlock and BeaconState", func() {
@@ -348,10 +381,13 @@ var _ = Describe("Capturehead", Label("head"), func() {
 		//})
 		Context("When the proper SSZ objects are not served", func() {
 			It("Should return an error, and add the slot to the knownGaps table.", func() {
-				bc := setUpTest(BeaconNodeTester.TestConfig, "101")
 				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
 				defer httpmock.DeactivateAndReset()
-				BeaconNodeTester.testProcessBlock(bc, BeaconNodeTester.TestEvents["102-wrong-ssz-1"].HeadMessage, 3, maxRetry, 0, 1, 0)
+				startGoRoutines := runtime.NumGoroutine()
+				ctx, cancel := context.WithCancel(context.Background())
+
+				bc := setUpTest(BeaconNodeTester.TestConfig, "101")
+				BeaconNodeTester.testProcessBlock(ctx, bc, BeaconNodeTester.TestEvents["102-wrong-ssz-1"].HeadMessage, 3, maxRetry, 0, 1, 0)
 
 				knownGapCount := countKnownGapsTable(bc.Db)
 				Expect(knownGapCount).To(Equal(1))
@@ -359,6 +395,8 @@ var _ = Describe("Capturehead", Label("head"), func() {
 				start, end := queryKnownGaps(bc.Db, "102", "102")
 				Expect(start).To(Equal(102))
 				Expect(end).To(Equal(102))
+
+				testStopHeadTracking(cancel, bc, startGoRoutines)
 			})
 		})
 	})
@@ -366,21 +404,28 @@ var _ = Describe("Capturehead", Label("head"), func() {
 	Describe("Known Gaps Scenario", Label("unit", "behavioral"), func() {
 		Context("There is a gap at start up within one incrementing range.", func() {
 			It("Should add only a single entry to the knownGaps table.", func() {
-				bc := setUpTest(BeaconNodeTester.TestConfig, "10")
 				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
 				defer httpmock.DeactivateAndReset()
-				BeaconNodeTester.testKnownGapsMessages(bc, 100, 1, maxRetry, BeaconNodeTester.TestEvents["100"].HeadMessage)
+				startGoRoutines := runtime.NumGoroutine()
+				ctx, cancel := context.WithCancel(context.Background())
+
+				bc := setUpTest(BeaconNodeTester.TestConfig, "10")
+				BeaconNodeTester.testKnownGapsMessages(ctx, bc, 100, 1, maxRetry, BeaconNodeTester.TestEvents["100"].HeadMessage)
 				start, end := queryKnownGaps(bc.Db, "11", "99")
 				Expect(start).To(Equal(11))
 				Expect(end).To(Equal(99))
+				testStopHeadTracking(cancel, bc, startGoRoutines)
 			})
 		})
 		Context("There is a gap at start up spanning multiple incrementing range.", func() {
 			It("Should add multiple entries to the knownGaps table.", func() {
-				bc := setUpTest(BeaconNodeTester.TestConfig, "5")
 				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
 				defer httpmock.DeactivateAndReset()
-				BeaconNodeTester.testKnownGapsMessages(bc, 10, 10, maxRetry, BeaconNodeTester.TestEvents["100"].HeadMessage)
+				startGoRoutines := runtime.NumGoroutine()
+				ctx, cancel := context.WithCancel(context.Background())
+
+				bc := setUpTest(BeaconNodeTester.TestConfig, "5")
+				BeaconNodeTester.testKnownGapsMessages(ctx, bc, 10, 10, maxRetry, BeaconNodeTester.TestEvents["100"].HeadMessage)
 
 				start, end := queryKnownGaps(bc.Db, "6", "16")
 				Expect(start).To(Equal(6))
@@ -389,14 +434,19 @@ var _ = Describe("Capturehead", Label("head"), func() {
 				start, end = queryKnownGaps(bc.Db, "96", "99")
 				Expect(start).To(Equal(96))
 				Expect(end).To(Equal(99))
+
+				testStopHeadTracking(cancel, bc, startGoRoutines)
 			})
 		})
 		Context("Gaps between two head messages", func() {
 			It("Should add the slots in-between", func() {
-				bc := setUpTest(BeaconNodeTester.TestConfig, "99")
 				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
 				defer httpmock.DeactivateAndReset()
-				BeaconNodeTester.testKnownGapsMessages(bc, 1000000, 3, maxRetry, BeaconNodeTester.TestEvents["100"].HeadMessage, BeaconNodeTester.TestEvents["2375703"].HeadMessage)
+				startGoRoutines := runtime.NumGoroutine()
+				ctx, cancel := context.WithCancel(context.Background())
+
+				bc := setUpTest(BeaconNodeTester.TestConfig, "99")
+				BeaconNodeTester.testKnownGapsMessages(ctx, bc, 1000000, 3, maxRetry, BeaconNodeTester.TestEvents["100"].HeadMessage, BeaconNodeTester.TestEvents["2375703"].HeadMessage)
 
 				start, end := queryKnownGaps(bc.Db, "101", "1000101")
 				Expect(start).To(Equal(101))
@@ -405,6 +455,7 @@ var _ = Describe("Capturehead", Label("head"), func() {
 				start, end = queryKnownGaps(bc.Db, "2000101", "2375702")
 				Expect(start).To(Equal(2000101))
 				Expect(end).To(Equal(2375702))
+				testStopHeadTracking(cancel, bc, startGoRoutines)
 			})
 		})
 	})
@@ -412,34 +463,50 @@ var _ = Describe("Capturehead", Label("head"), func() {
 	Describe("ReOrg Scenario", Label("unit", "behavioral"), func() {
 		Context("Altair: Multiple head messages for the same slot.", func() {
 			It("The previous block should be marked as 'forked', the new block should be the only one marked as 'proposed'.", func() {
-				bc := setUpTest(BeaconNodeTester.TestConfig, "2375702")
 				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
 				defer httpmock.DeactivateAndReset()
-				BeaconNodeTester.testMultipleHead(bc, TestEvents["2375703"].HeadMessage, TestEvents["2375703-dummy"].HeadMessage, 74240, maxRetry)
+				startGoRoutines := runtime.NumGoroutine()
+				ctx, cancel := context.WithCancel(context.Background())
+
+				bc := setUpTest(BeaconNodeTester.TestConfig, "2375702")
+				BeaconNodeTester.testMultipleHead(ctx, bc, TestEvents["2375703"].HeadMessage, TestEvents["2375703-dummy"].HeadMessage, 74240, maxRetry)
+				testStopHeadTracking(cancel, bc, startGoRoutines)
 			})
 		})
 		Context("Phase0: Multiple head messages for the same slot.", func() {
 			It("The previous block should be marked as 'forked', the new block should be the only one marked as 'proposed'.", func() {
-				bc := setUpTest(BeaconNodeTester.TestConfig, "99")
 				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
 				defer httpmock.DeactivateAndReset()
-				BeaconNodeTester.testMultipleHead(bc, TestEvents["100-dummy"].HeadMessage, TestEvents["100"].HeadMessage, 3, maxRetry)
+				startGoRoutines := runtime.NumGoroutine()
+				ctx, cancel := context.WithCancel(context.Background())
+
+				bc := setUpTest(BeaconNodeTester.TestConfig, "99")
+				BeaconNodeTester.testMultipleHead(ctx, bc, TestEvents["100-dummy"].HeadMessage, TestEvents["100"].HeadMessage, 3, maxRetry)
+				testStopHeadTracking(cancel, bc, startGoRoutines)
 			})
 		})
 		Context("Phase 0: Multiple reorgs have occurred on this slot", func() {
 			It("The previous blocks should be marked as 'forked', the new block should be the only one marked as 'proposed'.", func() {
-				bc := setUpTest(BeaconNodeTester.TestConfig, "99")
 				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
 				defer httpmock.DeactivateAndReset()
-				BeaconNodeTester.testMultipleReorgs(bc, TestEvents["100-dummy"].HeadMessage, TestEvents["100-dummy-2"].HeadMessage, TestEvents["100"].HeadMessage, 3, maxRetry)
+				startGoRoutines := runtime.NumGoroutine()
+				ctx, cancel := context.WithCancel(context.Background())
+
+				bc := setUpTest(BeaconNodeTester.TestConfig, "99")
+				BeaconNodeTester.testMultipleReorgs(ctx, bc, TestEvents["100-dummy"].HeadMessage, TestEvents["100-dummy-2"].HeadMessage, TestEvents["100"].HeadMessage, 3, maxRetry)
+				testStopHeadTracking(cancel, bc, startGoRoutines)
 			})
 		})
 		Context("Altair: Multiple reorgs have occurred on this slot", func() {
 			It("The previous blocks should be marked as 'forked', the new block should be the only one marked as 'proposed'.", func() {
-				bc := setUpTest(BeaconNodeTester.TestConfig, "2375702")
 				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
 				defer httpmock.DeactivateAndReset()
-				BeaconNodeTester.testMultipleReorgs(bc, TestEvents["2375703-dummy"].HeadMessage, TestEvents["2375703-dummy-2"].HeadMessage, TestEvents["2375703"].HeadMessage, 74240, maxRetry)
+				startGoRoutines := runtime.NumGoroutine()
+				ctx, cancel := context.WithCancel(context.Background())
+
+				bc := setUpTest(BeaconNodeTester.TestConfig, "2375702")
+				BeaconNodeTester.testMultipleReorgs(ctx, bc, TestEvents["2375703-dummy"].HeadMessage, TestEvents["2375703-dummy-2"].HeadMessage, TestEvents["2375703"].HeadMessage, 74240, maxRetry)
+				testStopHeadTracking(cancel, bc, startGoRoutines)
 			})
 		})
 	})
@@ -831,8 +898,8 @@ func (tbc TestBeaconNode) provideSsz(slotIdentifier string, sszIdentifier string
 
 // Helper function to test three reorg messages. There are going to be many functions like this,
 // Because we need to test the same logic for multiple phases.
-func (tbc TestBeaconNode) testMultipleReorgs(bc *beaconclient.BeaconClient, firstHead beaconclient.Head, secondHead beaconclient.Head, thirdHead beaconclient.Head, epoch int, maxRetry int) {
-	go bc.CaptureHead()
+func (tbc TestBeaconNode) testMultipleReorgs(ctx context.Context, bc *beaconclient.BeaconClient, firstHead beaconclient.Head, secondHead beaconclient.Head, thirdHead beaconclient.Head, epoch int, maxRetry int) {
+	go bc.CaptureHead(ctx)
 	time.Sleep(1 * time.Second)
 
 	log.Info("Sending Messages to BeaconClient")
@@ -893,8 +960,8 @@ func (tbc TestBeaconNode) testMultipleReorgs(bc *beaconclient.BeaconClient, firs
 }
 
 // A test to validate a single block was processed correctly
-func (tbc TestBeaconNode) testProcessBlock(bc *beaconclient.BeaconClient, head beaconclient.Head, epoch int, maxRetry int, expectedSuccessInsert uint64, expectedKnownGaps uint64, expectedReorgs uint64) {
-	go bc.CaptureHead()
+func (tbc TestBeaconNode) testProcessBlock(ctx context.Context, bc *beaconclient.BeaconClient, head beaconclient.Head, epoch int, maxRetry int, expectedSuccessInsert uint64, expectedKnownGaps uint64, expectedReorgs uint64) {
+	go bc.CaptureHead(ctx)
 	time.Sleep(1 * time.Second)
 	sendHeadMessage(bc, head, maxRetry, expectedSuccessInsert)
 
@@ -923,8 +990,8 @@ func (tbc TestBeaconNode) testProcessBlock(bc *beaconclient.BeaconClient, head b
 
 // A test that ensures that if two HeadMessages occur for a single slot they are marked
 // as proposed and forked correctly.
-func (tbc TestBeaconNode) testMultipleHead(bc *beaconclient.BeaconClient, firstHead beaconclient.Head, secondHead beaconclient.Head, epoch int, maxRetry int) {
-	go bc.CaptureHead()
+func (tbc TestBeaconNode) testMultipleHead(ctx context.Context, bc *beaconclient.BeaconClient, firstHead beaconclient.Head, secondHead beaconclient.Head, epoch int, maxRetry int) {
+	go bc.CaptureHead(ctx)
 	time.Sleep(1 * time.Second)
 
 	sendHeadMessage(bc, firstHead, maxRetry, 1)
@@ -950,9 +1017,9 @@ func (tbc TestBeaconNode) testMultipleHead(bc *beaconclient.BeaconClient, firstH
 
 // A test that ensures that if two HeadMessages occur for a single slot they are marked
 // as proposed and forked correctly.
-func (tbc TestBeaconNode) testKnownGapsMessages(bc *beaconclient.BeaconClient, tableIncrement int, expectedEntries uint64, maxRetry int, msg ...beaconclient.Head) {
+func (tbc TestBeaconNode) testKnownGapsMessages(ctx context.Context, bc *beaconclient.BeaconClient, tableIncrement int, expectedEntries uint64, maxRetry int, msg ...beaconclient.Head) {
 	bc.KnownGapTableIncrement = tableIncrement
-	go bc.CaptureHead()
+	go bc.CaptureHead(ctx)
 	time.Sleep(1 * time.Second)
 
 	for _, headMsg := range msg {
@@ -990,4 +1057,15 @@ func testSszRoot(msg Message) {
 	blockRoot, err := block.Block().HashTreeRoot()
 	Expect(err).ToNot(HaveOccurred())
 	Expect(msg.HeadMessage.Block).To(Equal("0x" + hex.EncodeToString(blockRoot[:])))
+}
+
+// A make shift function to stop head tracking and insure we dont have any goroutine leaks
+func testStopHeadTracking(cancel context.CancelFunc, bc *beaconclient.BeaconClient, startGoRoutines int) {
+	bc.Db.Close()
+	err := bc.StopHeadTracking(cancel)
+	Expect(err).ToNot(HaveOccurred())
+
+	time.Sleep(3 * time.Second)
+	endNum := runtime.NumGoroutine()
+	Expect(startGoRoutines).To(Equal(endNum))
 }

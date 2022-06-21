@@ -40,12 +40,12 @@ func ShutdownServices(ctx context.Context, notifierCh chan os.Signal, waitTime t
 }
 
 // Wrapper function for shutting down the head tracking process.
-func ShutdownHeadTracking(ctx context.Context, kgCancel context.CancelFunc, notifierCh chan os.Signal, waitTime time.Duration, DB sql.Database, BC *beaconclient.BeaconClient) error {
+func ShutdownHeadTracking(ctx context.Context, hdCancel context.CancelFunc, kgCancel context.CancelFunc, notifierCh chan os.Signal, waitTime time.Duration, DB sql.Database, BC *beaconclient.BeaconClient) error {
 	return ShutdownServices(ctx, notifierCh, waitTime, DB, BC, map[string]gracefulshutdown.Operation{
 		// Combining DB shutdown with BC because BC needs DB open to cleanly shutdown.
 		"beaconClient": func(ctx context.Context) error {
 			defer DB.Close()
-			err := BC.StopHeadTracking()
+			err := BC.StopHeadTracking(hdCancel)
 			if err != nil {
 				loghelper.LogError(err).Error("Unable to trigger shutdown of head tracking")
 			}
@@ -82,7 +82,7 @@ func ShutdownHistoricProcessing(ctx context.Context, kgCancel, hpCancel context.
 }
 
 // Shutdown the head and historical processing
-func ShutdownFull(ctx context.Context, kgCancel, hpCancel context.CancelFunc, notifierCh chan os.Signal, waitTime time.Duration, DB sql.Database, BC *beaconclient.BeaconClient) error {
+func ShutdownFull(ctx context.Context, hdCancel context.CancelFunc, kgCancel, hpCancel context.CancelFunc, notifierCh chan os.Signal, waitTime time.Duration, DB sql.Database, BC *beaconclient.BeaconClient) error {
 	return ShutdownServices(ctx, notifierCh, waitTime, DB, BC, map[string]gracefulshutdown.Operation{
 		// Combining DB shutdown with BC because BC needs DB open to cleanly shutdown.
 		"beaconClient": func(ctx context.Context) error {
@@ -97,7 +97,7 @@ func ShutdownFull(ctx context.Context, kgCancel, hpCancel context.CancelFunc, no
 					loghelper.LogError(err).Error("Unable to stop processing known gaps")
 				}
 			}
-			err = BC.StopHeadTracking()
+			err = BC.StopHeadTracking(hdCancel)
 			if err != nil {
 				loghelper.LogError(err).Error("Unable to trigger shutdown of head tracking")
 			}

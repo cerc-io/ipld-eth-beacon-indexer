@@ -3,6 +3,7 @@ package beaconclient_test
 import (
 	"context"
 	"fmt"
+	"runtime"
 	"sync/atomic"
 	"time"
 
@@ -24,9 +25,11 @@ var _ = Describe("Capturehistoric", func() {
 	Describe("Run the application in historic mode", Label("unit", "behavioral", "historical"), func() {
 		Context("Phase0 + Altairs: When we need to process a multiple blocks in a multiple entries in the eth_beacon.historic_process table.", Label("deb"), func() {
 			It("Successfully Process the Blocks", func() {
-				bc := setUpTest(BeaconNodeTester.TestConfig, "99")
 				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
 				defer httpmock.DeactivateAndReset()
+				startNum := runtime.NumGoroutine()
+
+				bc := setUpTest(BeaconNodeTester.TestConfig, "99")
 				BeaconNodeTester.writeEventToHistoricProcess(bc, 100, 101, 10)
 				BeaconNodeTester.runHistoricalProcess(bc, 2, 2, 0, 0, 0)
 				// Run Two seperate processes
@@ -35,6 +38,11 @@ var _ = Describe("Capturehistoric", func() {
 
 				time.Sleep(2 * time.Second)
 				validatePopularBatchBlocks(bc)
+				time.Sleep(3 * time.Second)
+
+				bc.Db.Close()
+				endNum := runtime.NumGoroutine()
+				Expect(startNum).To(Equal(endNum))
 			})
 		})
 		Context("When the start block is greater than the endBlock", func() {
@@ -70,11 +78,13 @@ var _ = Describe("Capturehistoric", func() {
 		})
 	})
 	Describe("Running the Application to process Known Gaps", Label("unit", "behavioral", "knownGaps"), func() {
-		Context("Phase0 + Altairs: When we need to process a multiple blocks in a multiple entries in the eth_beacon.known_gaps table.", func() {
+		Context("Phase0 + Altairs: When we need to process a multiple blocks in a multiple entries in the eth_beacon.known_gaps table.", Label("leak"), func() {
 			It("Successfully Process the Blocks", func() {
-				bc := setUpTest(BeaconNodeTester.TestConfig, "99")
 				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
 				defer httpmock.DeactivateAndReset()
+				startNum := runtime.NumGoroutine()
+
+				bc := setUpTest(BeaconNodeTester.TestConfig, "99")
 				BeaconNodeTester.writeEventToKnownGaps(bc, 100, 101)
 				BeaconNodeTester.runKnownGapsProcess(bc, 2, 2, 0, 0, 0)
 				// Run Two seperate processes
@@ -83,6 +93,10 @@ var _ = Describe("Capturehistoric", func() {
 
 				time.Sleep(2 * time.Second)
 				validatePopularBatchBlocks(bc)
+
+				bc.Db.Close()
+				endNum := runtime.NumGoroutine()
+				Expect(startNum).To(Equal(endNum))
 			})
 		})
 		Context("When the start block is greater than the endBlock", func() {
@@ -107,13 +121,16 @@ var _ = Describe("Capturehistoric", func() {
 		})
 	})
 	Describe("Running the application in Historic, Head, and KnownGaps mode", Label("unit", "historical", "full"), func() {
-		Context("When it recieves a head, historic and known Gaps message (in order)", func() {
+		Context("When it recieves a head, historic and known Gaps message (in order)", Label("deb"), func() {
 			It("Should process them all successfully.", func() {
-				bc := setUpTest(BeaconNodeTester.TestConfig, "2375702")
 				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
 				defer httpmock.DeactivateAndReset()
+				startGoRoutines := runtime.NumGoroutine()
+				ctx, cancel := context.WithCancel(context.Background())
+
+				bc := setUpTest(BeaconNodeTester.TestConfig, "2375702")
 				// Head
-				BeaconNodeTester.testProcessBlock(bc, BeaconNodeTester.TestEvents["2375703"].HeadMessage, 74240, maxRetry, 1, 0, 0)
+				BeaconNodeTester.testProcessBlock(ctx, bc, BeaconNodeTester.TestEvents["2375703"].HeadMessage, 74240, maxRetry, 1, 0, 0)
 
 				// Historical
 				BeaconNodeTester.writeEventToHistoricProcess(bc, 100, 100, 10)
@@ -125,19 +142,25 @@ var _ = Describe("Capturehistoric", func() {
 
 				time.Sleep(2 * time.Second)
 				validatePopularBatchBlocks(bc)
+
+				testStopHeadTracking(cancel, bc, startGoRoutines)
+
 			})
 		})
 		Context("When it recieves a historic, head and known Gaps message (in order)", func() {
 			It("Should process them all successfully.", func() {
-				bc := setUpTest(BeaconNodeTester.TestConfig, "2375702")
 				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
 				defer httpmock.DeactivateAndReset()
+				startGoRoutines := runtime.NumGoroutine()
+				ctx, cancel := context.WithCancel(context.Background())
+
+				bc := setUpTest(BeaconNodeTester.TestConfig, "2375702")
 				// Historical
 				BeaconNodeTester.writeEventToHistoricProcess(bc, 100, 100, 10)
 				BeaconNodeTester.runHistoricalProcess(bc, 2, 1, 0, 0, 0)
 
 				// Head
-				BeaconNodeTester.testProcessBlock(bc, BeaconNodeTester.TestEvents["2375703"].HeadMessage, 74240, maxRetry, 1, 0, 0)
+				BeaconNodeTester.testProcessBlock(ctx, bc, BeaconNodeTester.TestEvents["2375703"].HeadMessage, 74240, maxRetry, 1, 0, 0)
 
 				// Known Gaps
 				BeaconNodeTester.writeEventToKnownGaps(bc, 101, 101)
@@ -145,13 +168,17 @@ var _ = Describe("Capturehistoric", func() {
 
 				time.Sleep(2 * time.Second)
 				validatePopularBatchBlocks(bc)
+				testStopHeadTracking(cancel, bc, startGoRoutines)
 			})
 		})
 		Context("When it recieves a known Gaps, historic and head  message (in order)", func() {
 			It("Should process them all successfully.", func() {
-				bc := setUpTest(BeaconNodeTester.TestConfig, "2375702")
 				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
 				defer httpmock.DeactivateAndReset()
+				startGoRoutines := runtime.NumGoroutine()
+				ctx, cancel := context.WithCancel(context.Background())
+
+				bc := setUpTest(BeaconNodeTester.TestConfig, "2375702")
 				// Known Gaps
 				BeaconNodeTester.writeEventToKnownGaps(bc, 101, 101)
 				BeaconNodeTester.runKnownGapsProcess(bc, 2, 1, 0, 0, 0)
@@ -161,10 +188,11 @@ var _ = Describe("Capturehistoric", func() {
 				BeaconNodeTester.runHistoricalProcess(bc, 2, 2, 0, 0, 0)
 
 				// Head
-				BeaconNodeTester.testProcessBlock(bc, BeaconNodeTester.TestEvents["2375703"].HeadMessage, 74240, maxRetry, 1, 0, 0)
+				BeaconNodeTester.testProcessBlock(ctx, bc, BeaconNodeTester.TestEvents["2375703"].HeadMessage, 74240, maxRetry, 1, 0, 0)
 
 				time.Sleep(2 * time.Second)
 				validatePopularBatchBlocks(bc)
+				testStopHeadTracking(cancel, bc, startGoRoutines)
 			})
 		})
 	})

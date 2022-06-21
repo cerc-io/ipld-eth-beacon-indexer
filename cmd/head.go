@@ -62,8 +62,10 @@ func startHeadTracking() {
 
 	log.Info("The Beacon Client has booted successfully!")
 	// Capture head blocks
-	go Bc.CaptureHead()
-	kgCtx, KgCancel := context.WithCancel(context.Background())
+	hdCtx, hdCancel := context.WithCancel(context.Background())
+	go Bc.CaptureHead(hdCtx)
+
+	kgCtx, kgCancel := context.WithCancel(context.Background())
 	if viper.GetBool("kg.processKnownGaps") {
 		go func() {
 			errG := new(errgroup.Group)
@@ -88,7 +90,7 @@ func startHeadTracking() {
 	}
 
 	// Shutdown when the time is right.
-	err = shutdown.ShutdownHeadTracking(ctx, KgCancel, notifierCh, maxWaitSecondsShutdown, Db, Bc)
+	err = shutdown.ShutdownHeadTracking(ctx, hdCancel, kgCancel, notifierCh, maxWaitSecondsShutdown, Db, Bc)
 	if err != nil {
 		loghelper.LogError(err).Error("Ungracefully Shutdown ipld-eth-beacon-indexer!")
 	} else {

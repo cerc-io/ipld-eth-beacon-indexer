@@ -19,6 +19,7 @@
 package beaconclient
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 
@@ -26,52 +27,63 @@ import (
 )
 
 // This function will perform the necessary steps to handle a reorg.
-func (bc *BeaconClient) handleReorg() {
+func (bc *BeaconClient) handleReorg(ctx context.Context) {
 	log.Info("Starting to process reorgs.")
 	for {
-		reorg := <-bc.ReOrgTracking.ProcessCh
-		log.WithFields(log.Fields{"reorg": reorg}).Debug("Received a new reorg message.")
-		writeReorgs(bc.Db, reorg.Slot, reorg.NewHeadBlock, bc.Metrics)
+		select {
+		case <-ctx.Done():
+			close(bc.ReOrgTracking.ProcessCh)
+			return
+		case reorg := <-bc.ReOrgTracking.ProcessCh:
+			log.WithFields(log.Fields{"reorg": reorg}).Debug("Received a new reorg message.")
+			writeReorgs(bc.Db, reorg.Slot, reorg.NewHeadBlock, bc.Metrics)
+		}
 	}
 }
 
 // This function will handle the latest head event.
-func (bc *BeaconClient) handleHead() {
+func (bc *BeaconClient) handleHead(ctx context.Context) {
 	log.Info("Starting to process head.")
 	errorSlots := 0
 	for {
-		head := <-bc.HeadTracking.ProcessCh
-		// Process all the work here.
-		slot, err := strconv.Atoi(head.Slot)
-		if err != nil {
-			bc.HeadTracking.ErrorCh <- &SseError{
-				err: fmt.Errorf("Unable to turn the slot from string to int: %s", head.Slot),
+		select {
+		case <-ctx.Done():
+			close(bc.HeadTracking.ProcessCh)
+			return
+		case head := <-bc.HeadTracking.ProcessCh:
+
+			// Process all the work here.
+			slot, err := strconv.Atoi(head.Slot)
+			if err != nil {
+				bc.HeadTracking.ErrorCh <- &SseError{
+					err: fmt.Errorf("Unable to turn the slot from string to int: %s", head.Slot),
+				}
+				errorSlots = errorSlots + 1
+				continue
 			}
-			errorSlots = errorSlots + 1
-			continue
+			if errorSlots != 0 && bc.PreviousSlot != 0 {
+				log.WithFields(log.Fields{
+					"lastProcessedSlot": bc.PreviousSlot,
+					"errorSlots":        errorSlots,
+				}).Warn("We added slots to the knownGaps table because we got bad head messages.")
+				writeKnownGaps(bc.Db, bc.KnownGapTableIncrement, bc.PreviousSlot+1, slot, fmt.Errorf("Bad Head Messages"), "headProcessing", bc.Metrics)
+				errorSlots = 0
+			}
+
+			log.WithFields(log.Fields{"head": head}).Debug("We are going to start processing the slot.")
+
+			// Not used anywhere yet but might be useful to have.
+			if bc.PreviousSlot == 0 && bc.PreviousBlockRoot == "" {
+				bc.StartingSlot = slot
+			}
+
+			go processHeadSlot(ctx, bc.Db, bc.ServerEndpoint, slot, head.Block, head.State, bc.PreviousSlot, bc.PreviousBlockRoot, bc.Metrics, bc.KnownGapTableIncrement, bc.CheckDb)
+
+			log.WithFields(log.Fields{"head": head.Slot}).Debug("We finished calling processHeadSlot.")
+
+			// Update the previous block
+			bc.PreviousSlot = slot
+			bc.PreviousBlockRoot = head.Block
 		}
-		if errorSlots != 0 && bc.PreviousSlot != 0 {
-			log.WithFields(log.Fields{
-				"lastProcessedSlot": bc.PreviousSlot,
-				"errorSlots":        errorSlots,
-			}).Warn("We added slots to the knownGaps table because we got bad head messages.")
-			writeKnownGaps(bc.Db, bc.KnownGapTableIncrement, bc.PreviousSlot+1, slot, fmt.Errorf("Bad Head Messages"), "headProcessing", bc.Metrics)
-			errorSlots = 0
-		}
-
-		log.WithFields(log.Fields{"head": head}).Debug("We are going to start processing the slot.")
-
-		// Not used anywhere yet but might be useful to have.
-		if bc.PreviousSlot == 0 && bc.PreviousBlockRoot == "" {
-			bc.StartingSlot = slot
-		}
-
-		go processHeadSlot(bc.Db, bc.ServerEndpoint, slot, head.Block, head.State, bc.PreviousSlot, bc.PreviousBlockRoot, bc.Metrics, bc.KnownGapTableIncrement, bc.CheckDb)
-
-		log.WithFields(log.Fields{"head": head.Slot}).Debug("We finished calling processHeadSlot.")
-
-		// Update the previous block
-		bc.PreviousSlot = slot
-		bc.PreviousBlockRoot = head.Block
 	}
 }
