@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 	"strconv"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -63,7 +64,7 @@ func startHeadTracking() {
 	log.Info("The Beacon Client has booted successfully!")
 	// Capture head blocks
 	hdCtx, hdCancel := context.WithCancel(context.Background())
-	go Bc.CaptureHead(hdCtx)
+	go Bc.CaptureHead(hdCtx, false)
 
 	kgCtx, kgCancel := context.WithCancel(context.Background())
 	if viper.GetBool("kg.processKnownGaps") {
@@ -96,7 +97,8 @@ func startHeadTracking() {
 	} else {
 		log.Info("Gracefully shutdown ipld-eth-beacon-indexer")
 	}
-
+	log.Debug("WTF")
+	os.Exit(0)
 }
 
 func init() {

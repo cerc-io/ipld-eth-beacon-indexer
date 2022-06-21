@@ -24,11 +24,11 @@ import (
 )
 
 // This function will perform all the heavy lifting for tracking the head of the chain.
-func (bc *BeaconClient) CaptureHead(ctx context.Context) {
+func (bc *BeaconClient) CaptureHead(ctx context.Context, skipSee bool) {
 	log.Info("We are tracking the head of the chain.")
 	go bc.handleHead(ctx)
 	go bc.handleReorg(ctx)
-	bc.captureEventTopic(ctx)
+	bc.captureEventTopic(ctx, skipSee)
 }
 
 // Stop the head tracking service.

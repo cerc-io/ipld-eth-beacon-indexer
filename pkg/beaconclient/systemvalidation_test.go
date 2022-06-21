@@ -67,7 +67,7 @@ func getEnvInt(envVar string) int {
 func processProdHeadBlocks(bc *beaconclient.BeaconClient, expectedInserts, expectedReorgs, expectedKnownGaps, expectedKnownGapsReprocessError uint64) {
 	startGoRoutines := runtime.NumGoroutine()
 	ctx, cancel := context.WithCancel(context.Background())
-	go bc.CaptureHead(ctx)
+	go bc.CaptureHead(ctx, false)
 	time.Sleep(1 * time.Second)
 	validateMetrics(bc, expectedInserts, expectedReorgs, expectedKnownGaps, expectedKnownGapsReprocessError)
 

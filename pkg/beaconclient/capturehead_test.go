@@ -899,7 +899,7 @@ func (tbc TestBeaconNode) provideSsz(slotIdentifier string, sszIdentifier string
 // Helper function to test three reorg messages. There are going to be many functions like this,
 // Because we need to test the same logic for multiple phases.
 func (tbc TestBeaconNode) testMultipleReorgs(ctx context.Context, bc *beaconclient.BeaconClient, firstHead beaconclient.Head, secondHead beaconclient.Head, thirdHead beaconclient.Head, epoch int, maxRetry int) {
-	go bc.CaptureHead(ctx)
+	go bc.CaptureHead(ctx, true)
 	time.Sleep(1 * time.Second)
 
 	log.Info("Sending Messages to BeaconClient")
@@ -961,7 +961,7 @@ func (tbc TestBeaconNode) testMultipleReorgs(ctx context.Context, bc *beaconclie
 
 // A test to validate a single block was processed correctly
 func (tbc TestBeaconNode) testProcessBlock(ctx context.Context, bc *beaconclient.BeaconClient, head beaconclient.Head, epoch int, maxRetry int, expectedSuccessInsert uint64, expectedKnownGaps uint64, expectedReorgs uint64) {
-	go bc.CaptureHead(ctx)
+	go bc.CaptureHead(ctx, true)
 	time.Sleep(1 * time.Second)
 	sendHeadMessage(bc, head, maxRetry, expectedSuccessInsert)
 
@@ -991,7 +991,7 @@ func (tbc TestBeaconNode) testProcessBlock(ctx context.Context, bc *beaconclient
 // A test that ensures that if two HeadMessages occur for a single slot they are marked
 // as proposed and forked correctly.
 func (tbc TestBeaconNode) testMultipleHead(ctx context.Context, bc *beaconclient.BeaconClient, firstHead beaconclient.Head, secondHead beaconclient.Head, epoch int, maxRetry int) {
-	go bc.CaptureHead(ctx)
+	go bc.CaptureHead(ctx, true)
 	time.Sleep(1 * time.Second)
 
 	sendHeadMessage(bc, firstHead, maxRetry, 1)
@@ -1019,7 +1019,7 @@ func (tbc TestBeaconNode) testMultipleHead(ctx context.Context, bc *beaconclient
 // as proposed and forked correctly.
 func (tbc TestBeaconNode) testKnownGapsMessages(ctx context.Context, bc *beaconclient.BeaconClient, tableIncrement int, expectedEntries uint64, maxRetry int, msg ...beaconclient.Head) {
 	bc.KnownGapTableIncrement = tableIncrement
-	go bc.CaptureHead(ctx)
+	go bc.CaptureHead(ctx, true)
 	time.Sleep(1 * time.Second)
 
 	for _, headMsg := range msg {
@@ -1067,5 +1067,6 @@ func testStopHeadTracking(cancel context.CancelFunc, bc *beaconclient.BeaconClie
 
 	time.Sleep(3 * time.Second)
 	endNum := runtime.NumGoroutine()
+	//pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
 	Expect(startGoRoutines).To(Equal(endNum))
 }

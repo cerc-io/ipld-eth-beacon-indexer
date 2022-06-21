@@ -24,37 +24,50 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/loghelper"
-	"golang.org/x/sync/errgroup"
-)
-
-var (
-	shutdownWaitInterval = time.Duration(5) * time.Second
 )
 
 // This function will capture all the SSE events for a given SseEvents object.
 // When new messages come in, it will ensure that they are decoded into JSON.
 // If any errors occur, it log the error information.
-func handleIncomingSseEvent[P ProcessedEvents](ctx context.Context, eventHandler *SseEvents[P], errMetricInc func(uint64)) {
-	go func() {
-		errG := new(errgroup.Group)
-		errG.Go(func() error {
-			err := eventHandler.SseClient.SubscribeChanRaw(eventHandler.MessagesCh)
+func handleIncomingSseEvent[P ProcessedEvents](ctx context.Context, eventHandler *SseEvents[P], errMetricInc func(uint64), skipSse bool) {
+	//go func() {
+	//	subCh := make(chan error, 1)
+	//	go func() {
+	//		err := eventHandler.SseClient.SubscribeChanRawWithContext(ctx, eventHandler.MessagesCh)
+	//		if err != nil {
+	//			subCh <- err
+	//		}
+	//		subCh <- nil
+	//	}()
+	//	select {
+	//	case err := <-subCh:
+	//		if err != nil {
+	//			log.WithFields(log.Fields{
+	//				"err":      err,
+	//				"endpoint": eventHandler.Endpoint,
+	//			}).Error("Unable to subscribe to the SSE endpoint.")
+	//			return
+	//		} else {
+	//			loghelper.LogEndpoint(eventHandler.Endpoint).Info("Successfully subscribed to the event stream.")
+	//		}
+	//	case <-ctx.Done():
+	//		return
+	//	}
+	//}()
+	if !skipSse {
+		for {
+			err := eventHandler.SseClient.SubscribeChanRawWithContext(ctx, eventHandler.MessagesCh)
 			if err != nil {
-				return err
+				loghelper.LogEndpoint(eventHandler.Endpoint).WithFields(log.Fields{
+					"err": err}).Error("We are unable to subscribe to the SSE endpoint")
+				time.Sleep(3 * time.Second)
+				continue
 			}
-			return nil
-		})
-		if err := errG.Wait(); err != nil {
-			log.WithFields(log.Fields{
-				"err":      err,
-				"endpoint": eventHandler.Endpoint,
-			}).Error("Unable to subscribe to the SSE endpoint.")
-			return
-		} else {
 			loghelper.LogEndpoint(eventHandler.Endpoint).Info("Successfully subscribed to the event stream.")
+			break
 		}
+	}
 
-	}()
 	for {
 		select {
 		case <-ctx.Done():
@@ -96,8 +109,8 @@ func processMsg[P ProcessedEvents](msg []byte, processCh chan<- *P, errorCh chan
 }
 
 // Capture all of the event topics.
-func (bc *BeaconClient) captureEventTopic(ctx context.Context) {
+func (bc *BeaconClient) captureEventTopic(ctx context.Context, skipSse bool) {
 	log.Info("We are capturing all SSE events")
-	go handleIncomingSseEvent(ctx, bc.HeadTracking, bc.Metrics.IncrementHeadError)
-	go handleIncomingSseEvent(ctx, bc.ReOrgTracking, bc.Metrics.IncrementReorgError)
+	go handleIncomingSseEvent(ctx, bc.HeadTracking, bc.Metrics.IncrementHeadError, skipSse)
+	go handleIncomingSseEvent(ctx, bc.ReOrgTracking, bc.Metrics.IncrementReorgError, skipSse)
 }

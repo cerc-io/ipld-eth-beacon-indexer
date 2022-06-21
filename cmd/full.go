@@ -76,7 +76,7 @@ func startFullProcessing() {
 	log.Info("The Beacon Client has booted successfully!")
 	// Capture head blocks
 	hdCtx, hdCancel := context.WithCancel(context.Background())
-	go Bc.CaptureHead(hdCtx)
+	go Bc.CaptureHead(hdCtx, false)
 
 	hpContext, hpCancel := context.WithCancel(context.Background())
 
