@@ -59,7 +59,7 @@ func init() {
 func startFullProcessing() {
 	// Boot the application
 	log.Info("Starting the application in head tracking mode.")
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
 
 	Bc, Db, err := boot.BootApplicationWithRetry(ctx, viper.GetString("db.address"), viper.GetInt("db.port"), viper.GetString("db.name"), viper.GetString("db.username"), viper.GetString("db.password"), viper.GetString("db.driver"),
 		viper.GetString("bc.address"), viper.GetInt("bc.port"), viper.GetString("bc.connectionProtocol"), viper.GetString("bc.type"), viper.GetInt("bc.bootRetryInterval"), viper.GetInt("bc.bootMaxRetry"),
@@ -75,14 +75,11 @@ func startFullProcessing() {
 
 	log.Info("The Beacon Client has booted successfully!")
 	// Capture head blocks
-	hdCtx, hdCancel := context.WithCancel(context.Background())
-	go Bc.CaptureHead(hdCtx, false)
-
-	hpContext, hpCancel := context.WithCancel(context.Background())
+	go Bc.CaptureHead(ctx, viper.GetInt("bc.maxHeadProcessWorker"), false)
 
 	errG, _ := errgroup.WithContext(context.Background())
 	errG.Go(func() error {
-		errs := Bc.CaptureHistoric(hpContext, viper.GetInt("bc.maxHistoricProcessWorker"))
+		errs := Bc.CaptureHistoric(ctx, viper.GetInt("bc.maxHistoricProcessWorker"))
 		if len(errs) != 0 {
 			if len(errs) != 0 {
 				log.WithFields(log.Fields{"errs": errs}).Error("All errors when processing historic events")
@@ -91,12 +88,11 @@ func startFullProcessing() {
 		}
 		return nil
 	})
-	kgCtx, kgCancel := context.WithCancel(context.Background())
 	if viper.GetBool("kg.processKnownGaps") {
 		go func() {
 			errG := new(errgroup.Group)
 			errG.Go(func() error {
-				errs := Bc.ProcessKnownGaps(kgCtx, viper.GetInt("kg.maxKnownGapsWorker"))
+				errs := Bc.ProcessKnownGaps(ctx, viper.GetInt("kg.maxKnownGapsWorker"))
 				if len(errs) != 0 {
 					log.WithFields(log.Fields{"errs": errs}).Error("All errors when processing knownGaps")
 					return fmt.Errorf("Application ended because there were too many error when attempting to process knownGaps")
@@ -116,7 +112,7 @@ func startFullProcessing() {
 	}
 
 	// Shutdown when the time is right.
-	err = shutdown.ShutdownFull(ctx, hdCancel, kgCancel, hpCancel, notifierCh, maxWaitSecondsShutdown, Db, Bc)
+	err = shutdown.ShutdownFull(ctx, cancel, notifierCh, maxWaitSecondsShutdown, Db, Bc)
 	if err != nil {
 		loghelper.LogError(err).Error("Ungracefully Shutdown ipld-eth-beacon-indexer!")
 	} else {

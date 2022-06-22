@@ -45,7 +45,11 @@ func Shutdown(ctx context.Context, notifierCh chan os.Signal, timeout time.Durat
 
 		// add any other syscalls that you want to be notified with
 		signal.Notify(notifierCh, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
-		<-notifierCh
+		// Wait for one or the other...
+		select {
+		case <-notifierCh:
+		case <-ctx.Done():
+		}
 
 		log.Info("Shutting Down your application")
 

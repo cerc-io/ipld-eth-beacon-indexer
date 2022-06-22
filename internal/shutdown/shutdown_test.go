@@ -56,12 +56,13 @@ var (
 	BC                     *beaconclient.BeaconClient
 	err                    error
 	ctx                    context.Context
+	cancel                 context.CancelFunc
 	notifierCh             chan os.Signal
 )
 
 var _ = Describe("Shutdown", func() {
 	BeforeEach(func() {
-		ctx = context.Background()
+		ctx, cancel = context.WithCancel(context.Background())
 		BC, DB, err = boot.BootApplicationWithRetry(ctx, dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver, bcAddress,
 			bcPort, bcConnectionProtocol, bcType, bcBootRetryInterval, bcBootMaxRetry, bcKgTableIncrement, "head", true, bcUniqueIdentifier, bcCheckDb)
 		notifierCh = make(chan os.Signal, 1)
@@ -72,10 +73,8 @@ var _ = Describe("Shutdown", func() {
 		Context("When Channels are empty,", func() {
 			It("Should Shutdown Successfully.", func() {
 				go func() {
-					_, kgCancel := context.WithCancel(context.Background())
-					_, hdCancel := context.WithCancel(context.Background())
 					log.Debug("Starting shutdown chan")
-					err = shutdown.ShutdownHeadTracking(ctx, hdCancel, kgCancel, notifierCh, maxWaitSecondsShutdown, DB, BC)
+					err = shutdown.ShutdownHeadTracking(ctx, cancel, notifierCh, maxWaitSecondsShutdown, DB, BC)
 					log.Debug("We have completed the shutdown...")
 					Expect(err).ToNot(HaveOccurred())
 				}()
@@ -86,10 +85,8 @@ var _ = Describe("Shutdown", func() {
 				shutdownCh := make(chan bool)
 				//log.SetLevel(log.DebugLevel)
 				go func() {
-					_, kgCancel := context.WithCancel(context.Background())
-					_, hdCancel := context.WithCancel(context.Background())
 					log.Debug("Starting shutdown chan")
-					err = shutdown.ShutdownHeadTracking(ctx, hdCancel, kgCancel, notifierCh, maxWaitSecondsShutdown, DB, BC)
+					err = shutdown.ShutdownHeadTracking(ctx, cancel, notifierCh, maxWaitSecondsShutdown, DB, BC)
 					log.Debug("We have completed the shutdown...")
 					Expect(err).ToNot(HaveOccurred())
 					shutdownCh <- true
@@ -122,9 +119,7 @@ var _ = Describe("Shutdown", func() {
 				//log.SetLevel(log.DebugLevel)
 				go func() {
 					log.Debug("Starting shutdown chan")
-					_, kgCancel := context.WithCancel(context.Background())
-					_, hdCancel := context.WithCancel(context.Background())
-					err = shutdown.ShutdownHeadTracking(ctx, hdCancel, kgCancel, notifierCh, maxWaitSecondsShutdown, DB, BC)
+					err = shutdown.ShutdownHeadTracking(ctx, cancel, notifierCh, maxWaitSecondsShutdown, DB, BC)
 					log.Debug("We have completed the shutdown...")
 					Expect(err).To(MatchError(gracefulshutdown.TimeoutErr(maxWaitSecondsShutdown.String())))
 					shutdownCh <- true

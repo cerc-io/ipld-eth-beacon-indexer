@@ -143,7 +143,7 @@ var _ = Describe("Capturehistoric", func() {
 				time.Sleep(2 * time.Second)
 				validatePopularBatchBlocks(bc)
 
-				testStopHeadTracking(cancel, bc, startGoRoutines)
+				testStopHeadTracking(ctx, cancel, bc, startGoRoutines)
 
 			})
 		})
@@ -168,7 +168,7 @@ var _ = Describe("Capturehistoric", func() {
 
 				time.Sleep(2 * time.Second)
 				validatePopularBatchBlocks(bc)
-				testStopHeadTracking(cancel, bc, startGoRoutines)
+				testStopHeadTracking(ctx, cancel, bc, startGoRoutines)
 			})
 		})
 		Context("When it recieves a known Gaps, historic and head  message (in order)", func() {
@@ -192,7 +192,7 @@ var _ = Describe("Capturehistoric", func() {
 
 				time.Sleep(2 * time.Second)
 				validatePopularBatchBlocks(bc)
-				testStopHeadTracking(cancel, bc, startGoRoutines)
+				testStopHeadTracking(ctx, cancel, bc, startGoRoutines)
 			})
 		})
 	})
@@ -228,25 +228,20 @@ func (tbc TestBeaconNode) writeEventToHistoricProcess(bc *beaconclient.BeaconCli
 
 // Start the CaptureHistoric function, and check for the correct inserted slots.
 func (tbc TestBeaconNode) runHistoricalProcess(bc *beaconclient.BeaconClient, maxWorkers int, expectedInserts, expectedReorgs, expectedKnownGaps, expectedKnownGapsReprocessError uint64) {
+	startGoRoutines := runtime.NumGoroutine()
 	ctx, cancel := context.WithCancel(context.Background())
 	go bc.CaptureHistoric(ctx, maxWorkers)
 	validateMetrics(bc, expectedInserts, expectedReorgs, expectedKnownGaps, expectedKnownGapsReprocessError)
-	log.Debug("Calling the stop function for historical processing..")
-	err := bc.StopHistoric(cancel)
-	time.Sleep(5 * time.Second)
-	Expect(err).ToNot(HaveOccurred())
-	validateAllRowsCheckedOut(bc.Db, hpCheckCheckedOutStmt)
+	testStopHistoricTracking(ctx, cancel, bc, startGoRoutines)
 }
 
 // Wrapper function that processes knownGaps
 func (tbc TestBeaconNode) runKnownGapsProcess(bc *beaconclient.BeaconClient, maxWorkers int, expectedInserts, expectedReorgs, expectedKnownGaps, expectedKnownGapsReprocessError uint64) {
+	startGoRoutines := runtime.NumGoroutine()
 	ctx, cancel := context.WithCancel(context.Background())
 	go bc.ProcessKnownGaps(ctx, maxWorkers)
 	validateMetrics(bc, expectedInserts, expectedReorgs, expectedKnownGaps, expectedKnownGapsReprocessError)
-	err := bc.StopKnownGapsProcessing(cancel)
-	time.Sleep(5 * time.Second)
-	Expect(err).ToNot(HaveOccurred())
-	validateAllRowsCheckedOut(bc.Db, kgCheckCheckedOutStmt)
+	testStopHistoricTracking(ctx, cancel, bc, startGoRoutines)
 }
 
 func validateMetrics(bc *beaconclient.BeaconClient, expectedInserts, expectedReorgs, expectedKnownGaps, expectedKnownGapsReprocessError uint64) {
@@ -315,4 +310,22 @@ func validateAllRowsCheckedOut(db sql.Database, checkStmt string) {
 	rows, err := res.RowsAffected()
 	Expect(err).ToNot(HaveOccurred())
 	Expect(rows).To(Equal(int64(0)))
+}
+
+// A make shift function to stop head tracking and insure we dont have any goroutine leaks
+func testStopHistoricTracking(ctx context.Context, cancel context.CancelFunc, bc *beaconclient.BeaconClient, startGoRoutines int) {
+	log.Debug("Calling the stop function for historical processing..")
+	cancel()
+	err := bc.StopKnownGapsProcessing(ctx)
+	Expect(err).ToNot(HaveOccurred())
+	time.Sleep(5 * time.Second)
+	validateAllRowsCheckedOut(bc.Db, kgCheckCheckedOutStmt)
+	err = bc.Db.Close()
+	Expect(err).ToNot(HaveOccurred())
+
+	time.Sleep(3 * time.Second)
+	endNum := runtime.NumGoroutine()
+
+	//pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
+	Expect(startGoRoutines).To(Equal(endNum))
 }

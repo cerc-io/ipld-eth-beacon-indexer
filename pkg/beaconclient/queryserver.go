@@ -44,7 +44,12 @@ func querySsz(endpoint string, slot string) (*[]byte, int, error) {
 	}
 	defer response.Body.Close()
 	rc := response.StatusCode
-	body, err := ioutil.ReadAll(response.Body)
+
+	var body []byte
+	//io.Copy(body, response.Body)
+	//bytes.buffer...
+	_, err = response.Body.Read(body)
+	//body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		loghelper.LogSlotError(slot, err).Error("Unable to turn response into a []bytes array!")
 		return nil, rc, fmt.Errorf("Unable to turn response into a []bytes array!: %s", err.Error())

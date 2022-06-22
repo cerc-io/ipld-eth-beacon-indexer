@@ -24,17 +24,23 @@ import (
 )
 
 // This function will perform all the heavy lifting for tracking the head of the chain.
-func (bc *BeaconClient) CaptureHead(ctx context.Context, skipSee bool) {
+func (bc *BeaconClient) CaptureHead(ctx context.Context, maxHeadWorkers int, skipSee bool) {
 	log.Info("We are tracking the head of the chain.")
-	go bc.handleHead(ctx)
+	go bc.handleHead(ctx, maxHeadWorkers)
 	go bc.handleReorg(ctx)
 	bc.captureEventTopic(ctx, skipSee)
 }
 
 // Stop the head tracking service.
-func (bc *BeaconClient) StopHeadTracking(cancel context.CancelFunc) error {
-	log.Info("We are going to stop tracking the head of chain because of the shutdown signal.")
-	cancel()
-	log.Info("Successfully stopped the head tracking service.")
-	return nil
+func (bc *BeaconClient) StopHeadTracking(ctx context.Context, skipSee bool) {
+	select {
+	case <-ctx.Done():
+		if !skipSee {
+			bc.HeadTracking.SseClient.Unsubscribe(bc.HeadTracking.MessagesCh)
+			bc.ReOrgTracking.SseClient.Unsubscribe(bc.ReOrgTracking.MessagesCh)
+		}
+		log.Info("Successfully stopped the head tracking service.")
+	default:
+		log.Error("The context has not completed....")
+	}
 }

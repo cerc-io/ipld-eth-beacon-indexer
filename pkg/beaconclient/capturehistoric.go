@@ -37,14 +37,18 @@ func (bc *BeaconClient) CaptureHistoric(ctx context.Context, maxWorkers int) []e
 }
 
 // This function will perform all the necessary clean up tasks for stopping historical processing.
-func (bc *BeaconClient) StopHistoric(cancel context.CancelFunc) error {
-	log.Info("We are stopping the historical processing service.")
-	cancel()
-	err := bc.HistoricalProcess.releaseDbLocks()
-	if err != nil {
-		loghelper.LogError(err).WithField("uniqueIdentifier", bc.UniqueNodeIdentifier).Error("We were unable to remove the locks from the eth_beacon.historic_processing table. Manual Intervention is needed!")
+func (bc *BeaconClient) StopHistoric(ctx context.Context) error {
+	select {
+	case <-ctx.Done():
+		log.Info("We are stopping the historical processing service.")
+		err := bc.HistoricalProcess.releaseDbLocks()
+		if err != nil {
+			loghelper.LogError(err).WithField("uniqueIdentifier", bc.UniqueNodeIdentifier).Error("We were unable to remove the locks from the eth_beacon.historic_processing table. Manual Intervention is needed!")
+		}
+		return nil
+	default:
+		return fmt.Errorf("Tried to stop historic before the context ended...")
 	}
-	return nil
 }
 
 // An interface to enforce any batch processing. Currently there are two use cases for this.

@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"os"
 	"strconv"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -47,7 +46,7 @@ var headCmd = &cobra.Command{
 func startHeadTracking() {
 	// Boot the application
 	log.Info("Starting the application in head tracking mode.")
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
 
 	Bc, Db, err := boot.BootApplicationWithRetry(ctx, viper.GetString("db.address"), viper.GetInt("db.port"), viper.GetString("db.name"), viper.GetString("db.username"), viper.GetString("db.password"), viper.GetString("db.driver"),
 		viper.GetString("bc.address"), viper.GetInt("bc.port"), viper.GetString("bc.connectionProtocol"), viper.GetString("bc.type"), viper.GetInt("bc.bootRetryInterval"), viper.GetInt("bc.bootMaxRetry"),
@@ -63,15 +62,13 @@ func startHeadTracking() {
 
 	log.Info("The Beacon Client has booted successfully!")
 	// Capture head blocks
-	hdCtx, hdCancel := context.WithCancel(context.Background())
-	go Bc.CaptureHead(hdCtx, false)
+	go Bc.CaptureHead(ctx, viper.GetInt("bc.maxHeadProcessWorker"), false)
 
-	kgCtx, kgCancel := context.WithCancel(context.Background())
 	if viper.GetBool("kg.processKnownGaps") {
 		go func() {
 			errG := new(errgroup.Group)
 			errG.Go(func() error {
-				errs := Bc.ProcessKnownGaps(kgCtx, viper.GetInt("kg.maxKnownGapsWorker"))
+				errs := Bc.ProcessKnownGaps(ctx, viper.GetInt("kg.maxKnownGapsWorker"))
 				if len(errs) != 0 {
 					log.WithFields(log.Fields{"errs": errs}).Error("All errors when processing knownGaps")
 					return fmt.Errorf("Application ended because there were too many error when attempting to process knownGaps")
@@ -91,14 +88,12 @@ func startHeadTracking() {
 	}
 
 	// Shutdown when the time is right.
-	err = shutdown.ShutdownHeadTracking(ctx, hdCancel, kgCancel, notifierCh, maxWaitSecondsShutdown, Db, Bc)
+	err = shutdown.ShutdownHeadTracking(ctx, cancel, notifierCh, maxWaitSecondsShutdown, Db, Bc)
 	if err != nil {
 		loghelper.LogError(err).Error("Ungracefully Shutdown ipld-eth-beacon-indexer!")
 	} else {
 		log.Info("Gracefully shutdown ipld-eth-beacon-indexer")
 	}
-	log.Debug("WTF")
-	os.Exit(0)
 }
 
 func init() {

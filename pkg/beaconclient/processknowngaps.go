@@ -20,6 +20,7 @@ package beaconclient
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 
 	log "github.com/sirupsen/logrus"
@@ -67,14 +68,18 @@ func (bc *BeaconClient) ProcessKnownGaps(ctx context.Context, maxWorkers int) []
 }
 
 // This function will perform all the necessary clean up tasks for stopping historical processing.
-func (bc *BeaconClient) StopKnownGapsProcessing(cancel context.CancelFunc) error {
-	log.Info("We are stopping the known gaps processing service.")
-	cancel()
-	err := bc.KnownGapsProcess.releaseDbLocks()
-	if err != nil {
-		loghelper.LogError(err).WithField("uniqueIdentifier", bc.UniqueNodeIdentifier).Error("We were unable to remove the locks from the eth_beacon.known_gaps table. Manual Intervention is needed!")
+func (bc *BeaconClient) StopKnownGapsProcessing(ctx context.Context) error {
+	select {
+	case <-ctx.Done():
+		log.Info("We are stopping the known gaps processing service.")
+		err := bc.KnownGapsProcess.releaseDbLocks()
+		if err != nil {
+			loghelper.LogError(err).WithField("uniqueIdentifier", bc.UniqueNodeIdentifier).Error("We were unable to remove the locks from the eth_beacon.known_gaps table. Manual Intervention is needed!")
+		}
+		return nil
+	default:
+		return fmt.Errorf("Tried to stop knownGaps Processing without closing the context..")
 	}
-	return nil
 }
 
 // Get a single row of historical slots from the table.

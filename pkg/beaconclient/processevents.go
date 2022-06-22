@@ -24,6 +24,7 @@ import (
 	"strconv"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/database/sql"
 )
 
 // This function will perform the necessary steps to handle a reorg.
@@ -42,8 +43,14 @@ func (bc *BeaconClient) handleReorg(ctx context.Context) {
 }
 
 // This function will handle the latest head event.
-func (bc *BeaconClient) handleHead(ctx context.Context) {
+func (bc *BeaconClient) handleHead(ctx context.Context, maxWorkers int) {
 	log.Info("Starting to process head.")
+
+	workCh := make(chan workParams)
+	log.WithField("workerNumber", maxWorkers).Info("Creating Workers")
+	for i := 1; i < maxWorkers; i++ {
+		go bc.headBlockProcessor(ctx, workCh)
+	}
 	errorSlots := 0
 	for {
 		select {
@@ -77,13 +84,38 @@ func (bc *BeaconClient) handleHead(ctx context.Context) {
 				bc.StartingSlot = slot
 			}
 
-			go processHeadSlot(ctx, bc.Db, bc.ServerEndpoint, slot, head.Block, head.State, bc.PreviousSlot, bc.PreviousBlockRoot, bc.Metrics, bc.KnownGapTableIncrement, bc.CheckDb)
-
-			log.WithFields(log.Fields{"head": head.Slot}).Debug("We finished calling processHeadSlot.")
+			workCh <- workParams{db: bc.Db, serverEndpoint: bc.ServerEndpoint, slot: slot, blockRoot: head.Block, stateRoot: head.State, previousSlot: bc.PreviousSlot, previousBlockRoot: bc.PreviousBlockRoot, metrics: bc.Metrics, knownGapsTableIncrement: bc.KnownGapTableIncrement, checkDb: bc.CheckDb}
+			log.WithFields(log.Fields{"head": head.Slot}).Debug("We finished sending this slot to the workCh")
 
 			// Update the previous block
 			bc.PreviousSlot = slot
 			bc.PreviousBlockRoot = head.Block
 		}
 	}
+}
+
+// A worker that will process head slots.
+func (bc *BeaconClient) headBlockProcessor(ctx context.Context, workCh <-chan workParams) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case wp := <-workCh:
+			processHeadSlot(ctx, wp.db, wp.serverEndpoint, wp.slot, wp.blockRoot, wp.stateRoot, wp.previousSlot, wp.previousBlockRoot, wp.metrics, wp.knownGapsTableIncrement, wp.checkDb)
+		}
+	}
+}
+
+// A struct used to pass parameters to the worker.
+type workParams struct {
+	db                      sql.Database
+	serverEndpoint          string
+	slot                    int
+	blockRoot               string
+	stateRoot               string
+	previousSlot            int
+	previousBlockRoot       string
+	metrics                 *BeaconClientMetrics
+	knownGapsTableIncrement int
+	checkDb                 bool
 }
