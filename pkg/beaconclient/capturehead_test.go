@@ -24,7 +24,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"runtime/pprof"
 	"strconv"
 	"sync/atomic"
 	"time"
@@ -407,7 +406,7 @@ var _ = Describe("Capturehead", Label("head"), func() {
 				Expect(end).To(Equal(99))
 			})
 		})
-		Context("Gaps between two head messages", func() {
+		Context("Gaps between two head messages", Label("gap-head"), func() {
 			It("Should add the slots in-between", func() {
 				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
 				defer httpmock.DeactivateAndReset()
@@ -919,7 +918,7 @@ func (tbc TestBeaconNode) testMultipleReorgs(bc *beaconclient.BeaconClient, firs
 
 // A test to validate a single block was processed correctly
 func (tbc TestBeaconNode) testProcessBlock(bc *beaconclient.BeaconClient, head beaconclient.Head, epoch int, maxRetry int, expectedSuccessInsert uint64, expectedKnownGaps uint64, expectedReorgs uint64) {
-	pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
+	//pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
 	startGoRoutines := runtime.NumGoroutine()
 	ctx, cancel := context.WithCancel(context.Background())
 	go bc.CaptureHead(ctx, 2, true)
@@ -987,6 +986,7 @@ func (tbc TestBeaconNode) testMultipleHead(bc *beaconclient.BeaconClient, firstH
 func (tbc TestBeaconNode) testKnownGapsMessages(bc *beaconclient.BeaconClient, tableIncrement int, expectedEntries uint64, maxRetry int, msg ...beaconclient.Head) {
 	bc.KnownGapTableIncrement = tableIncrement
 
+	//pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
 	startGoRoutines := runtime.NumGoroutine()
 	ctx, cancel := context.WithCancel(context.Background())
 	go bc.CaptureHead(ctx, 2, true)
@@ -1037,7 +1037,7 @@ func testStopHeadTracking(ctx context.Context, bc *beaconclient.BeaconClient, st
 
 	time.Sleep(3 * time.Second)
 	endNum := runtime.NumGoroutine()
-	pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
+	//pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
 	log.WithField("startNum", startGoRoutines).Info("Start Go routine number")
 	log.WithField("endNum", endNum).Info("End Go routine number")
 	//Expect(endNum <= startGoRoutines).To(BeTrue())

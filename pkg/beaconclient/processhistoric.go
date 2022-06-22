@@ -241,23 +241,27 @@ func removeRowPostProcess(ctx context.Context, db sql.Database, processCh <-chan
 					"endSlot":   slots.endSlot,
 				}).Debug("Starting to check to see if the following slots have been processed")
 				for {
-					isStartProcess, err := isSlotProcessed(db, checkProcessedStmt, strconv.Itoa(slots.startSlot))
-					if err != nil {
-						errCh <- err
+					select {
+					case <-ctx.Done():
+						return
+					default:
+						isStartProcess, err := isSlotProcessed(db, checkProcessedStmt, strconv.Itoa(slots.startSlot))
+						if err != nil {
+							errCh <- err
+						}
+						isEndProcess, err := isSlotProcessed(db, checkProcessedStmt, strconv.Itoa(slots.endSlot))
+						if err != nil {
+							errCh <- err
+						}
+						if isStartProcess && isEndProcess {
+							_, err := db.Exec(context.Background(), removeStmt, strconv.Itoa(slots.startSlot), strconv.Itoa(slots.endSlot))
+							if err != nil {
+								errCh <- err
+							}
+							return
+						}
+						time.Sleep(3 * time.Second)
 					}
-					isEndProcess, err := isSlotProcessed(db, checkProcessedStmt, strconv.Itoa(slots.endSlot))
-					if err != nil {
-						errCh <- err
-					}
-					if isStartProcess && isEndProcess {
-						break
-					}
-					time.Sleep(3 * time.Second)
-				}
-
-				_, err := db.Exec(context.Background(), removeStmt, strconv.Itoa(slots.startSlot), strconv.Itoa(slots.endSlot))
-				if err != nil {
-					errCh <- err
 				}
 
 			}()

@@ -212,6 +212,7 @@ func (tbc TestBeaconNode) writeEventToHistoricProcess(bc *beaconclient.BeaconCli
 
 // Start the CaptureHistoric function, and check for the correct inserted slots.
 func (tbc TestBeaconNode) runHistoricalProcess(bc *beaconclient.BeaconClient, maxWorkers int, expectedInserts, expectedReorgs, expectedKnownGaps, expectedKnownGapsReprocessError uint64) {
+	//pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
 	startGoRoutines := runtime.NumGoroutine()
 	ctx, cancel := context.WithCancel(context.Background())
 	go bc.CaptureHistoric(ctx, maxWorkers)
@@ -306,11 +307,13 @@ func testStopHistoricProcessing(ctx context.Context, bc *beaconclient.BeaconClie
 	time.Sleep(5 * time.Second)
 	validateAllRowsCheckedOut(bc.Db, hpCheckCheckedOutStmt)
 
-	time.Sleep(3 * time.Second)
+	time.Sleep(5 * time.Second)
 	endNum := runtime.NumGoroutine()
 
 	//pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
 	//Expect(endNum <= startGoRoutines).To(BeTrue())
+	log.WithField("startNum", startGoRoutines).Info("Start Go routine number")
+	log.WithField("endNum", endNum).Info("End Go routine number")
 	Expect(endNum).To(Equal(startGoRoutines))
 }
 

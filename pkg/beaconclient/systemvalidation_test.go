@@ -30,7 +30,7 @@ var (
 )
 var _ = Describe("Systemvalidation", Label("system"), func() {
 	Describe("Run the application against a running lighthouse node", func() {
-		Context("When we receive head messages", func() {
+		Context("When we receive head messages", Label("system-head"), func() {
 			It("We should process the messages successfully", func() {
 				bc := setUpTest(prodConfig, "10000000000")
 				processProdHeadBlocks(bc, 3, 0, 0, 0)
