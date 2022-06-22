@@ -24,6 +24,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"runtime/pprof"
 	"strconv"
 	"sync/atomic"
 	"time"
@@ -265,8 +266,8 @@ type MimicConfig struct {
 var _ = Describe("Capturehead", Label("head"), func() {
 
 	Describe("Receiving New Head SSE messages", Label("unit", "behavioral"), func() {
-		Context("Correctly formatted Phase0 Block", Label("leak-head"), func() {
-			It("Should turn it into a struct successfully.", func() {
+		Context("Correctly formatted Phase0 Block", func() {
+			It("Should process it successfully.", func() {
 				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
 				defer httpmock.DeactivateAndReset()
 				bc := setUpTest(BeaconNodeTester.TestConfig, "99")
@@ -277,8 +278,9 @@ var _ = Describe("Capturehead", Label("head"), func() {
 
 			})
 		})
-		Context("Correctly formatted Altair Block", func() {
-			It("Should turn it into a struct successfully.", func() {
+		Context("Correctly formatted Altair Block", Label("leak-head"), func() {
+			It("Should process it successfully.", func() {
+				log.SetLevel(log.DebugLevel)
 				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
 				defer httpmock.DeactivateAndReset()
 
@@ -917,6 +919,7 @@ func (tbc TestBeaconNode) testMultipleReorgs(bc *beaconclient.BeaconClient, firs
 
 // A test to validate a single block was processed correctly
 func (tbc TestBeaconNode) testProcessBlock(bc *beaconclient.BeaconClient, head beaconclient.Head, epoch int, maxRetry int, expectedSuccessInsert uint64, expectedKnownGaps uint64, expectedReorgs uint64) {
+	pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
 	startGoRoutines := runtime.NumGoroutine()
 	ctx, cancel := context.WithCancel(context.Background())
 	go bc.CaptureHead(ctx, 2, true)
@@ -1030,11 +1033,13 @@ func testSszRoot(msg Message) {
 
 // A make shift function to stop head tracking and insure we dont have any goroutine leaks
 func testStopHeadTracking(ctx context.Context, bc *beaconclient.BeaconClient, startGoRoutines int) {
-	bc.Db.Close()
 	bc.StopHeadTracking(ctx, true)
 
 	time.Sleep(3 * time.Second)
 	endNum := runtime.NumGoroutine()
-	//pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
-	Expect(startGoRoutines).To(Equal(endNum))
+	pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
+	log.WithField("startNum", startGoRoutines).Info("Start Go routine number")
+	log.WithField("endNum", endNum).Info("End Go routine number")
+	//Expect(endNum <= startGoRoutines).To(BeTrue())
+	Expect(endNum).To(Equal(startGoRoutines))
 }

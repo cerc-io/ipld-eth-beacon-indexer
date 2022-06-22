@@ -305,14 +305,13 @@ func testStopHistoricProcessing(ctx context.Context, bc *beaconclient.BeaconClie
 	Expect(err).ToNot(HaveOccurred())
 	time.Sleep(5 * time.Second)
 	validateAllRowsCheckedOut(bc.Db, hpCheckCheckedOutStmt)
-	err = bc.Db.Close()
-	Expect(err).ToNot(HaveOccurred())
 
 	time.Sleep(3 * time.Second)
 	endNum := runtime.NumGoroutine()
 
 	//pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
-	Expect(startGoRoutines).To(Equal(endNum))
+	//Expect(endNum <= startGoRoutines).To(BeTrue())
+	Expect(endNum).To(Equal(startGoRoutines))
 }
 
 // A make shift function to stop head tracking and insure we dont have any goroutine leaks
@@ -322,12 +321,11 @@ func testStopKnownGapProcessing(ctx context.Context, bc *beaconclient.BeaconClie
 	Expect(err).ToNot(HaveOccurred())
 	time.Sleep(5 * time.Second)
 	validateAllRowsCheckedOut(bc.Db, kgCheckCheckedOutStmt)
-	err = bc.Db.Close()
-	Expect(err).ToNot(HaveOccurred())
 
 	time.Sleep(3 * time.Second)
 	endNum := runtime.NumGoroutine()
 
 	//pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
-	Expect(startGoRoutines).To(Equal(endNum))
+	//Expect(endNum <= startGoRoutines).To(BeTrue())
+	Expect(endNum).To(Equal(startGoRoutines))
 }
