@@ -66,7 +66,7 @@ func ShutdownHistoricProcessing(ctx context.Context, cancel context.CancelFunc, 
 		"beaconClient": func(ctx context.Context) error {
 			defer DB.Close()
 			cancel()
-			err := BC.StopHistoric(ctx)
+			err := BC.StopHistoricProcess(ctx)
 			if err != nil {
 				loghelper.LogError(err).Error("Unable to stop processing historic")
 			}
@@ -89,7 +89,7 @@ func ShutdownFull(ctx context.Context, cancel context.CancelFunc, notifierCh cha
 		"beaconClient": func(ctx context.Context) error {
 			defer DB.Close()
 			cancel()
-			err := BC.StopHistoric(ctx)
+			err := BC.StopHistoricProcess(ctx)
 			if err != nil {
 				loghelper.LogError(err).Error("Unable to stop processing historic")
 			}

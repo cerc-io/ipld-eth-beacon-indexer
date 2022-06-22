@@ -27,7 +27,6 @@ var _ = Describe("Capturehistoric", func() {
 			It("Successfully Process the Blocks", func() {
 				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
 				defer httpmock.DeactivateAndReset()
-				startNum := runtime.NumGoroutine()
 
 				bc := setUpTest(BeaconNodeTester.TestConfig, "99")
 				BeaconNodeTester.writeEventToHistoricProcess(bc, 100, 101, 10)
@@ -36,13 +35,8 @@ var _ = Describe("Capturehistoric", func() {
 				BeaconNodeTester.writeEventToHistoricProcess(bc, 2375703, 2375703, 10)
 				BeaconNodeTester.runHistoricalProcess(bc, 2, 3, 0, 0, 0)
 
-				time.Sleep(2 * time.Second)
 				validatePopularBatchBlocks(bc)
-				time.Sleep(3 * time.Second)
 
-				bc.Db.Close()
-				endNum := runtime.NumGoroutine()
-				Expect(startNum).To(Equal(endNum))
 			})
 		})
 		Context("When the start block is greater than the endBlock", func() {
@@ -125,12 +119,10 @@ var _ = Describe("Capturehistoric", func() {
 			It("Should process them all successfully.", func() {
 				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
 				defer httpmock.DeactivateAndReset()
-				startGoRoutines := runtime.NumGoroutine()
-				ctx, cancel := context.WithCancel(context.Background())
 
 				bc := setUpTest(BeaconNodeTester.TestConfig, "2375702")
 				// Head
-				BeaconNodeTester.testProcessBlock(ctx, bc, BeaconNodeTester.TestEvents["2375703"].HeadMessage, 74240, maxRetry, 1, 0, 0)
+				BeaconNodeTester.testProcessBlock(bc, BeaconNodeTester.TestEvents["2375703"].HeadMessage, 74240, maxRetry, 1, 0, 0)
 
 				// Historical
 				BeaconNodeTester.writeEventToHistoricProcess(bc, 100, 100, 10)
@@ -143,16 +135,12 @@ var _ = Describe("Capturehistoric", func() {
 				time.Sleep(2 * time.Second)
 				validatePopularBatchBlocks(bc)
 
-				testStopHeadTracking(ctx, cancel, bc, startGoRoutines)
-
 			})
 		})
 		Context("When it recieves a historic, head and known Gaps message (in order)", func() {
 			It("Should process them all successfully.", func() {
 				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
 				defer httpmock.DeactivateAndReset()
-				startGoRoutines := runtime.NumGoroutine()
-				ctx, cancel := context.WithCancel(context.Background())
 
 				bc := setUpTest(BeaconNodeTester.TestConfig, "2375702")
 				// Historical
@@ -160,7 +148,7 @@ var _ = Describe("Capturehistoric", func() {
 				BeaconNodeTester.runHistoricalProcess(bc, 2, 1, 0, 0, 0)
 
 				// Head
-				BeaconNodeTester.testProcessBlock(ctx, bc, BeaconNodeTester.TestEvents["2375703"].HeadMessage, 74240, maxRetry, 1, 0, 0)
+				BeaconNodeTester.testProcessBlock(bc, BeaconNodeTester.TestEvents["2375703"].HeadMessage, 74240, maxRetry, 1, 0, 0)
 
 				// Known Gaps
 				BeaconNodeTester.writeEventToKnownGaps(bc, 101, 101)
@@ -168,15 +156,12 @@ var _ = Describe("Capturehistoric", func() {
 
 				time.Sleep(2 * time.Second)
 				validatePopularBatchBlocks(bc)
-				testStopHeadTracking(ctx, cancel, bc, startGoRoutines)
 			})
 		})
 		Context("When it recieves a known Gaps, historic and head  message (in order)", func() {
 			It("Should process them all successfully.", func() {
 				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
 				defer httpmock.DeactivateAndReset()
-				startGoRoutines := runtime.NumGoroutine()
-				ctx, cancel := context.WithCancel(context.Background())
 
 				bc := setUpTest(BeaconNodeTester.TestConfig, "2375702")
 				// Known Gaps
@@ -188,11 +173,10 @@ var _ = Describe("Capturehistoric", func() {
 				BeaconNodeTester.runHistoricalProcess(bc, 2, 2, 0, 0, 0)
 
 				// Head
-				BeaconNodeTester.testProcessBlock(ctx, bc, BeaconNodeTester.TestEvents["2375703"].HeadMessage, 74240, maxRetry, 1, 0, 0)
+				BeaconNodeTester.testProcessBlock(bc, BeaconNodeTester.TestEvents["2375703"].HeadMessage, 74240, maxRetry, 1, 0, 0)
 
 				time.Sleep(2 * time.Second)
 				validatePopularBatchBlocks(bc)
-				testStopHeadTracking(ctx, cancel, bc, startGoRoutines)
 			})
 		})
 	})
@@ -232,7 +216,8 @@ func (tbc TestBeaconNode) runHistoricalProcess(bc *beaconclient.BeaconClient, ma
 	ctx, cancel := context.WithCancel(context.Background())
 	go bc.CaptureHistoric(ctx, maxWorkers)
 	validateMetrics(bc, expectedInserts, expectedReorgs, expectedKnownGaps, expectedKnownGapsReprocessError)
-	testStopHistoricTracking(ctx, cancel, bc, startGoRoutines)
+	cancel()
+	testStopHistoricProcessing(ctx, bc, startGoRoutines)
 }
 
 // Wrapper function that processes knownGaps
@@ -241,7 +226,8 @@ func (tbc TestBeaconNode) runKnownGapsProcess(bc *beaconclient.BeaconClient, max
 	ctx, cancel := context.WithCancel(context.Background())
 	go bc.ProcessKnownGaps(ctx, maxWorkers)
 	validateMetrics(bc, expectedInserts, expectedReorgs, expectedKnownGaps, expectedKnownGapsReprocessError)
-	testStopHistoricTracking(ctx, cancel, bc, startGoRoutines)
+	cancel()
+	testStopKnownGapProcessing(ctx, bc, startGoRoutines)
 }
 
 func validateMetrics(bc *beaconclient.BeaconClient, expectedInserts, expectedReorgs, expectedKnownGaps, expectedKnownGapsReprocessError uint64) {
@@ -313,9 +299,25 @@ func validateAllRowsCheckedOut(db sql.Database, checkStmt string) {
 }
 
 // A make shift function to stop head tracking and insure we dont have any goroutine leaks
-func testStopHistoricTracking(ctx context.Context, cancel context.CancelFunc, bc *beaconclient.BeaconClient, startGoRoutines int) {
+func testStopHistoricProcessing(ctx context.Context, bc *beaconclient.BeaconClient, startGoRoutines int) {
 	log.Debug("Calling the stop function for historical processing..")
-	cancel()
+	err := bc.StopHistoricProcess(ctx)
+	Expect(err).ToNot(HaveOccurred())
+	time.Sleep(5 * time.Second)
+	validateAllRowsCheckedOut(bc.Db, hpCheckCheckedOutStmt)
+	err = bc.Db.Close()
+	Expect(err).ToNot(HaveOccurred())
+
+	time.Sleep(3 * time.Second)
+	endNum := runtime.NumGoroutine()
+
+	//pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
+	Expect(startGoRoutines).To(Equal(endNum))
+}
+
+// A make shift function to stop head tracking and insure we dont have any goroutine leaks
+func testStopKnownGapProcessing(ctx context.Context, bc *beaconclient.BeaconClient, startGoRoutines int) {
+	log.Debug("Calling the stop function for knownGaps processing..")
 	err := bc.StopKnownGapsProcessing(ctx)
 	Expect(err).ToNot(HaveOccurred())
 	time.Sleep(5 * time.Second)

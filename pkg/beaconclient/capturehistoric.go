@@ -37,7 +37,7 @@ func (bc *BeaconClient) CaptureHistoric(ctx context.Context, maxWorkers int) []e
 }
 
 // This function will perform all the necessary clean up tasks for stopping historical processing.
-func (bc *BeaconClient) StopHistoric(ctx context.Context) error {
+func (bc *BeaconClient) StopHistoricProcess(ctx context.Context) error {
 	select {
 	case <-ctx.Done():
 		log.Info("We are stopping the historical processing service.")

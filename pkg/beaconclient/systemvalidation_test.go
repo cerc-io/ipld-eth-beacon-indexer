@@ -71,5 +71,6 @@ func processProdHeadBlocks(bc *beaconclient.BeaconClient, expectedInserts, expec
 	time.Sleep(1 * time.Second)
 	validateMetrics(bc, expectedInserts, expectedReorgs, expectedKnownGaps, expectedKnownGapsReprocessError)
 
-	testStopHeadTracking(ctx, cancel, bc, startGoRoutines)
+	cancel()
+	testStopHeadTracking(ctx, bc, startGoRoutines)
 }
