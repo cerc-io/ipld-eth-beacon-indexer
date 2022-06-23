@@ -89,6 +89,7 @@ system-test-ci:
 	go fmt ./...
 	$(GINKGO) -r --label-filter system \
 	--randomize-all --randomize-suites \
+	--flake-attempts=3 \
 	--fail-on-pending --keep-going \
 	--cover --coverprofile=cover.profile \
 	--trace --json-report=report.json

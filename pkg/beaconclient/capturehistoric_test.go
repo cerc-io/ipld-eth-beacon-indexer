@@ -76,7 +76,6 @@ var _ = Describe("Capturehistoric", func() {
 			It("Successfully Process the Blocks", func() {
 				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
 				defer httpmock.DeactivateAndReset()
-				startNum := runtime.NumGoroutine()
 
 				bc := setUpTest(BeaconNodeTester.TestConfig, "99")
 				BeaconNodeTester.writeEventToKnownGaps(bc, 100, 101)
@@ -88,9 +87,6 @@ var _ = Describe("Capturehistoric", func() {
 				time.Sleep(2 * time.Second)
 				validatePopularBatchBlocks(bc)
 
-				bc.Db.Close()
-				endNum := runtime.NumGoroutine()
-				Expect(startNum).To(Equal(endNum))
 			})
 		})
 		Context("When the start block is greater than the endBlock", func() {
