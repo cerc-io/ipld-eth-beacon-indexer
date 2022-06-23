@@ -24,7 +24,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"runtime/pprof"
 	"strconv"
 	"sync/atomic"
 	"time"
@@ -1038,7 +1037,7 @@ func testStopHeadTracking(ctx context.Context, bc *beaconclient.BeaconClient, st
 
 	time.Sleep(3 * time.Second)
 	endNum := runtime.NumGoroutine()
-	pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
+	//pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
 	log.WithField("startNum", startGoRoutines).Info("Start Go routine number")
 	log.WithField("endNum", endNum).Info("End Go routine number")
 	//Expect(endNum <= startGoRoutines).To(BeTrue())
