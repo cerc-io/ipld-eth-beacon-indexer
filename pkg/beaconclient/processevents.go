@@ -33,7 +33,6 @@ func (bc *BeaconClient) handleReorg(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			close(bc.ReOrgTracking.ProcessCh)
 			return
 		case reorg := <-bc.ReOrgTracking.ProcessCh:
 			log.WithFields(log.Fields{"reorg": reorg}).Debug("Received a new reorg message.")
@@ -55,7 +54,6 @@ func (bc *BeaconClient) handleHead(ctx context.Context, maxWorkers int) {
 	for {
 		select {
 		case <-ctx.Done():
-			close(bc.HeadTracking.ProcessCh)
 			close(workCh)
 			return
 		case head := <-bc.HeadTracking.ProcessCh:

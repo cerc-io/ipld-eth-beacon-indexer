@@ -47,8 +47,7 @@ func handleIncomingSseEvent[P ProcessedEvents](ctx context.Context, eventHandler
 	for {
 		select {
 		case <-ctx.Done():
-			close(eventHandler.MessagesCh)
-			close(eventHandler.ErrorCh)
+			close(eventHandler.ProcessCh)
 			return
 		case message := <-eventHandler.MessagesCh:
 			// Message can be nil if its a keep-alive message
