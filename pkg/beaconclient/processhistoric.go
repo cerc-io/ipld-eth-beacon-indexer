@@ -228,7 +228,7 @@ func getBatchProcessRow(ctx context.Context, db sql.Database, getStartEndSlotStm
 
 // After a row has been processed it should be removed from its appropriate table.
 func removeRowPostProcess(ctx context.Context, db sql.Database, processCh <-chan slotsToProcess, checkProcessedStmt, removeStmt string) error {
-	errCh := make(chan error)
+	errCh := make(chan error, 1)
 	for {
 		select {
 		case <-ctx.Done():
@@ -263,7 +263,6 @@ func removeRowPostProcess(ctx context.Context, db sql.Database, processCh <-chan
 						time.Sleep(3 * time.Second)
 					}
 				}
-
 			}()
 			if len(errCh) != 0 {
 				return <-errCh

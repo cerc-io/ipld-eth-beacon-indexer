@@ -30,30 +30,6 @@ import (
 // When new messages come in, it will ensure that they are decoded into JSON.
 // If any errors occur, it log the error information.
 func handleIncomingSseEvent[P ProcessedEvents](ctx context.Context, eventHandler *SseEvents[P], errMetricInc func(uint64), skipSse bool) {
-	//go func() {
-	//	subCh := make(chan error, 1)
-	//	go func() {
-	//		err := eventHandler.SseClient.SubscribeChanRawWithContext(ctx, eventHandler.MessagesCh)
-	//		if err != nil {
-	//			subCh <- err
-	//		}
-	//		subCh <- nil
-	//	}()
-	//	select {
-	//	case err := <-subCh:
-	//		if err != nil {
-	//			log.WithFields(log.Fields{
-	//				"err":      err,
-	//				"endpoint": eventHandler.Endpoint,
-	//			}).Error("Unable to subscribe to the SSE endpoint.")
-	//			return
-	//		} else {
-	//			loghelper.LogEndpoint(eventHandler.Endpoint).Info("Successfully subscribed to the event stream.")
-	//		}
-	//	case <-ctx.Done():
-	//		return
-	//	}
-	//}()
 	if !skipSse {
 		for {
 			err := eventHandler.SseClient.SubscribeChanRawWithContext(ctx, eventHandler.MessagesCh)
@@ -94,18 +70,19 @@ func handleIncomingSseEvent[P ProcessedEvents](ctx context.Context, eventHandler
 }
 
 // Turn the data object into a Struct.
-func processMsg[P ProcessedEvents](msg []byte, processCh chan<- *P, errorCh chan<- *SseError) {
+func processMsg[P ProcessedEvents](msg []byte, processCh chan<- P, errorCh chan<- SseError) {
 	var msgMarshaled P
 	err := json.Unmarshal(msg, &msgMarshaled)
 	if err != nil {
 		loghelper.LogError(err).Error("Unable to parse message")
-		errorCh <- &SseError{
+		errorCh <- SseError{
 			err: err,
 			msg: msg,
 		}
 		return
 	}
-	processCh <- &msgMarshaled
+	processCh <- msgMarshaled
+	log.Info("Done sending")
 }
 
 // Capture all of the event topics.

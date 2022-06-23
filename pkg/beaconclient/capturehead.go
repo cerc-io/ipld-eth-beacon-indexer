@@ -38,6 +38,7 @@ func (bc *BeaconClient) StopHeadTracking(ctx context.Context, skipSee bool) {
 		if !skipSee {
 			bc.HeadTracking.SseClient.Unsubscribe(bc.HeadTracking.MessagesCh)
 			bc.ReOrgTracking.SseClient.Unsubscribe(bc.ReOrgTracking.MessagesCh)
+			log.Info("Successfully unsubscribed to SSE client")
 		}
 		log.Info("Successfully stopped the head tracking service.")
 	default:

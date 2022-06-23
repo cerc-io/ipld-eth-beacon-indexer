@@ -46,7 +46,7 @@ func (bc *BeaconClient) handleReorg(ctx context.Context) {
 func (bc *BeaconClient) handleHead(ctx context.Context, maxWorkers int) {
 	log.Info("Starting to process head.")
 
-	workCh := make(chan workParams)
+	workCh := make(chan workParams, 5)
 	log.WithField("workerNumber", maxWorkers).Info("Creating Workers")
 	for i := 1; i < maxWorkers; i++ {
 		go bc.headBlockProcessor(ctx, workCh)
@@ -56,13 +56,14 @@ func (bc *BeaconClient) handleHead(ctx context.Context, maxWorkers int) {
 		select {
 		case <-ctx.Done():
 			close(bc.HeadTracking.ProcessCh)
+			close(workCh)
 			return
 		case head := <-bc.HeadTracking.ProcessCh:
 
 			// Process all the work here.
 			slot, err := strconv.Atoi(head.Slot)
 			if err != nil {
-				bc.HeadTracking.ErrorCh <- &SseError{
+				bc.HeadTracking.ErrorCh <- SseError{
 					err: fmt.Errorf("Unable to turn the slot from string to int: %s", head.Slot),
 				}
 				errorSlots = errorSlots + 1

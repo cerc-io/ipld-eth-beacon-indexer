@@ -76,8 +76,8 @@ type BeaconClient struct {
 type SseEvents[P ProcessedEvents] struct {
 	Endpoint   string          // The endpoint for the subscription. Primarily used for logging
 	MessagesCh chan *sse.Event // Contains all the messages from the SSE Channel
-	ErrorCh    chan *SseError  // Contains any errors while SSE streaming occurred
-	ProcessCh  chan *P         // Used to capture processed data in its proper struct.
+	ErrorCh    chan SseError   // Contains any errors while SSE streaming occurred
+	ProcessCh  chan P          // Used to capture processed data in its proper struct.
 	SseClient  *sse.Client     // sse.Client object that is used to interact with the SSE stream
 }
 
@@ -119,9 +119,9 @@ func createSseEvent[P ProcessedEvents](baseEndpoint string, path string) *SseEve
 	endpoint := baseEndpoint + path
 	sseEvents := &SseEvents[P]{
 		Endpoint:   endpoint,
-		MessagesCh: make(chan *sse.Event, 1),
-		ErrorCh:    make(chan *SseError),
-		ProcessCh:  make(chan *P),
+		MessagesCh: make(chan *sse.Event, 10),
+		ErrorCh:    make(chan SseError, 10),
+		ProcessCh:  make(chan P, 10),
 		SseClient: func(endpoint string) *sse.Client {
 			log.WithFields(log.Fields{"endpoint": endpoint}).Info("Creating SSE client")
 			return sse.NewClient(endpoint)

@@ -96,10 +96,10 @@ type batchHistoricError struct {
 //
 // 5. Handle any errors.
 func handleBatchProcess(ctx context.Context, maxWorkers int, bp BatchProcessing, db sql.Database, serverEndpoint string, metrics *BeaconClientMetrics, checkDb bool, incrementTracker func(uint64)) []error {
-	slotsCh := make(chan slotsToProcess)
-	workCh := make(chan int)
-	processedCh := make(chan slotsToProcess)
-	errCh := make(chan batchHistoricError)
+	slotsCh := make(chan slotsToProcess, 5)
+	workCh := make(chan int, 5)
+	processedCh := make(chan slotsToProcess, 5)
+	errCh := make(chan batchHistoricError, 5)
 	finalErrCh := make(chan []error, 1)
 
 	// Checkout Rows with same node Identifier.

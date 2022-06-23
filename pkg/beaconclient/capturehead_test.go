@@ -24,6 +24,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"runtime/pprof"
 	"strconv"
 	"sync/atomic"
 	"time"
@@ -913,7 +914,7 @@ func (tbc TestBeaconNode) testMultipleReorgs(bc *beaconclient.BeaconClient, firs
 	validateSlot(bc, thirdHead, epoch, "forked")
 
 	cancel()
-	testStopHeadTracking(ctx, bc, startGoRoutines)
+	testStopHeadTracking(ctx, bc, startGoRoutines, true)
 }
 
 // A test to validate a single block was processed correctly
@@ -947,7 +948,7 @@ func (tbc TestBeaconNode) testProcessBlock(bc *beaconclient.BeaconClient, head b
 		validateSlot(bc, head, epoch, "proposed")
 	}
 	cancel()
-	testStopHeadTracking(ctx, bc, startGoRoutines)
+	testStopHeadTracking(ctx, bc, startGoRoutines, true)
 }
 
 // A test that ensures that if two HeadMessages occur for a single slot they are marked
@@ -978,7 +979,7 @@ func (tbc TestBeaconNode) testMultipleHead(bc *beaconclient.BeaconClient, firstH
 	validateSlot(bc, firstHead, epoch, "forked")
 	validateSlot(bc, secondHead, epoch, "proposed")
 	cancel()
-	testStopHeadTracking(ctx, bc, startGoRoutines)
+	testStopHeadTracking(ctx, bc, startGoRoutines, true)
 }
 
 // A test that ensures that if two HeadMessages occur for a single slot they are marked
@@ -1013,7 +1014,7 @@ func (tbc TestBeaconNode) testKnownGapsMessages(bc *beaconclient.BeaconClient, t
 		Fail("We found reorgs when we didn't expect it")
 	}
 	cancel()
-	testStopHeadTracking(ctx, bc, startGoRoutines)
+	testStopHeadTracking(ctx, bc, startGoRoutines, true)
 }
 
 // This function will make sure we are properly able to get the SszRoot of the SignedBeaconBlock and the BeaconState.
@@ -1032,12 +1033,12 @@ func testSszRoot(msg Message) {
 }
 
 // A make shift function to stop head tracking and insure we dont have any goroutine leaks
-func testStopHeadTracking(ctx context.Context, bc *beaconclient.BeaconClient, startGoRoutines int) {
-	bc.StopHeadTracking(ctx, true)
+func testStopHeadTracking(ctx context.Context, bc *beaconclient.BeaconClient, startGoRoutines int, skipSse bool) {
+	bc.StopHeadTracking(ctx, skipSse)
 
 	time.Sleep(3 * time.Second)
 	endNum := runtime.NumGoroutine()
-	//pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
+	pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
 	log.WithField("startNum", startGoRoutines).Info("Start Go routine number")
 	log.WithField("endNum", endNum).Info("End Go routine number")
 	//Expect(endNum <= startGoRoutines).To(BeTrue())

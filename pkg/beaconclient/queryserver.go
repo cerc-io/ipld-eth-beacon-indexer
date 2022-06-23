@@ -54,6 +54,7 @@ func querySsz(endpoint string, slot string) (*[]byte, int, error) {
 		loghelper.LogSlotError(slot, err).Error("Unable to turn response into a []bytes array!")
 		return nil, rc, fmt.Errorf("Unable to turn response into a []bytes array!: %s", err.Error())
 	}
+	//log.WithField("body", unsafe.Sizeof(body)).Debug("Size of the raw SSZ object")
 	return &body, rc, nil
 }
 
