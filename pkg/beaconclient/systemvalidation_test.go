@@ -3,11 +3,11 @@ package beaconclient_test
 import (
 	"context"
 	"os"
-	"runtime"
 	"strconv"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
+
 	//. "github.com/onsi/gomega"
 	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/beaconclient"
 )
@@ -65,12 +65,23 @@ func getEnvInt(envVar string) int {
 
 // Start head tracking and wait for the expected results.
 func processProdHeadBlocks(bc *beaconclient.BeaconClient, expectedInserts, expectedReorgs, expectedKnownGaps, expectedKnownGapsReprocessError uint64) {
-	startGoRoutines := runtime.NumGoroutine()
+	//startGoRoutines := runtime.NumGoroutine()
+	//pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
 	ctx, cancel := context.WithCancel(context.Background())
 	go bc.CaptureHead(ctx, 2, false)
-	time.Sleep(1 * time.Second)
+	time.Sleep(5 * time.Second)
 	validateMetrics(bc, expectedInserts, expectedReorgs, expectedKnownGaps, expectedKnownGapsReprocessError)
 
 	cancel()
-	testStopHeadTracking(ctx, bc, startGoRoutines)
+	time.Sleep(4)
+	testStopSystemHeadTracking(ctx, bc)
+}
+
+// Custom stop for system testing
+func testStopSystemHeadTracking(ctx context.Context, bc *beaconclient.BeaconClient) {
+	bc.StopHeadTracking(ctx, false)
+
+	time.Sleep(3 * time.Second)
+	//pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
+	//Expect(endNum <= startGoRoutines).To(BeTrue())
 }

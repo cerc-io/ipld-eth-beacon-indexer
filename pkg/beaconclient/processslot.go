@@ -156,10 +156,6 @@ func processFullSlot(ctx context.Context, db sql.Database, serverAddress string,
 
 		if err := g.Wait(); err != nil {
 			// Make sure channel is empty.
-			select {
-			case <-vUnmarshalerCh:
-			default:
-			}
 			return err, "processSlot"
 		}
 
@@ -296,14 +292,20 @@ func (ps *ProcessSlot) getSignedBeaconBlock(serverAddress string, vmCh <-chan *d
 
 // Update the SszBeaconState and FullBeaconState object with their respective values.
 func (ps *ProcessSlot) getBeaconState(serverEndpoint string, vmCh chan<- *dt.VersionedUnmarshaler) error {
-	var stateIdentifier string // Used to query the state
+	var (
+		stateIdentifier string // Used to query the state
+		err             error
+	)
 	if ps.StateRoot != "" {
 		stateIdentifier = ps.StateRoot
 	} else {
 		stateIdentifier = strconv.Itoa(ps.Slot)
 	}
 	stateEndpoint := serverEndpoint + BcStateQueryEndpoint + stateIdentifier
-	ps.SszBeaconState, _, _ = querySsz(stateEndpoint, strconv.Itoa(ps.Slot))
+	ps.SszBeaconState, _, err = querySsz(stateEndpoint, strconv.Itoa(ps.Slot))
+	if err != nil {
+		return fmt.Errorf("Unable to querrySSZ")
+	}
 
 	versionedUnmarshaler, err := dt.FromState(*ps.SszBeaconState)
 	if err != nil {

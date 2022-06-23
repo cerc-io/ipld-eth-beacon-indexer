@@ -82,7 +82,7 @@ func processMsg[P ProcessedEvents](msg []byte, processCh chan<- P, errorCh chan<
 		return
 	}
 	processCh <- msgMarshaled
-	log.Info("Done sending")
+	log.Debug("Done sending")
 }
 
 // Capture all of the event topics.
