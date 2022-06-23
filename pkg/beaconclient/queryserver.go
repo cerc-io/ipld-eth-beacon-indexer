@@ -43,6 +43,8 @@ func querySsz(endpoint string, slot string) (*[]byte, int, error) {
 		return nil, 0, fmt.Errorf("Unable to query Beacon Node: %s", err.Error())
 	}
 	defer response.Body.Close()
+	// Needed for testing.... But might be interesting to test with...
+	defer client.CloseIdleConnections()
 	rc := response.StatusCode
 
 	//var body []byte

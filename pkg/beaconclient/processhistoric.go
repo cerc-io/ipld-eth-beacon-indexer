@@ -132,6 +132,7 @@ func getBatchProcessRow(ctx context.Context, db sql.Database, getStartEndSlotStm
 	for len(errCount) < 5 {
 		select {
 		case <-ctx.Done():
+			close(slotCh)
 			return errCount
 		default:
 			if len(errCount) != prevErrCount {

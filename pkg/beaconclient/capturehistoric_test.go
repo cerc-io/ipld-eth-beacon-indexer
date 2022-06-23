@@ -3,7 +3,9 @@ package beaconclient_test
 import (
 	"context"
 	"fmt"
+	"os"
 	"runtime"
+	"runtime/pprof"
 	"sync/atomic"
 	"time"
 
@@ -328,7 +330,7 @@ func testStopKnownGapProcessing(ctx context.Context, bc *beaconclient.BeaconClie
 	time.Sleep(3 * time.Second)
 	endNum := runtime.NumGoroutine()
 
-	//pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
+	pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
 	//Expect(endNum <= startGoRoutines).To(BeTrue())
 	Expect(endNum).To(Equal(startGoRoutines))
 }
