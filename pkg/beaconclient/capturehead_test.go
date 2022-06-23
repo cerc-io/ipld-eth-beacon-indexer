@@ -337,7 +337,7 @@ var _ = Describe("Capturehead", Label("head"), func() {
 				defer httpmock.DeactivateAndReset()
 
 				bc := setUpTest(BeaconNodeTester.TestConfig, "99")
-				BeaconNodeTester.testProcessBlock(bc, 3, maxRetry, 2, 1, 0, BeaconNodeTester.TestEvents["100-dummy"].HeadMessage, BeaconNodeTester.TestEvents["101"].HeadMessage)
+				BeaconNodeTester.testProcessBlock(bc, 3, maxRetry, 2, 1, 1, BeaconNodeTester.TestEvents["100-dummy"].HeadMessage, BeaconNodeTester.TestEvents["101"].HeadMessage)
 
 			})
 		})
