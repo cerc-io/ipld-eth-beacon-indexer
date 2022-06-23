@@ -25,6 +25,7 @@ integration-test-ci:
 	go fmt ./...
 	$(GINKGO) -r --label-filter integration \
 	--procs=4 --compilers=4 \
+	--flake-attempts=3 \
 	--randomize-all --randomize-suites \
 	--fail-on-pending --keep-going \
 	--cover --coverprofile=cover.profile \
@@ -76,7 +77,7 @@ unit-test-ci:
 	go vet ./...
 	go fmt ./...
 	$(GINKGO) -r --label-filter unit \
-	--randomize-all --randomize-suites
+	--randomize-all --randomize-suites \
 	--flake-attempts=3 \
 	--fail-on-pending --keep-going \
 	--cover --coverprofile=cover.profile \

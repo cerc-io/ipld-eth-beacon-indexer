@@ -3,9 +3,7 @@ package beaconclient_test
 import (
 	"context"
 	"fmt"
-	"os"
 	"runtime"
-	"runtime/pprof"
 	"sync/atomic"
 	"time"
 
@@ -124,7 +122,7 @@ var _ = Describe("Capturehistoric", func() {
 
 				bc := setUpTest(BeaconNodeTester.TestConfig, "2375702")
 				// Head
-				BeaconNodeTester.testProcessBlock(bc, BeaconNodeTester.TestEvents["2375703"].HeadMessage, 74240, maxRetry, 1, 0, 0)
+				BeaconNodeTester.testProcessBlock(bc, 74240, maxRetry, 1, 0, 0, BeaconNodeTester.TestEvents["2375703"].HeadMessage)
 
 				// Historical
 				BeaconNodeTester.writeEventToHistoricProcess(bc, 100, 100, 10)
@@ -150,7 +148,7 @@ var _ = Describe("Capturehistoric", func() {
 				BeaconNodeTester.runHistoricalProcess(bc, 2, 1, 0, 0, 0)
 
 				// Head
-				BeaconNodeTester.testProcessBlock(bc, BeaconNodeTester.TestEvents["2375703"].HeadMessage, 74240, maxRetry, 1, 0, 0)
+				BeaconNodeTester.testProcessBlock(bc, 74240, maxRetry, 1, 0, 0, BeaconNodeTester.TestEvents["2375703"].HeadMessage)
 
 				// Known Gaps
 				BeaconNodeTester.writeEventToKnownGaps(bc, 101, 101)
@@ -175,7 +173,7 @@ var _ = Describe("Capturehistoric", func() {
 				BeaconNodeTester.runHistoricalProcess(bc, 2, 2, 0, 0, 0)
 
 				// Head
-				BeaconNodeTester.testProcessBlock(bc, BeaconNodeTester.TestEvents["2375703"].HeadMessage, 74240, maxRetry, 1, 0, 0)
+				BeaconNodeTester.testProcessBlock(bc, 74240, maxRetry, 1, 0, 0, BeaconNodeTester.TestEvents["2375703"].HeadMessage)
 
 				time.Sleep(2 * time.Second)
 				validatePopularBatchBlocks(bc)
@@ -330,7 +328,7 @@ func testStopKnownGapProcessing(ctx context.Context, bc *beaconclient.BeaconClie
 	time.Sleep(3 * time.Second)
 	endNum := runtime.NumGoroutine()
 
-	pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
+	//pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
 	//Expect(endNum <= startGoRoutines).To(BeTrue())
 	Expect(endNum).To(Equal(startGoRoutines))
 }

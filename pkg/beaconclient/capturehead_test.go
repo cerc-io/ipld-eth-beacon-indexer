@@ -271,7 +271,7 @@ var _ = Describe("Capturehead", Label("head"), func() {
 				defer httpmock.DeactivateAndReset()
 				bc := setUpTest(BeaconNodeTester.TestConfig, "99")
 
-				BeaconNodeTester.testProcessBlock(bc, BeaconNodeTester.TestEvents["100"].HeadMessage, 3, maxRetry, 1, 0, 0)
+				BeaconNodeTester.testProcessBlock(bc, 3, maxRetry, 1, 0, 0, BeaconNodeTester.TestEvents["100"].HeadMessage)
 				validateSignedBeaconBlock(bc, BeaconNodeTester.TestEvents["100"].HeadMessage, BeaconNodeTester.TestEvents["100"].CorrectParentRoot, BeaconNodeTester.TestEvents["100"].CorrectEth1BlockHash, BeaconNodeTester.TestEvents["100"].CorrectSignedBeaconBlockMhKey)
 				validateBeaconState(bc, BeaconNodeTester.TestEvents["100"].HeadMessage, BeaconNodeTester.TestEvents["100"].CorrectBeaconStateMhKey)
 
@@ -284,7 +284,7 @@ var _ = Describe("Capturehead", Label("head"), func() {
 				defer httpmock.DeactivateAndReset()
 
 				bc := setUpTest(BeaconNodeTester.TestConfig, "2375702")
-				BeaconNodeTester.testProcessBlock(bc, BeaconNodeTester.TestEvents["2375703"].HeadMessage, 74240, maxRetry, 1, 0, 0)
+				BeaconNodeTester.testProcessBlock(bc, 74240, maxRetry, 1, 0, 0, BeaconNodeTester.TestEvents["2375703"].HeadMessage)
 				validateSignedBeaconBlock(bc, BeaconNodeTester.TestEvents["2375703"].HeadMessage, BeaconNodeTester.TestEvents["2375703"].CorrectParentRoot, BeaconNodeTester.TestEvents["2375703"].CorrectEth1BlockHash, BeaconNodeTester.TestEvents["2375703"].CorrectSignedBeaconBlockMhKey)
 				validateBeaconState(bc, BeaconNodeTester.TestEvents["2375703"].HeadMessage, BeaconNodeTester.TestEvents["2375703"].CorrectBeaconStateMhKey)
 			})
@@ -295,12 +295,12 @@ var _ = Describe("Capturehead", Label("head"), func() {
 				defer httpmock.DeactivateAndReset()
 
 				bc := setUpTest(BeaconNodeTester.TestConfig, "2375702")
-				BeaconNodeTester.testProcessBlock(bc, BeaconNodeTester.TestEvents["2375703-dummy"].HeadMessage, 74240, maxRetry, 1, 0, 0)
+				BeaconNodeTester.testProcessBlock(bc, 74240, maxRetry, 2, 0, 0, BeaconNodeTester.TestEvents["2375703-dummy"].HeadMessage, BeaconNodeTester.TestEvents["2375703-dummy-2"].HeadMessage)
 
-				bc = setUpTest(BeaconNodeTester.TestConfig, "2375702")
-				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
-				defer httpmock.DeactivateAndReset()
-				BeaconNodeTester.testProcessBlock(bc, BeaconNodeTester.TestEvents["2375703-dummy-2"].HeadMessage, 74240, maxRetry, 1, 0, 0)
+				//bc = setUpTest(BeaconNodeTester.TestConfig, "2375702")
+				//BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
+				//defer httpmock.DeactivateAndReset()
+				//BeaconNodeTester.testProcessBlock(bc, , 74240, maxRetry, 1, 0, 0)
 
 			})
 		})
@@ -310,24 +310,23 @@ var _ = Describe("Capturehead", Label("head"), func() {
 				defer httpmock.DeactivateAndReset()
 
 				bc := setUpTest(BeaconNodeTester.TestConfig, "99")
-				BeaconNodeTester.testProcessBlock(bc, BeaconNodeTester.TestEvents["100-dummy"].HeadMessage, 3, maxRetry, 1, 0, 0)
+				BeaconNodeTester.testProcessBlock(bc, 3, maxRetry, 2, 0, 0, BeaconNodeTester.TestEvents["100-dummy"].HeadMessage, BeaconNodeTester.TestEvents["100-dummy-2"].HeadMessage)
 
-				bc = setUpTest(BeaconNodeTester.TestConfig, "99")
-				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
-				defer httpmock.DeactivateAndReset()
-				BeaconNodeTester.testProcessBlock(bc, BeaconNodeTester.TestEvents["100-dummy-2"].HeadMessage, 3, maxRetry, 1, 0, 0)
+				//bc = setUpTest(BeaconNodeTester.TestConfig, "99")
+				//BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
+				//defer httpmock.DeactivateAndReset()
+				//BeaconNodeTester.testProcessBlock(bc, BeaconNodeTester.TestEvents["100-dummy-2"].HeadMessage, 3, maxRetry, 1, 0, 0)
 
 			})
 
 		})
-		Context("Two consecutive correct blocks", func() {
+		Context("Two consecutive correct blocks", Label("bug"), func() {
 			It("Should handle both blocks correctly, without any reorgs or known_gaps", func() {
 				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
 				defer httpmock.DeactivateAndReset()
 
 				bc := setUpTest(BeaconNodeTester.TestConfig, "99")
-				BeaconNodeTester.testProcessBlock(bc, BeaconNodeTester.TestEvents["100"].HeadMessage, 3, maxRetry, 1, 0, 0)
-				BeaconNodeTester.testProcessBlock(bc, BeaconNodeTester.TestEvents["101"].HeadMessage, 3, maxRetry, 1, 0, 0)
+				BeaconNodeTester.testProcessBlock(bc, 3, maxRetry, 2, 0, 0, BeaconNodeTester.TestEvents["100"].HeadMessage, BeaconNodeTester.TestEvents["101"].HeadMessage)
 
 			})
 		})
@@ -337,8 +336,7 @@ var _ = Describe("Capturehead", Label("head"), func() {
 				defer httpmock.DeactivateAndReset()
 
 				bc := setUpTest(BeaconNodeTester.TestConfig, "99")
-				BeaconNodeTester.testProcessBlock(bc, BeaconNodeTester.TestEvents["100-dummy"].HeadMessage, 3, maxRetry, 1, 0, 0)
-				BeaconNodeTester.testProcessBlock(bc, BeaconNodeTester.TestEvents["101"].HeadMessage, 3, maxRetry, 1, 1, 1)
+				BeaconNodeTester.testProcessBlock(bc, 3, maxRetry, 2, 0, 0, BeaconNodeTester.TestEvents["100-dummy"].HeadMessage, BeaconNodeTester.TestEvents["101"].HeadMessage)
 
 			})
 		})
@@ -363,7 +361,7 @@ var _ = Describe("Capturehead", Label("head"), func() {
 				defer httpmock.DeactivateAndReset()
 
 				bc := setUpTest(BeaconNodeTester.TestConfig, "101")
-				BeaconNodeTester.testProcessBlock(bc, BeaconNodeTester.TestEvents["102-wrong-ssz-1"].HeadMessage, 3, maxRetry, 0, 1, 0)
+				BeaconNodeTester.testProcessBlock(bc, 3, maxRetry, 0, 1, 0, BeaconNodeTester.TestEvents["102-wrong-ssz-1"].HeadMessage)
 
 				knownGapCount := countKnownGapsTable(bc.Db)
 				Expect(knownGapCount).To(Equal(1))
@@ -543,18 +541,25 @@ func validateBeaconState(bc *beaconclient.BeaconClient, headMessage beaconclient
 }
 
 // Wrapper function to send a head message to the beaconclient
-func sendHeadMessage(bc *beaconclient.BeaconClient, head beaconclient.Head, maxRetry int, expectedSuccessfulInserts uint64) {
+func sendHeadMessage(bc *beaconclient.BeaconClient, maxRetry int, expectedSuccessfulInserts uint64, head ...beaconclient.Head) {
 
-	data, err := json.Marshal(head)
-	Expect(err).ToNot(HaveOccurred())
-
+	var (
+		data []byte
+		err  error
+	)
 	startInserts := atomic.LoadUint64(&bc.Metrics.SlotInserts)
-	bc.HeadTracking.MessagesCh <- &sse.Event{
-		ID:    []byte{},
-		Data:  data,
-		Event: []byte{},
-		Retry: []byte{},
+	for _, ms := range head {
+		data, err = json.Marshal(ms)
+		Expect(err).ToNot(HaveOccurred())
+		time.Sleep(1 * time.Second)
+		bc.HeadTracking.MessagesCh <- &sse.Event{
+			ID:    []byte{},
+			Data:  data,
+			Event: []byte{},
+			Retry: []byte{},
+		}
 	}
+
 	curRetry := 0
 	for atomic.LoadUint64(&bc.Metrics.SlotInserts) != startInserts+expectedSuccessfulInserts {
 		time.Sleep(1 * time.Second)
@@ -858,9 +863,7 @@ func (tbc TestBeaconNode) testMultipleReorgs(bc *beaconclient.BeaconClient, firs
 	time.Sleep(1 * time.Second)
 
 	log.Info("Sending Messages to BeaconClient")
-	sendHeadMessage(bc, firstHead, maxRetry, 1)
-	sendHeadMessage(bc, secondHead, maxRetry, 1)
-	sendHeadMessage(bc, thirdHead, maxRetry, 1)
+	sendHeadMessage(bc, maxRetry, 3, firstHead, secondHead, thirdHead)
 
 	curRetry := 0
 	for atomic.LoadUint64(&bc.Metrics.ReorgInserts) != 2 {
@@ -917,13 +920,13 @@ func (tbc TestBeaconNode) testMultipleReorgs(bc *beaconclient.BeaconClient, firs
 }
 
 // A test to validate a single block was processed correctly
-func (tbc TestBeaconNode) testProcessBlock(bc *beaconclient.BeaconClient, head beaconclient.Head, epoch int, maxRetry int, expectedSuccessInsert uint64, expectedKnownGaps uint64, expectedReorgs uint64) {
+func (tbc TestBeaconNode) testProcessBlock(bc *beaconclient.BeaconClient, epoch int, maxRetry int, expectedSuccessInsert uint64, expectedKnownGaps uint64, expectedReorgs uint64, head ...beaconclient.Head) {
 	//pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
 	startGoRoutines := runtime.NumGoroutine()
 	ctx, cancel := context.WithCancel(context.Background())
 	go bc.CaptureHead(ctx, 2, true)
 	time.Sleep(1 * time.Second)
-	sendHeadMessage(bc, head, maxRetry, expectedSuccessInsert)
+	sendHeadMessage(bc, maxRetry, expectedSuccessInsert, head...)
 
 	curRetry := 0
 	for atomic.LoadUint64(&bc.Metrics.KnownGapsInserts) != expectedKnownGaps {
@@ -944,7 +947,9 @@ func (tbc TestBeaconNode) testProcessBlock(bc *beaconclient.BeaconClient, head b
 	}
 
 	if expectedSuccessInsert > 0 {
-		validateSlot(bc, head, epoch, "proposed")
+		for _, msg := range head {
+			validateSlot(bc, msg, epoch, "proposed")
+		}
 	}
 	cancel()
 	testStopHeadTracking(ctx, bc, startGoRoutines, true)
@@ -958,8 +963,7 @@ func (tbc TestBeaconNode) testMultipleHead(bc *beaconclient.BeaconClient, firstH
 	go bc.CaptureHead(ctx, 2, true)
 	time.Sleep(1 * time.Second)
 
-	sendHeadMessage(bc, firstHead, maxRetry, 1)
-	sendHeadMessage(bc, secondHead, maxRetry, 1)
+	sendHeadMessage(bc, maxRetry, 2, firstHead, secondHead)
 
 	curRetry := 0
 	for atomic.LoadUint64(&bc.Metrics.ReorgInserts) != 1 {
@@ -992,9 +996,7 @@ func (tbc TestBeaconNode) testKnownGapsMessages(bc *beaconclient.BeaconClient, t
 	go bc.CaptureHead(ctx, 2, true)
 	time.Sleep(1 * time.Second)
 
-	for _, headMsg := range msg {
-		sendHeadMessage(bc, headMsg, maxRetry, 1)
-	}
+	sendHeadMessage(bc, maxRetry, 1, msg...)
 
 	curRetry := 0
 	for atomic.LoadUint64(&bc.Metrics.KnownGapsInserts) != expectedEntries {
