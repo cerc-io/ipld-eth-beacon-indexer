@@ -271,7 +271,11 @@ var _ = Describe("Capturehead", Label("head"), func() {
 				defer httpmock.DeactivateAndReset()
 				bc := setUpTest(BeaconNodeTester.TestConfig, "99")
 
-				BeaconNodeTester.testProcessBlock(bc, 3, maxRetry, 1, 0, 0, BeaconNodeTester.TestEvents["100"].HeadMessage)
+				BeaconNodeTester.testProcessBlock(bc, maxRetry, 1, 0, 0, headBlocksSent{
+					head:          BeaconNodeTester.TestEvents["100"].HeadMessage,
+					expectedEpoch: 3,
+					expectStatus:  "proposed",
+				})
 				validateSignedBeaconBlock(bc, BeaconNodeTester.TestEvents["100"].HeadMessage, BeaconNodeTester.TestEvents["100"].CorrectParentRoot, BeaconNodeTester.TestEvents["100"].CorrectEth1BlockHash, BeaconNodeTester.TestEvents["100"].CorrectSignedBeaconBlockMhKey)
 				validateBeaconState(bc, BeaconNodeTester.TestEvents["100"].HeadMessage, BeaconNodeTester.TestEvents["100"].CorrectBeaconStateMhKey)
 
@@ -284,7 +288,11 @@ var _ = Describe("Capturehead", Label("head"), func() {
 				defer httpmock.DeactivateAndReset()
 
 				bc := setUpTest(BeaconNodeTester.TestConfig, "2375702")
-				BeaconNodeTester.testProcessBlock(bc, 74240, maxRetry, 1, 0, 0, BeaconNodeTester.TestEvents["2375703"].HeadMessage)
+				BeaconNodeTester.testProcessBlock(bc, maxRetry, 1, 0, 0, headBlocksSent{
+					head:          BeaconNodeTester.TestEvents["2375703"].HeadMessage,
+					expectedEpoch: 74240,
+					expectStatus:  "proposed",
+				})
 				validateSignedBeaconBlock(bc, BeaconNodeTester.TestEvents["2375703"].HeadMessage, BeaconNodeTester.TestEvents["2375703"].CorrectParentRoot, BeaconNodeTester.TestEvents["2375703"].CorrectEth1BlockHash, BeaconNodeTester.TestEvents["2375703"].CorrectSignedBeaconBlockMhKey)
 				validateBeaconState(bc, BeaconNodeTester.TestEvents["2375703"].HeadMessage, BeaconNodeTester.TestEvents["2375703"].CorrectBeaconStateMhKey)
 			})
@@ -295,10 +303,18 @@ var _ = Describe("Capturehead", Label("head"), func() {
 				defer httpmock.DeactivateAndReset()
 
 				bc := setUpTest(BeaconNodeTester.TestConfig, "2375702")
-				BeaconNodeTester.testProcessBlock(bc, 74240, maxRetry, 1, 0, 0, BeaconNodeTester.TestEvents["2375703-dummy"].HeadMessage)
+				BeaconNodeTester.testProcessBlock(bc, maxRetry, 1, 0, 0, headBlocksSent{
+					head:          BeaconNodeTester.TestEvents["2375703-dummy"].HeadMessage,
+					expectedEpoch: 74240,
+					expectStatus:  "proposed",
+				})
 
 				bc = setUpTest(BeaconNodeTester.TestConfig, "2375702")
-				BeaconNodeTester.testProcessBlock(bc, 74240, maxRetry, 1, 0, 0, BeaconNodeTester.TestEvents["2375703-dummy-2"].HeadMessage)
+				BeaconNodeTester.testProcessBlock(bc, maxRetry, 1, 0, 0, headBlocksSent{
+					head:          BeaconNodeTester.TestEvents["2375703-dummy-2"].HeadMessage,
+					expectedEpoch: 74240,
+					expectStatus:  "proposed",
+				})
 
 			})
 		})
@@ -308,10 +324,18 @@ var _ = Describe("Capturehead", Label("head"), func() {
 				defer httpmock.DeactivateAndReset()
 
 				bc := setUpTest(BeaconNodeTester.TestConfig, "99")
-				BeaconNodeTester.testProcessBlock(bc, 3, maxRetry, 1, 0, 0, BeaconNodeTester.TestEvents["100-dummy"].HeadMessage)
+				BeaconNodeTester.testProcessBlock(bc, maxRetry, 1, 0, 0, headBlocksSent{
+					head:          BeaconNodeTester.TestEvents["100-dummy"].HeadMessage,
+					expectedEpoch: 3,
+					expectStatus:  "proposed",
+				})
 
 				bc = setUpTest(BeaconNodeTester.TestConfig, "99")
-				BeaconNodeTester.testProcessBlock(bc, 3, maxRetry, 1, 0, 0, BeaconNodeTester.TestEvents["100-dummy-2"].HeadMessage)
+				BeaconNodeTester.testProcessBlock(bc, maxRetry, 1, 0, 0, headBlocksSent{
+					head:          BeaconNodeTester.TestEvents["100-dummy-2"].HeadMessage,
+					expectedEpoch: 3,
+					expectStatus:  "proposed",
+				})
 
 				//bc = setUpTest(BeaconNodeTester.TestConfig, "99")
 				//BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
@@ -327,17 +351,35 @@ var _ = Describe("Capturehead", Label("head"), func() {
 				defer httpmock.DeactivateAndReset()
 
 				bc := setUpTest(BeaconNodeTester.TestConfig, "99")
-				BeaconNodeTester.testProcessBlock(bc, 3, maxRetry, 2, 0, 0, BeaconNodeTester.TestEvents["100"].HeadMessage, BeaconNodeTester.TestEvents["101"].HeadMessage)
+				BeaconNodeTester.testProcessBlock(bc, maxRetry, 2, 0, 0, headBlocksSent{
+					head:          BeaconNodeTester.TestEvents["100"].HeadMessage,
+					expectedEpoch: 3,
+					expectStatus:  "proposed",
+				}, headBlocksSent{
+					head:          BeaconNodeTester.TestEvents["101"].HeadMessage,
+					expectedEpoch: 3,
+					expectStatus:  "proposed",
+				})
 
 			})
 		})
-		Context("Two consecutive blocks with a bad parent", func() {
+		Context("Two consecutive blocks with a bad parent", Label("bad-parent"), func() {
 			It("Should add the previous block to the knownGaps table.", func() {
 				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
 				defer httpmock.DeactivateAndReset()
 
 				bc := setUpTest(BeaconNodeTester.TestConfig, "99")
-				BeaconNodeTester.testProcessBlock(bc, 3, maxRetry, 2, 1, 1, BeaconNodeTester.TestEvents["100-dummy"].HeadMessage, BeaconNodeTester.TestEvents["101"].HeadMessage)
+				BeaconNodeTester.testProcessBlock(bc, maxRetry, 2, 1, 1,
+					headBlocksSent{
+						head:          BeaconNodeTester.TestEvents["100-dummy"].HeadMessage,
+						expectedEpoch: 3,
+						expectStatus:  "forked",
+					},
+					headBlocksSent{
+						head:          BeaconNodeTester.TestEvents["101"].HeadMessage,
+						expectedEpoch: 3,
+						expectStatus:  "proposed",
+					})
 
 			})
 		})
@@ -362,7 +404,11 @@ var _ = Describe("Capturehead", Label("head"), func() {
 				defer httpmock.DeactivateAndReset()
 
 				bc := setUpTest(BeaconNodeTester.TestConfig, "101")
-				BeaconNodeTester.testProcessBlock(bc, 3, maxRetry, 0, 1, 0, BeaconNodeTester.TestEvents["102-wrong-ssz-1"].HeadMessage)
+				BeaconNodeTester.testProcessBlock(bc, maxRetry, 0, 1, 0, headBlocksSent{
+					head:          BeaconNodeTester.TestEvents["102-wrong-ssz-1"].HeadMessage,
+					expectedEpoch: 3,
+					expectStatus:  "proposed",
+				})
 
 				knownGapCount := countKnownGapsTable(bc.Db)
 				Expect(knownGapCount).To(Equal(1))
@@ -921,13 +967,17 @@ func (tbc TestBeaconNode) testMultipleReorgs(bc *beaconclient.BeaconClient, firs
 }
 
 // A test to validate a single block was processed correctly
-func (tbc TestBeaconNode) testProcessBlock(bc *beaconclient.BeaconClient, epoch int, maxRetry int, expectedSuccessInsert uint64, expectedKnownGaps uint64, expectedReorgs uint64, head ...beaconclient.Head) {
+func (tbc TestBeaconNode) testProcessBlock(bc *beaconclient.BeaconClient, maxRetry int, expectedSuccessInsert uint64, expectedKnownGaps uint64, expectedReorgs uint64, head ...headBlocksSent) {
 	//pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
 	startGoRoutines := runtime.NumGoroutine()
 	ctx, cancel := context.WithCancel(context.Background())
 	go bc.CaptureHead(ctx, 2, true)
 	time.Sleep(1 * time.Second)
-	sendHeadMessage(bc, maxRetry, expectedSuccessInsert, head...)
+	heads := make([]beaconclient.Head, 0)
+	for _, msgs := range head {
+		heads = append(heads, msgs.head)
+	}
+	sendHeadMessage(bc, maxRetry, expectedSuccessInsert, heads...)
 
 	curRetry := 0
 	for atomic.LoadUint64(&bc.Metrics.KnownGapsInserts) != expectedKnownGaps {
@@ -949,7 +999,7 @@ func (tbc TestBeaconNode) testProcessBlock(bc *beaconclient.BeaconClient, epoch 
 
 	if expectedSuccessInsert > 0 {
 		for _, msg := range head {
-			validateSlot(bc, msg, epoch, "proposed")
+			validateSlot(bc, msg.head, msg.expectedEpoch, msg.expectStatus)
 		}
 	}
 	cancel()
@@ -1045,4 +1095,10 @@ func testStopHeadTracking(ctx context.Context, bc *beaconclient.BeaconClient, st
 	log.WithField("endNum", endNum).Info("End Go routine number")
 	//Expect(endNum <= startGoRoutines).To(BeTrue())
 	Expect(endNum).To(Equal(startGoRoutines))
+}
+
+type headBlocksSent struct {
+	head          beaconclient.Head
+	expectedEpoch int
+	expectStatus  string
 }

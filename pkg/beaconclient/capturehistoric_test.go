@@ -118,7 +118,11 @@ var _ = Describe("Capturehistoric", func() {
 
 				bc := setUpTest(BeaconNodeTester.TestConfig, "2375702")
 				// Head
-				BeaconNodeTester.testProcessBlock(bc, 74240, maxRetry, 1, 0, 0, BeaconNodeTester.TestEvents["2375703"].HeadMessage)
+				BeaconNodeTester.testProcessBlock(bc, maxRetry, 1, 0, 0, headBlocksSent{
+					head:          BeaconNodeTester.TestEvents["2375703"].HeadMessage,
+					expectedEpoch: 74240,
+					expectStatus:  "proposed",
+				})
 
 				// Historical
 				BeaconNodeTester.writeEventToHistoricProcess(bc, 100, 100, 10)
@@ -144,7 +148,11 @@ var _ = Describe("Capturehistoric", func() {
 				BeaconNodeTester.runHistoricalProcess(bc, 2, 1, 0, 0, 0)
 
 				// Head
-				BeaconNodeTester.testProcessBlock(bc, 74240, maxRetry, 1, 0, 0, BeaconNodeTester.TestEvents["2375703"].HeadMessage)
+				BeaconNodeTester.testProcessBlock(bc, maxRetry, 1, 0, 0, headBlocksSent{
+					head:          BeaconNodeTester.TestEvents["2375703"].HeadMessage,
+					expectedEpoch: 74240,
+					expectStatus:  "proposed",
+				})
 
 				// Known Gaps
 				BeaconNodeTester.writeEventToKnownGaps(bc, 101, 101)
@@ -169,7 +177,11 @@ var _ = Describe("Capturehistoric", func() {
 				BeaconNodeTester.runHistoricalProcess(bc, 2, 2, 0, 0, 0)
 
 				// Head
-				BeaconNodeTester.testProcessBlock(bc, 74240, maxRetry, 1, 0, 0, BeaconNodeTester.TestEvents["2375703"].HeadMessage)
+				BeaconNodeTester.testProcessBlock(bc, maxRetry, 1, 0, 0, headBlocksSent{
+					head:          BeaconNodeTester.TestEvents["2375703"].HeadMessage,
+					expectedEpoch: 74240,
+					expectStatus:  "proposed",
+				})
 
 				time.Sleep(2 * time.Second)
 				validatePopularBatchBlocks(bc)
