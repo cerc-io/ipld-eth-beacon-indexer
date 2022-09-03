@@ -1,15 +1,15 @@
 {
   "db": {
     "address": "localhost",
-    "password": "secret12",
-    "port": 45432,
-    "username": "postgres",
-    "name": "postgres",
+    "password": "password",
+    "port": 8076,
+    "username": "vdbm",
+    "name": "vulcanize_testing",
     "driver": "PGX"
   },
   "bc": {
     "address": "localhost",
-    "port": 8001,
+    "port": 5052,
     "type": "lighthouse",
     "bootRetryInterval": 30,
     "bootMaxRetry": 5,
