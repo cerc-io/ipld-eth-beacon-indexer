@@ -46,7 +46,7 @@ type SyncData struct {
 }
 
 // This function will check to see if we are synced up with the head of chain.
-//{"data":{"is_syncing":true,"head_slot":"62528","sync_distance":"3734299"}}
+// {"data":{"is_syncing":true,"head_slot":"62528","sync_distance":"3734299"}}
 func (bc BeaconClient) CheckHeadSync() (bool, error) {
 	syncStatus, err := bc.QueryHeadSync()
 	if err != nil {
