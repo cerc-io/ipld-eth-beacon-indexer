@@ -24,8 +24,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	consensus "github.com/umbracle/go-eth-consensus"
-	"github.com/umbracle/go-eth-consensus/http"
-
 	"strconv"
 	"strings"
 	"time"
@@ -53,12 +51,12 @@ type ProcessSlot struct {
 	PerformanceMetrics PerformanceMetrics   // An object to keep track of performance metrics.
 	// BeaconBlock
 
-	SszSignedBeaconBlock  []byte                               // The entire SSZ encoded SignedBeaconBlock
-	FullSignedBeaconBlock consensus.SignedBeaconBlockBellatrix // The unmarshaled BeaconState object, the unmarshalling could have errors.
+	SszSignedBeaconBlock  []byte            // The entire SSZ encoded SignedBeaconBlock
+	FullSignedBeaconBlock SignedBeaconBlock // The unmarshaled BeaconState object, the unmarshalling could have errors.
 
 	// BeaconState
-	FullBeaconState consensus.BeaconStateBellatrix // The unmarshaled BeaconState object, the unmarshalling could have errors.
-	SszBeaconState  []byte                         // The entire SSZ encoded BeaconState
+	FullBeaconState BeaconState // The unmarshaled BeaconState object, the unmarshalling could have errors.
+	SszBeaconState  []byte      // The entire SSZ encoded BeaconState
 
 	// DB Write objects
 	DbSlotsModel             *DbSlots             // The model being written to the slots table.
@@ -247,19 +245,24 @@ func (ps *ProcessSlot) getSignedBeaconBlock(serverAddress string) error {
 	} else {
 		blockIdentifier = strconv.Itoa(ps.Slot)
 	}
-	client := http.New(serverAddress)
 
-	var signedBeaconBlock consensus.SignedBeaconBlockBellatrix
-	err := client.Get(BcBlockQueryEndpoint+blockIdentifier, &signedBeaconBlock)
-	if err != nil {
+	blockEndpoint := serverAddress + BcBlockQueryEndpoint + blockIdentifier
+	sszSignedBeaconBlock, rc, err := querySsz(blockEndpoint, strconv.Itoa(ps.Slot))
+
+	if err != nil || rc != 200 {
 		loghelper.LogSlotError(strconv.Itoa(ps.Slot), err).Error("Unable to properly query the slot.")
-		return err
+		ps.FullSignedBeaconBlock = SignedBeaconBlock{}
+		ps.SszSignedBeaconBlock = []byte{}
+		ps.ParentBlockRoot = ""
+		ps.Status = "skipped"
+		return nil
 	}
 
-	sszSignedBeaconBlock, err := signedBeaconBlock.MarshalSSZ()
+	var signedBeaconBlock SignedBeaconBlock
+	err = signedBeaconBlock.UnmarshalSSZ(sszSignedBeaconBlock)
 	if err != nil {
-		loghelper.LogSlotError(strconv.Itoa(ps.Slot), err).Error("Unable to marshal SignedBeaconBlock to SSZ.")
-		ps.FullSignedBeaconBlock = consensus.SignedBeaconBlockBellatrix{}
+		loghelper.LogSlotError(strconv.Itoa(ps.Slot), err).Error("Unable to unmarshal SignedBeaconBlock for slot.")
+		ps.FullSignedBeaconBlock = SignedBeaconBlock{}
 		ps.SszSignedBeaconBlock = []byte{}
 		ps.ParentBlockRoot = ""
 		ps.Status = "skipped"
@@ -269,7 +272,7 @@ func (ps *ProcessSlot) getSignedBeaconBlock(serverAddress string) error {
 	ps.FullSignedBeaconBlock = signedBeaconBlock
 	ps.SszSignedBeaconBlock = sszSignedBeaconBlock
 
-	ps.ParentBlockRoot = rootToHex(&ps.FullSignedBeaconBlock.Block.ParentRoot)
+	ps.ParentBlockRoot = rootToHex(ps.FullSignedBeaconBlock.Block().ParentRoot())
 	return nil
 }
 
@@ -281,18 +284,18 @@ func (ps *ProcessSlot) getBeaconState(serverEndpoint string) error {
 	} else {
 		stateIdentifier = strconv.Itoa(ps.Slot)
 	}
-	client := http.New(serverEndpoint)
 
-	var beaconState consensus.BeaconStateBellatrix
-	err := client.Get(BcStateQueryEndpoint+stateIdentifier, &beaconState)
+	stateEndpoint := serverEndpoint + BcStateQueryEndpoint + stateIdentifier
+	sszBeaconState, _, err := querySsz(stateEndpoint, strconv.Itoa(ps.Slot))
 	if err != nil {
 		loghelper.LogSlotError(strconv.Itoa(ps.Slot), err).Error("Unable to properly query the BeaconState.")
 		return err
 	}
 
-	sszBeaconState, err := beaconState.MarshalSSZ()
+	var beaconState BeaconState
+	err = beaconState.UnmarshalSSZ(sszBeaconState)
 	if err != nil {
-		loghelper.LogSlotError(strconv.Itoa(ps.Slot), err).Error("Unable to marshal BeaconState.")
+		loghelper.LogSlotError(strconv.Itoa(ps.Slot), err).Error("Unable to unmarshal the BeaconState.")
 		return err
 	}
 
@@ -303,8 +306,8 @@ func (ps *ProcessSlot) getBeaconState(serverEndpoint string) error {
 
 // Check to make sure that the previous block we processed is the parent of the current block.
 func (ps *ProcessSlot) checkPreviousSlot(tx sql.Tx, ctx context.Context, previousSlot int, previousBlockRoot string, knownGapsTableIncrement int) {
-	parentRoot := rootToHex(&ps.FullSignedBeaconBlock.Block.ParentRoot)
-	slot := int(ps.FullBeaconState.Slot)
+	parentRoot := rootToHex(ps.FullSignedBeaconBlock.Block().ParentRoot())
+	slot := int(ps.FullBeaconState.Slot())
 	if previousSlot == slot {
 		log.WithFields(log.Fields{
 			"slot": slot,
@@ -366,21 +369,21 @@ func (ps *ProcessSlot) provideFinalHash() (string, string, string, error) {
 		if ps.StateRoot != "" {
 			stateRoot = ps.StateRoot
 		} else {
-			stateRoot = rootToHex(&ps.FullSignedBeaconBlock.Block.StateRoot)
+			stateRoot = rootToHex(ps.FullSignedBeaconBlock.Block().StateRoot())
 			log.Debug("StateRoot: ", stateRoot)
 		}
 
 		if ps.BlockRoot != "" {
 			blockRoot = ps.BlockRoot
 		} else {
-			rawBlockRoot, err := ps.FullSignedBeaconBlock.Block.HashTreeRoot()
+			rawBlockRoot, err := ps.FullSignedBeaconBlock.Block().HashTreeRoot()
 			if err != nil {
 				return "", "", "", err
 			}
 			blockRoot = byteArrayToHex(&rawBlockRoot)
 			log.WithFields(log.Fields{"blockRoot": blockRoot}).Debug("Block Root from ssz")
 		}
-		eth1BlockHash = byteArrayToHex(&ps.FullSignedBeaconBlock.Block.Body.Eth1Data.BlockHash)
+		eth1BlockHash = byteArrayToHex(&ps.FullSignedBeaconBlock.Block().Body().Eth1Data().BlockHash)
 	}
 	return blockRoot, stateRoot, eth1BlockHash, nil
 }

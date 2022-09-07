@@ -20,6 +20,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	consensus "github.com/umbracle/go-eth-consensus"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -29,11 +30,6 @@ import (
 
 	"github.com/jarcoal/httpmock"
 	. "github.com/onsi/ginkgo/v2"
-	"github.com/prysmaticlabs/prysm/beacon-chain/state"
-	si "github.com/prysmaticlabs/prysm/consensus-types/interfaces"
-	types "github.com/prysmaticlabs/prysm/consensus-types/primitives"
-	dt "github.com/prysmaticlabs/prysm/encoding/ssz/detect"
-	st "github.com/prysmaticlabs/prysm/proto/prysm/v1alpha1"
 	"github.com/r3labs/sse"
 	log "github.com/sirupsen/logrus"
 
@@ -49,10 +45,10 @@ var (
 	port                    int    = 8080
 	protocol                string = "http"
 	dbHost                  string = "localhost"
-	dbPort                  int    = 8076
-	dbName                  string = "vulcanize_testing"
-	dbUser                  string = "vdbm"
-	dbPassword              string = "password"
+	dbPort                  int    = 15432
+	dbName                  string = "postgres"
+	dbUser                  string = "postgres"
+	dbPassword              string = "secret12"
 	dbDriver                string = "pgx"
 	bcUniqueIdentifier      int    = 100
 	dummyParentRoot         string = "46f98c08b54a71dfda4d56e29ec3952b8300cd8d6b67a9b6c562ae96a7a25a42"
@@ -332,12 +328,12 @@ var _ = Describe("Capturehead", Label("head"), func() {
 			})
 		})
 		Context("Phase 0: We have a correctly formated SSZ SignedBeaconBlock and BeaconState", func() {
-			It("Should be able to get each objects root hash.", func() {
+			It("Should be able to get each objects root hash (100).", func() {
 				testSszRoot(BeaconNodeTester.TestEvents["100"])
 			})
 		})
 		Context("Altair: We have a correctly formated SSZ SignedBeaconBlock and BeaconState", func() {
-			It("Should be able to get each objects root hash.", func() {
+			It("Should be able to get each objects root hash (2375703).", func() {
 				testSszRoot(BeaconNodeTester.TestEvents["2375703"])
 			})
 		})
@@ -566,22 +562,22 @@ func queryDbSlotAndBlock(db sql.Database, querySlot string, queryBlockRoot strin
 func queryDbSignedBeaconBlock(db sql.Database, querySlot string, queryBlockRoot string) (int, string, string, string, string) {
 	sqlStatement := `SELECT slot, block_root, parent_block_root, eth1_block_hash, mh_key FROM eth_beacon.signed_block WHERE slot=$1 AND block_root=$2;`
 	var slot int
-	var blockRoot, parent_block_root, eth1_block_hash, mh_key string
+	var blockRoot, parentBlockRoot, eth1BlockHash, mhKey string
 	row := db.QueryRow(context.Background(), sqlStatement, querySlot, queryBlockRoot)
-	err := row.Scan(&slot, &blockRoot, &parent_block_root, &eth1_block_hash, &mh_key)
+	err := row.Scan(&slot, &blockRoot, &parentBlockRoot, &eth1BlockHash, &mhKey)
 	Expect(err).ToNot(HaveOccurred())
-	return slot, blockRoot, parent_block_root, eth1_block_hash, mh_key
+	return slot, blockRoot, parentBlockRoot, eth1BlockHash, mhKey
 }
 
 // A helper function to query the eth_beacon.signed_block table based on the slot and block_root.
 func queryDbBeaconState(db sql.Database, querySlot string, queryStateRoot string) (int, string, string) {
 	sqlStatement := `SELECT slot, state_root, mh_key FROM eth_beacon.state WHERE slot=$1 AND state_root=$2;`
 	var slot int
-	var stateRoot, mh_key string
+	var stateRoot, mhKey string
 	row := db.QueryRow(context.Background(), sqlStatement, querySlot, queryStateRoot)
-	err := row.Scan(&slot, &stateRoot, &mh_key)
+	err := row.Scan(&slot, &stateRoot, &mhKey)
 	Expect(err).ToNot(HaveOccurred())
-	return slot, stateRoot, mh_key
+	return slot, stateRoot, mhKey
 }
 
 // Count the entries in the knownGaps table.
@@ -620,55 +616,27 @@ func writeSlot(db sql.Database, slot string) {
 
 // Read a file with the SignedBeaconBlock in SSZ and return the SSZ object. This is used for testing only.
 // We can't use the readSignedBeaconBlockInterface to update struct fields so this is the workaround.
-func readSignedBeaconBlock(slotFile string) (*st.SignedBeaconBlock, error) {
+func readSignedBeaconBlock(slotFile string) (*beaconclient.SignedBeaconBlock, error) {
 	dat, err := os.ReadFile(slotFile)
 	if err != nil {
 		return nil, fmt.Errorf("Can't find the slot file, %s", slotFile)
 	}
-	block := &st.SignedBeaconBlock{}
+	var block beaconclient.SignedBeaconBlock
 	err = block.UnmarshalSSZ(dat)
 	Expect(err).ToNot(HaveOccurred())
-	return block, nil
-}
-
-// Read a file with the SignedBeaconBlock in SSZ and return the SSZ object. This is used for testing only.
-// We can't use the readSignedBeaconBlockInterface to update struct fields so this is the workaround.
-func readSignedBeaconBlockAltair(slotFile string) (*st.SignedBeaconBlockAltair, error) {
-	dat, err := os.ReadFile(slotFile)
-	if err != nil {
-		return nil, fmt.Errorf("Can't find the slot file, %s", slotFile)
-	}
-	block := &st.SignedBeaconBlockAltair{}
-	err = block.UnmarshalSSZ(dat)
-	Expect(err).ToNot(HaveOccurred())
-	return block, nil
-}
-
-// Read a file with the SignedBeaconBlock in SSZ and return the SSZ objects interface. This is production like.
-// It will provide the correct struct for the given fork.
-func readSignedBeaconBlockInterface(slotFile string, vm *dt.VersionedUnmarshaler) (si.SignedBeaconBlock, error) {
-	dat, err := os.ReadFile(slotFile)
-	if err != nil {
-		return nil, fmt.Errorf("Can't find the slot file, %s", slotFile)
-	}
-
-	block, err := vm.UnmarshalBeaconBlock(dat)
-	Expect(err).ToNot(HaveOccurred())
-	return block, nil
-
+	return &block, nil
 }
 
 // Read a file with the BeaconState in SSZ and return the SSZ object
-func readBeaconState(slotFile string) (state.BeaconState, *dt.VersionedUnmarshaler, error) {
+func readBeaconState(slotFile string) (*beaconclient.BeaconState, error) {
 	dat, err := os.ReadFile(slotFile)
 	if err != nil {
-		return nil, nil, fmt.Errorf("Can't find the slot file, %s", slotFile)
+		return nil, fmt.Errorf("Can't find the slot file, %s", slotFile)
 	}
-	versionedUnmarshaler, err := dt.FromState(dat)
+	var beaconState beaconclient.BeaconState
+	err = beaconState.UnmarshalSSZ(dat)
 	Expect(err).ToNot(HaveOccurred())
-	state, err := versionedUnmarshaler.UnmarshalBeaconState(dat)
-	Expect(err).ToNot(HaveOccurred())
-	return state, versionedUnmarshaler, nil
+	return &beaconState, nil
 }
 
 // An object that is used to aggregate test functions. Test functions are needed because we need to
@@ -768,52 +736,62 @@ func (tbc TestBeaconNode) provideSsz(slotIdentifier string, sszIdentifier string
 				if err != nil {
 					return nil, err
 				}
+				Expect(block.IsPhase0()).To(BeTrue())
+				var phase0 = block.GetPhase0()
+
 				slot, err := strconv.ParseUint(Message.HeadMessage.Slot, 10, 64)
 				Expect(err).ToNot(HaveOccurred())
-				block.Block.Slot = types.Slot(slot)
+				phase0.Block.Slot = slot
 
-				block.Block.StateRoot, err = hex.DecodeString(Message.HeadMessage.State)
+				phase0.Block.StateRoot, err = decodeRoot(Message.HeadMessage.State)
 				Expect(err).ToNot(HaveOccurred())
 
 				if Message.MimicConfig.ParentRoot == "" {
-					block.Block.ParentRoot, err = hex.DecodeString(dummyParentRoot)
+					phase0.Block.ParentRoot, err = decodeRoot(dummyParentRoot)
 					Expect(err).ToNot(HaveOccurred())
 				} else {
-					block.Block.ParentRoot, err = hex.DecodeString(Message.MimicConfig.ParentRoot)
+					phase0.Block.ParentRoot, err = decodeRoot(Message.MimicConfig.ParentRoot)
 					Expect(err).ToNot(HaveOccurred())
 				}
 				return block.MarshalSSZ()
 			case "altair":
-				block, err := readSignedBeaconBlockAltair(slotFile)
+				block, err := readSignedBeaconBlock(slotFile)
 				if err != nil {
 					return nil, err
 				}
+				Expect(block.IsAltair()).To(BeTrue())
+				var altair = block.GetAltair()
 				slot, err := strconv.ParseUint(Message.HeadMessage.Slot, 10, 64)
 				Expect(err).ToNot(HaveOccurred())
-				block.Block.Slot = types.Slot(slot)
+				altair.Block.Slot = slot
 
-				block.Block.StateRoot, err = hex.DecodeString(Message.HeadMessage.State)
+				altair.Block.StateRoot, err = decodeRoot(Message.HeadMessage.State)
 				Expect(err).ToNot(HaveOccurred())
 
 				if Message.MimicConfig.ParentRoot == "" {
-					block.Block.ParentRoot, err = hex.DecodeString(dummyParentRoot)
+					altair.Block.ParentRoot, err = decodeRoot(dummyParentRoot)
 					Expect(err).ToNot(HaveOccurred())
 				} else {
-					block.Block.ParentRoot, err = hex.DecodeString(Message.MimicConfig.ParentRoot)
+					altair.Block.ParentRoot, err = decodeRoot(Message.MimicConfig.ParentRoot)
 					Expect(err).ToNot(HaveOccurred())
 				}
 				return block.MarshalSSZ()
 			}
 		}
 		if sszIdentifier == "state" {
-			state, _, err := readBeaconState(slotFile)
+			state, err := readBeaconState(slotFile)
 			if err != nil {
 				return nil, err
 			}
 			slot, err := strconv.ParseUint(Message.HeadMessage.Slot, 10, 64)
 			Expect(err).ToNot(HaveOccurred())
-			err = state.SetSlot(types.Slot(slot))
-			Expect(err).ToNot(HaveOccurred())
+			if state.IsBellatrix() {
+				state.GetBellatrix().Slot = slot
+			} else if state.IsAltair() {
+				state.GetAltair().Slot = slot
+			} else {
+				state.GetPhase0().Slot = slot
+			}
 			return state.MarshalSSZ()
 		}
 	}
@@ -979,15 +957,25 @@ func (tbc TestBeaconNode) testKnownGapsMessages(bc *beaconclient.BeaconClient, t
 
 // This function will make sure we are properly able to get the SszRoot of the SignedBeaconBlock and the BeaconState.
 func testSszRoot(msg Message) {
-	state, vm, err := readBeaconState(msg.BeaconState)
+	state, err := readBeaconState(msg.BeaconState)
 	Expect(err).ToNot(HaveOccurred())
-	stateRoot, err := state.HashTreeRoot(context.Background())
+	stateRoot, err := state.HashTreeRoot()
 	Expect(err).ToNot(HaveOccurred())
 	Expect(msg.HeadMessage.State).To(Equal("0x" + hex.EncodeToString(stateRoot[:])))
 
-	block, err := readSignedBeaconBlockInterface(msg.SignedBeaconBlock, vm)
+	block, err := readSignedBeaconBlock(msg.SignedBeaconBlock)
 	Expect(err).ToNot(HaveOccurred())
 	blockRoot, err := block.Block().HashTreeRoot()
 	Expect(err).ToNot(HaveOccurred())
 	Expect(msg.HeadMessage.Block).To(Equal("0x" + hex.EncodeToString(blockRoot[:])))
+}
+
+func decodeRoot(raw string) (consensus.Root, error) {
+	value, err := hex.DecodeString(raw)
+	if err != nil {
+		return consensus.Root{}, err
+	}
+	var root consensus.Root
+	copy(root[:], value[:32])
+	return root, nil
 }
