@@ -13,17 +13,10 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type Slot common.Slot
-type Root common.Root
-
 type Eth1Data common.Eth1Data
-
-type SignedBeaconBlock struct {
-	spec      *common.Spec
-	bellatrix *bellatrix.SignedBeaconBlock
-	altair    *altair.SignedBeaconBlock
-	phase0    *phase0.SignedBeaconBlock
-}
+type Root common.Root
+type Signature common.BLSSignature
+type Slot common.Slot
 
 type BeaconBlock struct {
 	spec      *common.Spec
@@ -33,6 +26,7 @@ type BeaconBlock struct {
 }
 
 type BeaconBlockBody struct {
+	spec      *common.Spec
 	bellatrix *bellatrix.BeaconBlockBody
 	altair    *altair.BeaconBlockBody
 	phase0    *phase0.BeaconBlockBody
@@ -43,6 +37,13 @@ type BeaconState struct {
 	bellatrix *bellatrix.BeaconState
 	altair    *altair.BeaconState
 	phase0    *phase0.BeaconState
+}
+
+type SignedBeaconBlock struct {
+	spec      *common.Spec
+	bellatrix *bellatrix.SignedBeaconBlock
+	altair    *altair.SignedBeaconBlock
+	phase0    *phase0.SignedBeaconBlock
 }
 
 func (s *SignedBeaconBlock) UnmarshalSSZ(ssz []byte) error {
@@ -133,20 +134,20 @@ func (s *SignedBeaconBlock) GetPhase0() *phase0.SignedBeaconBlock {
 	return s.phase0
 }
 
-func (s *SignedBeaconBlock) Signature() [96]byte {
+func (s *SignedBeaconBlock) Signature() Signature {
 	if s.IsBellatrix() {
-		return s.bellatrix.Signature
+		return Signature(s.bellatrix.Signature)
 	}
 
 	if s.IsAltair() {
-		return s.altair.Signature
+		return Signature(s.altair.Signature)
 	}
 
 	if s.IsPhase0() {
-		return s.phase0.Signature
+		return Signature(s.phase0.Signature)
 	}
 
-	return [96]byte{}
+	return Signature{}
 }
 
 func (s *SignedBeaconBlock) Block() *BeaconBlock {
@@ -223,15 +224,15 @@ func (b *BeaconBlock) StateRoot() Root {
 
 func (b *BeaconBlock) Body() *BeaconBlockBody {
 	if b.IsBellatrix() {
-		return &BeaconBlockBody{bellatrix: &b.bellatrix.Body}
+		return &BeaconBlockBody{bellatrix: &b.bellatrix.Body, spec: b.spec}
 	}
 
 	if b.IsAltair() {
-		return &BeaconBlockBody{altair: &b.altair.Body}
+		return &BeaconBlockBody{altair: &b.altair.Body, spec: b.spec}
 	}
 
 	if b.IsPhase0() {
-		return &BeaconBlockBody{phase0: &b.phase0.Body}
+		return &BeaconBlockBody{phase0: &b.phase0.Body, spec: b.spec}
 	}
 
 	return nil
