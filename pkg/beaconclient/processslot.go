@@ -23,7 +23,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	consensus "github.com/umbracle/go-eth-consensus"
+	"github.com/protolambda/zrnt/eth2/beacon/common"
 	"strconv"
 	"strings"
 	"time"
@@ -376,22 +376,15 @@ func (ps *ProcessSlot) provideFinalHash() (string, string, string, error) {
 		if ps.BlockRoot != "" {
 			blockRoot = ps.BlockRoot
 		} else {
-			rawBlockRoot, err := ps.FullSignedBeaconBlock.Block().HashTreeRoot()
-			if err != nil {
-				return "", "", "", err
-			}
-			blockRoot = byteArrayToHex(&rawBlockRoot)
+			rawBlockRoot := ps.FullSignedBeaconBlock.Block().HashTreeRoot()
+			blockRoot = rootToHex(&rawBlockRoot)
 			log.WithFields(log.Fields{"blockRoot": blockRoot}).Debug("Block Root from ssz")
 		}
-		eth1BlockHash = byteArrayToHex(&ps.FullSignedBeaconBlock.Block().Body().Eth1Data().BlockHash)
+		eth1BlockHash = rootToHex(&ps.FullSignedBeaconBlock.Block().Body().Eth1Data().BlockHash)
 	}
 	return blockRoot, stateRoot, eth1BlockHash, nil
 }
 
-func rootToHex(r *consensus.Root) string {
-	return "0x" + hex.EncodeToString(r[:])
-}
-
-func byteArrayToHex(r *[32]byte) string {
+func rootToHex(r *common.Root) string {
 	return "0x" + hex.EncodeToString(r[:])
 }

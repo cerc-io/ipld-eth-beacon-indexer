@@ -1,195 +1,213 @@
 package beaconclient
 
 import (
+	"bytes"
 	"errors"
+	"github.com/protolambda/zrnt/eth2/beacon/altair"
+	"github.com/protolambda/zrnt/eth2/beacon/bellatrix"
+	"github.com/protolambda/zrnt/eth2/beacon/common"
+	"github.com/protolambda/zrnt/eth2/beacon/phase0"
+	"github.com/protolambda/zrnt/eth2/configs"
+	"github.com/protolambda/ztyp/codec"
+	"github.com/protolambda/ztyp/tree"
 	log "github.com/sirupsen/logrus"
-	consensus "github.com/umbracle/go-eth-consensus"
 )
 
 type SignedBeaconBlock struct {
-	signedBeaconBlockBellatrix *consensus.SignedBeaconBlockBellatrix
-	signedBeaconBlockAltair    *consensus.SignedBeaconBlockAltair
-	signedBeaconBlockPhase0    *consensus.SignedBeaconBlockPhase0
+	bellatrix *bellatrix.SignedBeaconBlock
+	altair    *altair.SignedBeaconBlock
+	phase0    *phase0.SignedBeaconBlock
 }
 
 type BeaconBlock struct {
-	beaconBlockBellatrix *consensus.BeaconBlockBellatrix
-	beaconBlockAltair    *consensus.BeaconBlockAltair
-	beaconBlockPhase0    *consensus.BeaconBlockPhase0
+	bellatrix *bellatrix.BeaconBlock
+	altair    *altair.BeaconBlock
+	phase0    *phase0.BeaconBlock
 }
 
 type BeaconBlockBody struct {
-	beaconBlockBodyBellatrix *consensus.BeaconBlockBodyBellatrix
-	beaconBlockBodyAltair    *consensus.BeaconBlockBodyAltair
-	beaconBlockBodyPhase0    *consensus.BeaconBlockBodyPhase0
+	bellatrix *bellatrix.BeaconBlockBody
+	altair    *altair.BeaconBlockBody
+	phase0    *phase0.BeaconBlockBody
 }
 
 type BeaconState struct {
-	beaconStateBellatrix *consensus.BeaconStateBellatrix
-	beaconStateAltair    *consensus.BeaconStateAltair
-	beaconStatePhase0    *consensus.BeaconStatePhase0
+	bellatrix *bellatrix.BeaconState
+	altair    *altair.BeaconState
+	phase0    *phase0.BeaconState
 }
 
 func (s *SignedBeaconBlock) UnmarshalSSZ(ssz []byte) error {
-	var bellatrix consensus.SignedBeaconBlockBellatrix
-	err := bellatrix.UnmarshalSSZ(ssz)
+	var bellatrix bellatrix.SignedBeaconBlock
+	decodingReader := codec.NewDecodingReader(bytes.NewReader(ssz), uint64(len(ssz)))
+	err := bellatrix.Deserialize(configs.Mainnet, decodingReader)
 	if nil == err {
-		s.signedBeaconBlockBellatrix = &bellatrix
-		s.signedBeaconBlockAltair = nil
-		s.signedBeaconBlockPhase0 = nil
+		s.bellatrix = &bellatrix
+		s.altair = nil
+		s.phase0 = nil
 		log.Info("Unmarshalled Bellatrix SignedBeaconBlock")
 		return nil
 	}
 
-	var altair consensus.SignedBeaconBlockAltair
-	err = altair.UnmarshalSSZ(ssz)
+	var altair altair.SignedBeaconBlock
+	decodingReader = codec.NewDecodingReader(bytes.NewReader(ssz), uint64(len(ssz)))
+	err = altair.Deserialize(configs.Mainnet, decodingReader)
 	if nil == err {
-		s.signedBeaconBlockBellatrix = nil
-		s.signedBeaconBlockAltair = &altair
-		s.signedBeaconBlockPhase0 = nil
+		s.bellatrix = nil
+		s.altair = &altair
+		s.phase0 = nil
 		log.Info("Unmarshalled Altair SignedBeaconBlock")
 		return nil
 	}
 
-	var phase0 consensus.SignedBeaconBlockPhase0
-	err = phase0.UnmarshalSSZ(ssz)
+	var phase0 phase0.SignedBeaconBlock
+	decodingReader = codec.NewDecodingReader(bytes.NewReader(ssz), uint64(len(ssz)))
+	err = phase0.Deserialize(configs.Mainnet, decodingReader)
 	if nil == err {
-		s.signedBeaconBlockBellatrix = nil
-		s.signedBeaconBlockAltair = nil
-		s.signedBeaconBlockPhase0 = &phase0
+		s.bellatrix = nil
+		s.altair = nil
+		s.phase0 = &phase0
 		log.Info("Unmarshalled Phase0 SignedBeaconBlock")
 		return nil
 	}
 
-	s.signedBeaconBlockBellatrix = nil
-	s.signedBeaconBlockAltair = nil
-	s.signedBeaconBlockPhase0 = nil
+	s.bellatrix = nil
+	s.altair = nil
+	s.phase0 = nil
 
 	log.Warning("Unable to unmarshal SignedBeaconBlock")
 	return err
 }
 
 func (s *SignedBeaconBlock) MarshalSSZ() ([]byte, error) {
+	var err error
+	var buf bytes.Buffer
+	encodingWriter := codec.NewEncodingWriter(&buf)
+
 	if s.IsBellatrix() {
-		return s.signedBeaconBlockBellatrix.MarshalSSZ()
+		err = s.bellatrix.Serialize(configs.Mainnet, encodingWriter)
 	}
 	if s.IsAltair() {
-		return s.signedBeaconBlockAltair.MarshalSSZ()
+		err = s.altair.Serialize(configs.Mainnet, encodingWriter)
 	}
 	if s.IsPhase0() {
-		return s.signedBeaconBlockPhase0.MarshalSSZ()
+		err = s.phase0.Serialize(configs.Mainnet, encodingWriter)
 	}
 
-	return []byte{}, errors.New("SignedBeaconBlock not set")
+	if err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), err
 }
 
 func (s *SignedBeaconBlock) IsBellatrix() bool {
-	return s.signedBeaconBlockBellatrix != nil
+	return s.bellatrix != nil
 }
 
 func (s *SignedBeaconBlock) IsAltair() bool {
-	return s.signedBeaconBlockAltair != nil
+	return s.altair != nil
 }
 
 func (s *SignedBeaconBlock) IsPhase0() bool {
-	return s.signedBeaconBlockPhase0 != nil
+	return s.phase0 != nil
 }
 
-func (s *SignedBeaconBlock) GetBellatrix() *consensus.SignedBeaconBlockBellatrix {
-	return s.signedBeaconBlockBellatrix
+func (s *SignedBeaconBlock) GetBellatrix() *bellatrix.SignedBeaconBlock {
+	return s.bellatrix
 }
 
-func (s *SignedBeaconBlock) GetAltair() *consensus.SignedBeaconBlockAltair {
-	return s.signedBeaconBlockAltair
+func (s *SignedBeaconBlock) GetAltair() *altair.SignedBeaconBlock {
+	return s.altair
 }
 
-func (s *SignedBeaconBlock) GetPhase0() *consensus.SignedBeaconBlockPhase0 {
-	return s.signedBeaconBlockPhase0
+func (s *SignedBeaconBlock) GetPhase0() *phase0.SignedBeaconBlock {
+	return s.phase0
 }
 
-func (s *SignedBeaconBlock) Signature() *consensus.Signature {
+func (s *SignedBeaconBlock) Signature() [96]byte {
 	if s.IsBellatrix() {
-		return &s.signedBeaconBlockBellatrix.Signature
+		return s.bellatrix.Signature
 	}
 
 	if s.IsAltair() {
-		return &s.signedBeaconBlockAltair.Signature
+		return s.altair.Signature
 	}
 
 	if s.IsPhase0() {
-		return &s.signedBeaconBlockPhase0.Signature
+		return s.phase0.Signature
 	}
 
-	return nil
+	return [96]byte{}
 }
 
 func (s *SignedBeaconBlock) Block() *BeaconBlock {
 	if s.IsBellatrix() {
-		return &BeaconBlock{beaconBlockBellatrix: s.signedBeaconBlockBellatrix.Block}
+		return &BeaconBlock{bellatrix: &s.bellatrix.Message}
 	}
 
 	if s.IsAltair() {
-		return &BeaconBlock{beaconBlockAltair: s.signedBeaconBlockAltair.Block}
+		return &BeaconBlock{altair: &s.altair.Message}
 	}
 
 	if s.IsPhase0() {
-		return &BeaconBlock{beaconBlockPhase0: s.signedBeaconBlockPhase0.Block}
+		return &BeaconBlock{phase0: &s.phase0.Message}
 	}
 
 	return nil
 }
 
 func (b *BeaconBlock) IsBellatrix() bool {
-	return b.beaconBlockBellatrix != nil
+	return b.bellatrix != nil
 }
 
 func (b *BeaconBlock) IsAltair() bool {
-	return b.beaconBlockAltair != nil
+	return b.altair != nil
 }
 
 func (b *BeaconBlock) IsPhase0() bool {
-	return b.beaconBlockPhase0 != nil
+	return b.phase0 != nil
 }
 
-func (s *BeaconBlock) GetBellatrix() *consensus.BeaconBlockBellatrix {
-	return s.beaconBlockBellatrix
+func (s *BeaconBlock) GetBellatrix() *bellatrix.BeaconBlock {
+	return s.bellatrix
 }
 
-func (s *BeaconBlock) GetAltair() *consensus.BeaconBlockAltair {
-	return s.beaconBlockAltair
+func (s *BeaconBlock) GetAltair() *altair.BeaconBlock {
+	return s.altair
 }
 
-func (s *BeaconBlock) GetPhase0() *consensus.BeaconBlockPhase0 {
-	return s.beaconBlockPhase0
+func (s *BeaconBlock) GetPhase0() *phase0.BeaconBlock {
+	return s.phase0
 }
 
-func (b *BeaconBlock) ParentRoot() *consensus.Root {
+func (b *BeaconBlock) ParentRoot() *common.Root {
 	if b.IsBellatrix() {
-		return &b.beaconBlockBellatrix.ParentRoot
+		return &b.bellatrix.ParentRoot
 	}
 
 	if b.IsAltair() {
-		return &b.beaconBlockAltair.ParentRoot
+		return &b.altair.ParentRoot
 	}
 
 	if b.IsPhase0() {
-		return &b.beaconBlockPhase0.ParentRoot
+		return &b.phase0.ParentRoot
 	}
 
 	return nil
 }
 
-func (b *BeaconBlock) StateRoot() *consensus.Root {
+func (b *BeaconBlock) StateRoot() *common.Root {
 	if b.IsBellatrix() {
-		return &b.beaconBlockBellatrix.StateRoot
+		return &b.bellatrix.StateRoot
 	}
 
 	if b.IsAltair() {
-		return &b.beaconBlockAltair.StateRoot
+		return &b.altair.StateRoot
 	}
 
 	if b.IsPhase0() {
-		return &b.beaconBlockPhase0.StateRoot
+		return &b.phase0.StateRoot
 	}
 
 	return nil
@@ -197,170 +215,181 @@ func (b *BeaconBlock) StateRoot() *consensus.Root {
 
 func (b *BeaconBlock) Body() *BeaconBlockBody {
 	if b.IsBellatrix() {
-		return &BeaconBlockBody{beaconBlockBodyBellatrix: b.beaconBlockBellatrix.Body}
+		return &BeaconBlockBody{bellatrix: &b.bellatrix.Body}
 	}
 
 	if b.IsAltair() {
-		return &BeaconBlockBody{beaconBlockBodyAltair: b.beaconBlockAltair.Body}
+		return &BeaconBlockBody{altair: &b.altair.Body}
 	}
 
 	if b.IsPhase0() {
-		return &BeaconBlockBody{beaconBlockBodyPhase0: b.beaconBlockPhase0.Body}
+		return &BeaconBlockBody{phase0: &b.phase0.Body}
 	}
 
 	return nil
 }
 
 func (b *BeaconBlockBody) IsBellatrix() bool {
-	return b.beaconBlockBodyBellatrix != nil
+	return b.bellatrix != nil
 }
 
 func (b *BeaconBlockBody) IsAltair() bool {
-	return b.beaconBlockBodyAltair != nil
+	return b.altair != nil
 }
 
 func (b *BeaconBlockBody) IsPhase0() bool {
-	return b.beaconBlockBodyPhase0 != nil
+	return b.phase0 != nil
 }
 
-func (b *BeaconBlockBody) Eth1Data() *consensus.Eth1Data {
+func (b *BeaconBlockBody) Eth1Data() *common.Eth1Data {
 	if b.IsBellatrix() {
-		return b.beaconBlockBodyBellatrix.Eth1Data
+		return &b.bellatrix.Eth1Data
 	}
 
 	if b.IsAltair() {
-		return b.beaconBlockBodyAltair.Eth1Data
+		return &b.altair.Eth1Data
 	}
 
 	if b.IsPhase0() {
-		return b.beaconBlockBodyPhase0.Eth1Data
+		return &b.phase0.Eth1Data
 	}
 
 	return nil
 }
 
-func (b *BeaconBlock) HashTreeRoot() ([32]byte, error) {
+func (b *BeaconBlock) HashTreeRoot() common.Root {
 	if b.IsBellatrix() {
-		return b.beaconBlockBellatrix.HashTreeRoot()
+		return b.bellatrix.HashTreeRoot(configs.Mainnet, tree.Hash)
 	}
 
 	if b.IsAltair() {
-		return b.beaconBlockAltair.HashTreeRoot()
+		return b.altair.HashTreeRoot(configs.Mainnet, tree.Hash)
 	}
 
 	if b.IsPhase0() {
-		return b.beaconBlockPhase0.HashTreeRoot()
+		return b.phase0.HashTreeRoot(configs.Mainnet, tree.Hash)
 	}
 
-	return [32]byte{}, errors.New("BeaconBlock not set")
+	return common.Root{}
 }
 
 func (s *BeaconState) UnmarshalSSZ(ssz []byte) error {
-	var bellatrix consensus.BeaconStateBellatrix
-	err := bellatrix.UnmarshalSSZ(ssz)
+	var bellatrix bellatrix.BeaconState
+	decodingReader := codec.NewDecodingReader(bytes.NewReader(ssz), uint64(len(ssz)))
+	err := bellatrix.Deserialize(configs.Mainnet, decodingReader)
 	if nil == err {
-		s.beaconStateBellatrix = &bellatrix
-		s.beaconStateAltair = nil
-		s.beaconStatePhase0 = nil
+		s.bellatrix = &bellatrix
+		s.altair = nil
+		s.phase0 = nil
 		log.Info("Unmarshalled Bellatrix BeaconState")
 		return nil
 	}
 
-	var altair consensus.BeaconStateAltair
-	err = altair.UnmarshalSSZ(ssz)
+	var altair altair.BeaconState
+	decodingReader = codec.NewDecodingReader(bytes.NewReader(ssz), uint64(len(ssz)))
+	err = altair.Deserialize(configs.Mainnet, decodingReader)
 	if nil == err {
-		s.beaconStateBellatrix = nil
-		s.beaconStateAltair = &altair
-		s.beaconStatePhase0 = nil
+		s.bellatrix = nil
+		s.altair = &altair
+		s.phase0 = nil
 		log.Info("Unmarshalled Altair BeaconState")
 		return nil
 	}
 
-	var phase0 consensus.BeaconStatePhase0
-	err = phase0.UnmarshalSSZ(ssz)
+	var phase0 phase0.BeaconState
+	decodingReader = codec.NewDecodingReader(bytes.NewReader(ssz), uint64(len(ssz)))
+	err = phase0.Deserialize(configs.Mainnet, decodingReader)
 	if nil == err {
-		s.beaconStateBellatrix = nil
-		s.beaconStateAltair = nil
-		s.beaconStatePhase0 = &phase0
+		s.bellatrix = nil
+		s.altair = nil
+		s.phase0 = &phase0
 		log.Info("Unmarshalled Phase0 BeaconState")
 		return nil
 	}
 
-	s.beaconStateBellatrix = nil
-	s.beaconStateAltair = nil
-	s.beaconStatePhase0 = nil
+	s.bellatrix = nil
+	s.altair = nil
+	s.phase0 = nil
 
 	log.Warning("Unable to unmarshal BeaconState")
 	return err
 }
 
 func (s *BeaconState) MarshalSSZ() ([]byte, error) {
+	var err error
+	var buf bytes.Buffer
+	encodingWriter := codec.NewEncodingWriter(&buf)
+
 	if s.IsBellatrix() {
-		return s.beaconStateBellatrix.MarshalSSZ()
-	}
-	if s.IsAltair() {
-		return s.beaconStateAltair.MarshalSSZ()
-	}
-	if s.IsPhase0() {
-		return s.beaconStatePhase0.MarshalSSZ()
+		err = s.bellatrix.Serialize(configs.Mainnet, encodingWriter)
+	} else if s.IsAltair() {
+		err = s.altair.Serialize(configs.Mainnet, encodingWriter)
+	} else if s.IsPhase0() {
+		err = s.phase0.Serialize(configs.Mainnet, encodingWriter)
+	} else {
+		err = errors.New("BeaconState not set")
 	}
 
-	return []byte{}, errors.New("BeaconState not set")
+	if nil != err {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
 }
 
 func (s *BeaconState) IsBellatrix() bool {
-	return s.beaconStateBellatrix != nil
+	return s.bellatrix != nil
 }
 
 func (s *BeaconState) IsAltair() bool {
-	return s.beaconStateAltair != nil
+	return s.altair != nil
 }
 
 func (s *BeaconState) IsPhase0() bool {
-	return s.beaconStatePhase0 != nil
+	return s.phase0 != nil
 }
 
-func (s *BeaconState) Slot() uint64 {
+func (s *BeaconState) Slot() common.Slot {
 	if s.IsBellatrix() {
-		return s.beaconStateBellatrix.Slot
+		return s.bellatrix.Slot
 	}
 
 	if s.IsAltair() {
-		return s.beaconStateAltair.Slot
+		return s.altair.Slot
 	}
 
 	if s.IsPhase0() {
-		return s.beaconStatePhase0.Slot
+		return s.phase0.Slot
 	}
 
 	// TODO(telackey): Something better than 0?
 	return 0
 }
 
-func (b *BeaconState) HashTreeRoot() ([32]byte, error) {
+func (b *BeaconState) HashTreeRoot() common.Root {
 	if b.IsBellatrix() {
-		return b.beaconStateBellatrix.HashTreeRoot()
+		return b.bellatrix.HashTreeRoot(configs.Mainnet, tree.Hash)
 	}
 
 	if b.IsAltair() {
-		return b.beaconStateAltair.HashTreeRoot()
+		return b.altair.HashTreeRoot(configs.Mainnet, tree.Hash)
 	}
 
 	if b.IsPhase0() {
-		return b.beaconStatePhase0.HashTreeRoot()
+		return b.phase0.HashTreeRoot(configs.Mainnet, tree.Hash)
 	}
 
-	return [32]byte{}, errors.New("BeaconState not set")
+	return common.Root{}
 }
 
-func (s *BeaconState) GetBellatrix() *consensus.BeaconStateBellatrix {
-	return s.beaconStateBellatrix
+func (s *BeaconState) GetBellatrix() *bellatrix.BeaconState {
+	return s.bellatrix
 }
 
-func (s *BeaconState) GetAltair() *consensus.BeaconStateAltair {
-	return s.beaconStateAltair
+func (s *BeaconState) GetAltair() *altair.BeaconState {
+	return s.altair
 }
 
-func (s *BeaconState) GetPhase0() *consensus.BeaconStatePhase0 {
-	return s.beaconStatePhase0
+func (s *BeaconState) GetPhase0() *phase0.BeaconState {
+	return s.phase0
 }

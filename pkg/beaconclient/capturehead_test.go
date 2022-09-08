@@ -20,7 +20,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	consensus "github.com/umbracle/go-eth-consensus"
+	"github.com/protolambda/zrnt/eth2/beacon/common"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -741,16 +741,16 @@ func (tbc TestBeaconNode) provideSsz(slotIdentifier string, sszIdentifier string
 
 				slot, err := strconv.ParseUint(Message.HeadMessage.Slot, 10, 64)
 				Expect(err).ToNot(HaveOccurred())
-				phase0.Block.Slot = slot
+				phase0.Message.Slot = common.Slot(slot)
 
-				phase0.Block.StateRoot, err = decodeRoot(Message.HeadMessage.State)
+				phase0.Message.StateRoot, err = decodeRoot(Message.HeadMessage.State)
 				Expect(err).ToNot(HaveOccurred())
 
 				if Message.MimicConfig.ParentRoot == "" {
-					phase0.Block.ParentRoot, err = decodeRoot(dummyParentRoot)
+					phase0.Message.ParentRoot, err = decodeRoot(dummyParentRoot)
 					Expect(err).ToNot(HaveOccurred())
 				} else {
-					phase0.Block.ParentRoot, err = decodeRoot(Message.MimicConfig.ParentRoot)
+					phase0.Message.ParentRoot, err = decodeRoot(Message.MimicConfig.ParentRoot)
 					Expect(err).ToNot(HaveOccurred())
 				}
 				return block.MarshalSSZ()
@@ -763,16 +763,16 @@ func (tbc TestBeaconNode) provideSsz(slotIdentifier string, sszIdentifier string
 				var altair = block.GetAltair()
 				slot, err := strconv.ParseUint(Message.HeadMessage.Slot, 10, 64)
 				Expect(err).ToNot(HaveOccurred())
-				altair.Block.Slot = slot
+				altair.Message.Slot = common.Slot(slot)
 
-				altair.Block.StateRoot, err = decodeRoot(Message.HeadMessage.State)
+				altair.Message.StateRoot, err = decodeRoot(Message.HeadMessage.State)
 				Expect(err).ToNot(HaveOccurred())
 
 				if Message.MimicConfig.ParentRoot == "" {
-					altair.Block.ParentRoot, err = decodeRoot(dummyParentRoot)
+					altair.Message.ParentRoot, err = decodeRoot(dummyParentRoot)
 					Expect(err).ToNot(HaveOccurred())
 				} else {
-					altair.Block.ParentRoot, err = decodeRoot(Message.MimicConfig.ParentRoot)
+					altair.Message.ParentRoot, err = decodeRoot(Message.MimicConfig.ParentRoot)
 					Expect(err).ToNot(HaveOccurred())
 				}
 				return block.MarshalSSZ()
@@ -786,11 +786,11 @@ func (tbc TestBeaconNode) provideSsz(slotIdentifier string, sszIdentifier string
 			slot, err := strconv.ParseUint(Message.HeadMessage.Slot, 10, 64)
 			Expect(err).ToNot(HaveOccurred())
 			if state.IsBellatrix() {
-				state.GetBellatrix().Slot = slot
+				state.GetBellatrix().Slot = common.Slot(slot)
 			} else if state.IsAltair() {
-				state.GetAltair().Slot = slot
+				state.GetAltair().Slot = common.Slot(slot)
 			} else {
-				state.GetPhase0().Slot = slot
+				state.GetPhase0().Slot = common.Slot(slot)
 			}
 			return state.MarshalSSZ()
 		}
@@ -959,23 +959,23 @@ func (tbc TestBeaconNode) testKnownGapsMessages(bc *beaconclient.BeaconClient, t
 func testSszRoot(msg Message) {
 	state, err := readBeaconState(msg.BeaconState)
 	Expect(err).ToNot(HaveOccurred())
-	stateRoot, err := state.HashTreeRoot()
+	stateRoot := state.HashTreeRoot()
 	Expect(err).ToNot(HaveOccurred())
 	Expect(msg.HeadMessage.State).To(Equal("0x" + hex.EncodeToString(stateRoot[:])))
 
 	block, err := readSignedBeaconBlock(msg.SignedBeaconBlock)
 	Expect(err).ToNot(HaveOccurred())
-	blockRoot, err := block.Block().HashTreeRoot()
+	blockRoot := block.Block().HashTreeRoot()
 	Expect(err).ToNot(HaveOccurred())
 	Expect(msg.HeadMessage.Block).To(Equal("0x" + hex.EncodeToString(blockRoot[:])))
 }
 
-func decodeRoot(raw string) (consensus.Root, error) {
+func decodeRoot(raw string) (common.Root, error) {
 	value, err := hex.DecodeString(raw)
 	if err != nil {
-		return consensus.Root{}, err
+		return common.Root{}, err
 	}
-	var root consensus.Root
+	var root common.Root
 	copy(root[:], value[:32])
 	return root, nil
 }
