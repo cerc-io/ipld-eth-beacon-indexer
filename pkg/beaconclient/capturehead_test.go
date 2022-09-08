@@ -45,10 +45,10 @@ var (
 	port                    int    = 8080
 	protocol                string = "http"
 	dbHost                  string = "localhost"
-	dbPort                  int    = 15432
-	dbName                  string = "postgres"
-	dbUser                  string = "postgres"
-	dbPassword              string = "secret12"
+	dbPort                  int    = 8076
+	dbName                  string = "vulcanize_testing"
+	dbUser                  string = "vdbm"
+	dbPassword              string = "password"
 	dbDriver                string = "pgx"
 	bcUniqueIdentifier      int    = 100
 	dummyParentRoot         string = "46f98c08b54a71dfda4d56e29ec3952b8300cd8d6b67a9b6c562ae96a7a25a42"
