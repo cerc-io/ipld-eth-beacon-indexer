@@ -13,6 +13,11 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+type Slot common.Slot
+type Root common.Root
+
+type Eth1Data common.Eth1Data
+
 type SignedBeaconBlock struct {
 	bellatrix *bellatrix.SignedBeaconBlock
 	altair    *altair.SignedBeaconBlock
@@ -181,36 +186,36 @@ func (s *BeaconBlock) GetPhase0() *phase0.BeaconBlock {
 	return s.phase0
 }
 
-func (b *BeaconBlock) ParentRoot() *common.Root {
+func (b *BeaconBlock) ParentRoot() Root {
 	if b.IsBellatrix() {
-		return &b.bellatrix.ParentRoot
+		return Root(b.bellatrix.ParentRoot)
 	}
 
 	if b.IsAltair() {
-		return &b.altair.ParentRoot
+		return Root(b.altair.ParentRoot)
 	}
 
 	if b.IsPhase0() {
-		return &b.phase0.ParentRoot
+		return Root(b.phase0.ParentRoot)
 	}
 
-	return nil
+	return Root{}
 }
 
-func (b *BeaconBlock) StateRoot() *common.Root {
+func (b *BeaconBlock) StateRoot() Root {
 	if b.IsBellatrix() {
-		return &b.bellatrix.StateRoot
+		return Root(b.bellatrix.StateRoot)
 	}
 
 	if b.IsAltair() {
-		return &b.altair.StateRoot
+		return Root(b.altair.StateRoot)
 	}
 
 	if b.IsPhase0() {
-		return &b.phase0.StateRoot
+		return Root(b.phase0.StateRoot)
 	}
 
-	return nil
+	return Root{}
 }
 
 func (b *BeaconBlock) Body() *BeaconBlockBody {
@@ -241,36 +246,36 @@ func (b *BeaconBlockBody) IsPhase0() bool {
 	return b.phase0 != nil
 }
 
-func (b *BeaconBlockBody) Eth1Data() *common.Eth1Data {
+func (b *BeaconBlockBody) Eth1Data() Eth1Data {
 	if b.IsBellatrix() {
-		return &b.bellatrix.Eth1Data
+		return Eth1Data(b.bellatrix.Eth1Data)
 	}
 
 	if b.IsAltair() {
-		return &b.altair.Eth1Data
+		return Eth1Data(b.altair.Eth1Data)
 	}
 
 	if b.IsPhase0() {
-		return &b.phase0.Eth1Data
+		return Eth1Data(b.phase0.Eth1Data)
 	}
 
-	return nil
+	return Eth1Data{}
 }
 
-func (b *BeaconBlock) HashTreeRoot() common.Root {
+func (b *BeaconBlock) HashTreeRoot() Root {
 	if b.IsBellatrix() {
-		return b.bellatrix.HashTreeRoot(configs.Mainnet, tree.Hash)
+		return Root(b.bellatrix.HashTreeRoot(configs.Mainnet, tree.Hash))
 	}
 
 	if b.IsAltair() {
-		return b.altair.HashTreeRoot(configs.Mainnet, tree.Hash)
+		return Root(b.altair.HashTreeRoot(configs.Mainnet, tree.Hash))
 	}
 
 	if b.IsPhase0() {
-		return b.phase0.HashTreeRoot(configs.Mainnet, tree.Hash)
+		return Root(b.phase0.HashTreeRoot(configs.Mainnet, tree.Hash))
 	}
 
-	return common.Root{}
+	return Root{}
 }
 
 func (s *BeaconState) UnmarshalSSZ(ssz []byte) error {
@@ -349,37 +354,37 @@ func (s *BeaconState) IsPhase0() bool {
 	return s.phase0 != nil
 }
 
-func (s *BeaconState) Slot() common.Slot {
+func (s *BeaconState) Slot() Slot {
 	if s.IsBellatrix() {
-		return s.bellatrix.Slot
+		return Slot(s.bellatrix.Slot)
 	}
 
 	if s.IsAltair() {
-		return s.altair.Slot
+		return Slot(s.altair.Slot)
 	}
 
 	if s.IsPhase0() {
-		return s.phase0.Slot
+		return Slot(s.phase0.Slot)
 	}
 
 	// TODO(telackey): Something better than 0?
 	return 0
 }
 
-func (b *BeaconState) HashTreeRoot() common.Root {
+func (b *BeaconState) HashTreeRoot() Root {
 	if b.IsBellatrix() {
-		return b.bellatrix.HashTreeRoot(configs.Mainnet, tree.Hash)
+		return Root(b.bellatrix.HashTreeRoot(configs.Mainnet, tree.Hash))
 	}
 
 	if b.IsAltair() {
-		return b.altair.HashTreeRoot(configs.Mainnet, tree.Hash)
+		return Root(b.altair.HashTreeRoot(configs.Mainnet, tree.Hash))
 	}
 
 	if b.IsPhase0() {
-		return b.phase0.HashTreeRoot(configs.Mainnet, tree.Hash)
+		return Root(b.phase0.HashTreeRoot(configs.Mainnet, tree.Hash))
 	}
 
-	return common.Root{}
+	return Root{}
 }
 
 func (s *BeaconState) GetBellatrix() *bellatrix.BeaconState {

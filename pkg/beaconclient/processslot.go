@@ -23,7 +23,6 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"github.com/protolambda/zrnt/eth2/beacon/common"
 	"strconv"
 	"strings"
 	"time"
@@ -272,7 +271,7 @@ func (ps *ProcessSlot) getSignedBeaconBlock(serverAddress string) error {
 	ps.FullSignedBeaconBlock = signedBeaconBlock
 	ps.SszSignedBeaconBlock = sszSignedBeaconBlock
 
-	ps.ParentBlockRoot = rootToHex(ps.FullSignedBeaconBlock.Block().ParentRoot())
+	ps.ParentBlockRoot = toHex(ps.FullSignedBeaconBlock.Block().ParentRoot())
 	return nil
 }
 
@@ -306,7 +305,7 @@ func (ps *ProcessSlot) getBeaconState(serverEndpoint string) error {
 
 // Check to make sure that the previous block we processed is the parent of the current block.
 func (ps *ProcessSlot) checkPreviousSlot(tx sql.Tx, ctx context.Context, previousSlot int, previousBlockRoot string, knownGapsTableIncrement int) {
-	parentRoot := rootToHex(ps.FullSignedBeaconBlock.Block().ParentRoot())
+	parentRoot := toHex(ps.FullSignedBeaconBlock.Block().ParentRoot())
 	slot := int(ps.FullBeaconState.Slot())
 	if previousSlot == slot {
 		log.WithFields(log.Fields{
@@ -369,7 +368,7 @@ func (ps *ProcessSlot) provideFinalHash() (string, string, string, error) {
 		if ps.StateRoot != "" {
 			stateRoot = ps.StateRoot
 		} else {
-			stateRoot = rootToHex(ps.FullSignedBeaconBlock.Block().StateRoot())
+			stateRoot = toHex(ps.FullSignedBeaconBlock.Block().StateRoot())
 			log.Debug("StateRoot: ", stateRoot)
 		}
 
@@ -377,14 +376,14 @@ func (ps *ProcessSlot) provideFinalHash() (string, string, string, error) {
 			blockRoot = ps.BlockRoot
 		} else {
 			rawBlockRoot := ps.FullSignedBeaconBlock.Block().HashTreeRoot()
-			blockRoot = rootToHex(&rawBlockRoot)
+			blockRoot = toHex(rawBlockRoot)
 			log.WithFields(log.Fields{"blockRoot": blockRoot}).Debug("Block Root from ssz")
 		}
-		eth1BlockHash = rootToHex(&ps.FullSignedBeaconBlock.Block().Body().Eth1Data().BlockHash)
+		eth1BlockHash = toHex(ps.FullSignedBeaconBlock.Block().Body().Eth1Data().BlockHash)
 	}
 	return blockRoot, stateRoot, eth1BlockHash, nil
 }
 
-func rootToHex(r *common.Root) string {
+func toHex(r [32]byte) string {
 	return "0x" + hex.EncodeToString(r[:])
 }
