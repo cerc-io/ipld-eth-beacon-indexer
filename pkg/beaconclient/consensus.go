@@ -268,17 +268,18 @@ func (b *BeaconBlockBody) Eth1Data() Eth1Data {
 
 func (b *BeaconBlock) HashTreeRoot() Root {
 	spec := chooseSpec(b.spec)
+	hashFn := tree.GetHashFn()
 
 	if b.IsBellatrix() {
-		return Root(b.bellatrix.HashTreeRoot(spec, tree.Hash))
+		return Root(b.bellatrix.HashTreeRoot(spec, hashFn))
 	}
 
 	if b.IsAltair() {
-		return Root(b.altair.HashTreeRoot(spec, tree.Hash))
+		return Root(b.altair.HashTreeRoot(spec, hashFn))
 	}
 
 	if b.IsPhase0() {
-		return Root(b.phase0.HashTreeRoot(spec, tree.Hash))
+		return Root(b.phase0.HashTreeRoot(spec, hashFn))
 	}
 
 	return Root{}
@@ -379,17 +380,18 @@ func (s *BeaconState) Slot() Slot {
 
 func (s *BeaconState) HashTreeRoot() Root {
 	spec := chooseSpec(s.spec)
+	hashFn := tree.GetHashFn()
 
 	if s.IsBellatrix() {
-		return Root(s.bellatrix.HashTreeRoot(spec, tree.Hash))
+		return Root(s.bellatrix.HashTreeRoot(spec, hashFn))
 	}
 
 	if s.IsAltair() {
-		return Root(s.altair.HashTreeRoot(spec, tree.Hash))
+		return Root(s.altair.HashTreeRoot(spec, hashFn))
 	}
 
 	if s.IsPhase0() {
-		return Root(s.phase0.HashTreeRoot(spec, tree.Hash))
+		return Root(s.phase0.HashTreeRoot(spec, hashFn))
 	}
 
 	return Root{}
