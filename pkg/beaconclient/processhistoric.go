@@ -97,14 +97,14 @@ func (hp HistoricProcessing) releaseDbLocks() error {
 }
 
 // Process the slot range.
-func processSlotRangeWorker(ctx context.Context, workCh <-chan int, errCh chan<- batchHistoricError, db sql.Database, serverAddress string, metrics *BeaconClientMetrics, checkDb bool, incrementTracker func(uint64)) {
+func processSlotRangeWorker(ctx context.Context, workCh <-chan int, errCh chan<- batchHistoricError, spd SlotProcessingDetails, incrementTracker func(uint64)) {
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case slot := <-workCh:
 			log.Debug("Handling slot: ", slot)
-			err, errProcess := handleHistoricSlot(ctx, db, serverAddress, slot, metrics, checkDb)
+			err, errProcess := handleHistoricSlot(ctx, slot, spd)
 			if err != nil {
 				errMs := batchHistoricError{
 					err:        err,

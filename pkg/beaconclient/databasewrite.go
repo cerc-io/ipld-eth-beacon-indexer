@@ -229,6 +229,11 @@ func (dw *DatabaseWriter) upsertSlots() error {
 
 // Add the information for the signed_block to a transaction.
 func (dw *DatabaseWriter) transactSignedBeaconBlocks() error {
+	if nil == dw.rawSignedBeaconBlock || len(*dw.rawSignedBeaconBlock) == 0 {
+		log.Warn("Skipping writing of empty BeaconBlock.")
+		return nil
+	}
+
 	err := dw.upsertPublicBlocks(dw.DbSignedBeaconBlock.MhKey, dw.rawSignedBeaconBlock)
 	if err != nil {
 		return err
@@ -262,6 +267,11 @@ func (dw *DatabaseWriter) upsertSignedBeaconBlock() error {
 
 // Add the information for the state to a transaction.
 func (dw *DatabaseWriter) transactBeaconState() error {
+	if nil == dw.rawBeaconState || len(*dw.rawBeaconState) == 0 {
+		log.Warn("Skipping writing of empty BeaconState.")
+		return nil
+	}
+
 	err := dw.upsertPublicBlocks(dw.DbBeaconState.MhKey, dw.rawBeaconState)
 	if err != nil {
 		return err

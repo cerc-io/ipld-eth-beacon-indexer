@@ -22,7 +22,6 @@ import (
 	"fmt"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/database/sql"
 	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/loghelper"
 	"golang.org/x/sync/errgroup"
 )
@@ -31,7 +30,7 @@ import (
 func (bc *BeaconClient) CaptureHistoric(ctx context.Context, maxWorkers int) []error {
 	log.Info("We are starting the historical processing service.")
 	bc.HistoricalProcess = HistoricProcessing{db: bc.Db, metrics: bc.Metrics, uniqueNodeIdentifier: bc.UniqueNodeIdentifier}
-	errs := handleBatchProcess(ctx, maxWorkers, bc.HistoricalProcess, bc.HistoricalProcess.db, bc.ServerEndpoint, bc.Metrics, bc.CheckDb, bc.Metrics.IncrementHistoricSlotProcessed)
+	errs := handleBatchProcess(ctx, maxWorkers, bc.HistoricalProcess, bc.SlotProcessingDetails(), bc.Metrics.IncrementHistoricSlotProcessed)
 	log.Debug("Exiting Historical")
 	return errs
 }
@@ -91,7 +90,7 @@ type batchHistoricError struct {
 // 4. Remove the slot entry from the DB.
 //
 // 5. Handle any errors.
-func handleBatchProcess(ctx context.Context, maxWorkers int, bp BatchProcessing, db sql.Database, serverEndpoint string, metrics *BeaconClientMetrics, checkDb bool, incrementTracker func(uint64)) []error {
+func handleBatchProcess(ctx context.Context, maxWorkers int, bp BatchProcessing, spd SlotProcessingDetails, incrementTracker func(uint64)) []error {
 	slotsCh := make(chan slotsToProcess)
 	workCh := make(chan int)
 	processedCh := make(chan slotsToProcess)
@@ -108,7 +107,7 @@ func handleBatchProcess(ctx context.Context, maxWorkers int, bp BatchProcessing,
 	for w := 1; w <= maxWorkers; w++ {
 		log.WithFields(log.Fields{"maxWorkers": maxWorkers}).Debug("Starting batch processing workers")
 
-		go processSlotRangeWorker(ctx, workCh, errCh, db, serverEndpoint, metrics, checkDb, incrementTracker)
+		go processSlotRangeWorker(ctx, workCh, errCh, spd, incrementTracker)
 	}
 
 	// Process all ranges and send each individual slot to the worker.

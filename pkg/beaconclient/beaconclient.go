@@ -44,14 +44,16 @@ var (
 
 // A struct that capture the Beacon Server that the Beacon Client will be interacting with and querying.
 type BeaconClient struct {
-	Context                context.Context      // A context generic context with multiple uses.
-	ServerEndpoint         string               // What is the endpoint of the beacon server.
-	Db                     sql.Database         // Database object used for reads and writes.
-	Metrics                *BeaconClientMetrics // An object used to keep track of certain BeaconClient Metrics.
-	KnownGapTableIncrement int                  // The max number of slots within a single known_gaps table entry.
-	UniqueNodeIdentifier   int                  // The unique identifier within the cluster of this individual node.
-	KnownGapsProcess       KnownGapsProcessing  // object keeping track of knowngaps processing
-	CheckDb                bool                 // Should we check the DB to see if the slot exists before processing it?
+	Context                      context.Context      // A context generic context with multiple uses.
+	ServerEndpoint               string               // What is the endpoint of the beacon server.
+	Db                           sql.Database         // Database object used for reads and writes.
+	Metrics                      *BeaconClientMetrics // An object used to keep track of certain BeaconClient Metrics.
+	KnownGapTableIncrement       int                  // The max number of slots within a single known_gaps table entry.
+	UniqueNodeIdentifier         int                  // The unique identifier within the cluster of this individual node.
+	KnownGapsProcess             KnownGapsProcessing  // object keeping track of knowngaps processing
+	CheckDb                      bool                 // Should we check the DB to see if the slot exists before processing it?
+	PerformBeaconStateProcessing bool                 // Should we process BeaconStates?
+	ProcessBeaconBlockProcessing bool                 // Should we process BeaconBlocks?
 
 	// Used for Head Tracking
 
@@ -102,14 +104,16 @@ func CreateBeaconClient(ctx context.Context, connectionProtocol string, bcAddres
 	endpoint := fmt.Sprintf("%s://%s:%d", connectionProtocol, bcAddress, bcPort)
 	log.Info("Creating the BeaconClient")
 	return &BeaconClient{
-		Context:                ctx,
-		ServerEndpoint:         endpoint,
-		KnownGapTableIncrement: bcKgTableIncrement,
-		HeadTracking:           createSseEvent[Head](endpoint, BcHeadTopicEndpoint),
-		ReOrgTracking:          createSseEvent[ChainReorg](endpoint, bcReorgTopicEndpoint),
-		Metrics:                metrics,
-		UniqueNodeIdentifier:   uniqueNodeIdentifier,
-		CheckDb:                checkDb,
+		Context:                      ctx,
+		ServerEndpoint:               endpoint,
+		KnownGapTableIncrement:       bcKgTableIncrement,
+		HeadTracking:                 createSseEvent[Head](endpoint, BcHeadTopicEndpoint),
+		ReOrgTracking:                createSseEvent[ChainReorg](endpoint, bcReorgTopicEndpoint),
+		Metrics:                      metrics,
+		UniqueNodeIdentifier:         uniqueNodeIdentifier,
+		CheckDb:                      checkDb,
+		ProcessBeaconBlockProcessing: true,
+		PerformBeaconStateProcessing: true,
 		//FinalizationTracking: createSseEvent[FinalizedCheckpoint](endpoint, bcFinalizedTopicEndpoint),
 	}, nil
 }
