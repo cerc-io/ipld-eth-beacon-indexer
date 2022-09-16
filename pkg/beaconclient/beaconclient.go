@@ -53,7 +53,7 @@ type BeaconClient struct {
 	KnownGapsProcess             KnownGapsProcessing  // object keeping track of knowngaps processing
 	CheckDb                      bool                 // Should we check the DB to see if the slot exists before processing it?
 	PerformBeaconStateProcessing bool                 // Should we process BeaconStates?
-	ProcessBeaconBlockProcessing bool                 // Should we process BeaconBlocks?
+	PerformBeaconBlockProcessing bool                 // Should we process BeaconBlocks?
 
 	// Used for Head Tracking
 
@@ -112,8 +112,8 @@ func CreateBeaconClient(ctx context.Context, connectionProtocol string, bcAddres
 		Metrics:                      metrics,
 		UniqueNodeIdentifier:         uniqueNodeIdentifier,
 		CheckDb:                      checkDb,
-		ProcessBeaconBlockProcessing: true,
-		PerformBeaconStateProcessing: true,
+		PerformBeaconBlockProcessing: true,
+		PerformBeaconStateProcessing: false,
 		//FinalizationTracking: createSseEvent[FinalizedCheckpoint](endpoint, bcFinalizedTopicEndpoint),
 	}, nil
 }

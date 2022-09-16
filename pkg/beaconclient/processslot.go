@@ -43,7 +43,7 @@ type SlotProcessingDetails struct {
 	KnownGapTableIncrement       int                  // The max number of slots within a single known_gaps table entry.
 	CheckDb                      bool                 // Should we check the DB to see if the slot exists before processing it?
 	PerformBeaconStateProcessing bool                 // Should we process BeaconStates?
-	ProcessBeaconBlockProcessing bool                 // Should we process BeaconBlocks?
+	PerformBeaconBlockProcessing bool                 // Should we process BeaconBlocks?
 
 	StartingSlot      int    // If we're performing head tracking. What is the first slot we processed.
 	PreviousSlot      int    // Whats the previous slot we processed
@@ -58,7 +58,7 @@ func (bc *BeaconClient) SlotProcessingDetails() SlotProcessingDetails {
 		Metrics:        bc.Metrics,
 
 		CheckDb:                      bc.CheckDb,
-		ProcessBeaconBlockProcessing: bc.ProcessBeaconBlockProcessing,
+		PerformBeaconBlockProcessing: bc.PerformBeaconBlockProcessing,
 		PerformBeaconStateProcessing: bc.PerformBeaconStateProcessing,
 
 		KnownGapTableIncrement: bc.KnownGapTableIncrement,
@@ -168,7 +168,7 @@ func processFullSlot(
 			})
 		}
 
-		if spd.ProcessBeaconBlockProcessing {
+		if spd.PerformBeaconBlockProcessing {
 			// Get the SignedBeaconBlock.
 			g.Go(func() error {
 				select {
@@ -355,11 +355,11 @@ func (ps *ProcessSlot) getBeaconState(serverEndpoint string) error {
 // Check to make sure that the previous block we processed is the parent of the current block.
 func (ps *ProcessSlot) checkPreviousSlot(tx sql.Tx, ctx context.Context, previousSlot int, previousBlockRoot string, knownGapsTableIncrement int) {
 	if nil == ps.FullSignedBeaconBlock {
-		log.Debug("Can't check previous slot, no current slot.")
+		log.Debug("Can't check block root, no current block.")
 		return
 	}
 	parentRoot := toHex(ps.FullSignedBeaconBlock.Block().ParentRoot())
-	slot := int(ps.FullBeaconState.Slot())
+	slot := ps.Slot
 	if previousSlot == slot {
 		log.WithFields(log.Fields{
 			"slot": slot,

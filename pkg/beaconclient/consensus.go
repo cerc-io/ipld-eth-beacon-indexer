@@ -361,23 +361,6 @@ func (s *BeaconState) IsPhase0() bool {
 	return s.phase0 != nil
 }
 
-func (s *BeaconState) Slot() Slot {
-	if s.IsBellatrix() {
-		return Slot(s.bellatrix.Slot)
-	}
-
-	if s.IsAltair() {
-		return Slot(s.altair.Slot)
-	}
-
-	if s.IsPhase0() {
-		return Slot(s.phase0.Slot)
-	}
-
-	// TODO(telackey): Something better than 0?
-	return 0
-}
-
 func (s *BeaconState) HashTreeRoot() Root {
 	spec := chooseSpec(s.spec)
 	hashFn := tree.GetHashFn()
