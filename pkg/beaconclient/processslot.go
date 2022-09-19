@@ -191,7 +191,7 @@ func processFullSlot(
 		}
 
 		parseBeaconTime := time.Now()
-		finalBlockRoot, finalStateRoot, finalEth1BlockHash, err := ps.provideFinalHash()
+		finalBlockRoot, finalStateRoot, finalEth1DataBlockHash, err := ps.provideFinalHash()
 		if err != nil {
 			return err, "CalculateBlockRoot"
 		}
@@ -212,7 +212,7 @@ func processFullSlot(
 
 		// Get this object ready to write
 		createDbWriteTime := time.Now()
-		dw, err := ps.createWriteObjects(finalBlockRoot, finalStateRoot, finalEth1BlockHash)
+		dw, err := ps.createWriteObjects(finalBlockRoot, finalStateRoot, finalEth1DataBlockHash)
 		if err != nil {
 			return err, "blockRoot"
 		}
@@ -389,7 +389,7 @@ func (ps *ProcessSlot) checkPreviousSlot(tx sql.Tx, ctx context.Context, previou
 }
 
 // Transforms all the raw data into DB models that can be written to the DB.
-func (ps *ProcessSlot) createWriteObjects(blockRoot, stateRoot, eth1BlockHash string) (*DatabaseWriter, error) {
+func (ps *ProcessSlot) createWriteObjects(blockRoot, stateRoot, eth1DataBlockHash string) (*DatabaseWriter, error) {
 	var status string
 	if ps.Status != "" {
 		status = ps.Status
@@ -397,7 +397,7 @@ func (ps *ProcessSlot) createWriteObjects(blockRoot, stateRoot, eth1BlockHash st
 		status = "proposed"
 	}
 
-	dw, err := CreateDatabaseWrite(ps.Db, ps.Slot, stateRoot, blockRoot, ps.ParentBlockRoot, eth1BlockHash, status, &ps.SszSignedBeaconBlock, &ps.SszBeaconState, ps.Metrics)
+	dw, err := CreateDatabaseWrite(ps.Db, ps.Slot, stateRoot, blockRoot, ps.ParentBlockRoot, eth1DataBlockHash, status, &ps.SszSignedBeaconBlock, &ps.SszBeaconState, ps.Metrics)
 	if err != nil {
 		return dw, err
 	}
@@ -405,18 +405,18 @@ func (ps *ProcessSlot) createWriteObjects(blockRoot, stateRoot, eth1BlockHash st
 	return dw, nil
 }
 
-// This function will return the final blockRoot, stateRoot, and eth1BlockHash that will be
+// This function will return the final blockRoot, stateRoot, and eth1DataBlockHash that will be
 // used to write to a DB
 func (ps *ProcessSlot) provideFinalHash() (string, string, string, error) {
 	var (
-		stateRoot     string
-		blockRoot     string
-		eth1BlockHash string
+		stateRoot         string
+		blockRoot         string
+		eth1DataBlockHash string
 	)
 	if ps.Status == "skipped" {
 		stateRoot = ""
 		blockRoot = ""
-		eth1BlockHash = ""
+		eth1DataBlockHash = ""
 	} else {
 		if ps.StateRoot != "" {
 			stateRoot = ps.StateRoot
@@ -441,10 +441,10 @@ func (ps *ProcessSlot) provideFinalHash() (string, string, string, error) {
 			}
 		}
 		if nil != ps.FullSignedBeaconBlock {
-			eth1BlockHash = toHex(ps.FullSignedBeaconBlock.Block().Body().Eth1Data().BlockHash)
+			eth1DataBlockHash = toHex(ps.FullSignedBeaconBlock.Block().Body().Eth1Data().BlockHash)
 		}
 	}
-	return blockRoot, stateRoot, eth1BlockHash, nil
+	return blockRoot, stateRoot, eth1DataBlockHash, nil
 }
 
 func toHex(r [32]byte) string {

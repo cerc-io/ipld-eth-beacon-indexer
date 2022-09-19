@@ -55,7 +55,7 @@ var _ = Describe("Capturehistoric", func() {
 				BeaconNodeTester.runHistoricalProcess(bc, 2, 1, 0, 0, 0)
 				validateSlot(bc, BeaconNodeTester.TestEvents["0"].HeadMessage, 0, "proposed")
 				if bc.PerformBeaconBlockProcessing {
-					validateSignedBeaconBlock(bc, BeaconNodeTester.TestEvents["0"].HeadMessage, BeaconNodeTester.TestEvents["0"].CorrectParentRoot, BeaconNodeTester.TestEvents["0"].CorrectEth1BlockHash, BeaconNodeTester.TestEvents["0"].CorrectSignedBeaconBlockMhKey)
+					validateSignedBeaconBlock(bc, BeaconNodeTester.TestEvents["0"].HeadMessage, BeaconNodeTester.TestEvents["0"].CorrectParentRoot, BeaconNodeTester.TestEvents["0"].CorrectEth1DataBlockHash, BeaconNodeTester.TestEvents["0"].CorrectSignedBeaconBlockMhKey)
 				}
 				if bc.PerformBeaconStateProcessing {
 					validateBeaconState(bc, BeaconNodeTester.TestEvents["0"].HeadMessage, BeaconNodeTester.TestEvents["0"].CorrectBeaconStateMhKey)
@@ -273,7 +273,7 @@ func validateMetrics(bc *beaconclient.BeaconClient, expectedInserts, expectedReo
 func validatePopularBatchBlocks(bc *beaconclient.BeaconClient) {
 	validateSlot(bc, BeaconNodeTester.TestEvents["100"].HeadMessage, 3, "proposed")
 	if bc.PerformBeaconBlockProcessing {
-		validateSignedBeaconBlock(bc, BeaconNodeTester.TestEvents["100"].HeadMessage, BeaconNodeTester.TestEvents["100"].CorrectParentRoot, BeaconNodeTester.TestEvents["100"].CorrectEth1BlockHash, BeaconNodeTester.TestEvents["100"].CorrectSignedBeaconBlockMhKey)
+		validateSignedBeaconBlock(bc, BeaconNodeTester.TestEvents["100"].HeadMessage, BeaconNodeTester.TestEvents["100"].CorrectParentRoot, BeaconNodeTester.TestEvents["100"].CorrectEth1DataBlockHash, BeaconNodeTester.TestEvents["100"].CorrectSignedBeaconBlockMhKey)
 	}
 	if bc.PerformBeaconStateProcessing {
 		validateBeaconState(bc, BeaconNodeTester.TestEvents["100"].HeadMessage, BeaconNodeTester.TestEvents["100"].CorrectBeaconStateMhKey)
@@ -281,7 +281,7 @@ func validatePopularBatchBlocks(bc *beaconclient.BeaconClient) {
 
 	validateSlot(bc, BeaconNodeTester.TestEvents["101"].HeadMessage, 3, "proposed")
 	if bc.PerformBeaconBlockProcessing {
-		validateSignedBeaconBlock(bc, BeaconNodeTester.TestEvents["101"].HeadMessage, BeaconNodeTester.TestEvents["100"].HeadMessage.Block, BeaconNodeTester.TestEvents["101"].CorrectEth1BlockHash, BeaconNodeTester.TestEvents["101"].CorrectSignedBeaconBlockMhKey)
+		validateSignedBeaconBlock(bc, BeaconNodeTester.TestEvents["101"].HeadMessage, BeaconNodeTester.TestEvents["100"].HeadMessage.Block, BeaconNodeTester.TestEvents["101"].CorrectEth1DataBlockHash, BeaconNodeTester.TestEvents["101"].CorrectSignedBeaconBlockMhKey)
 	}
 	if bc.PerformBeaconStateProcessing {
 		validateBeaconState(bc, BeaconNodeTester.TestEvents["101"].HeadMessage, BeaconNodeTester.TestEvents["101"].CorrectBeaconStateMhKey)
@@ -289,7 +289,7 @@ func validatePopularBatchBlocks(bc *beaconclient.BeaconClient) {
 
 	validateSlot(bc, BeaconNodeTester.TestEvents["2375703"].HeadMessage, 74240, "proposed")
 	if bc.PerformBeaconBlockProcessing {
-		validateSignedBeaconBlock(bc, BeaconNodeTester.TestEvents["2375703"].HeadMessage, BeaconNodeTester.TestEvents["2375703"].CorrectParentRoot, BeaconNodeTester.TestEvents["2375703"].CorrectEth1BlockHash, BeaconNodeTester.TestEvents["2375703"].CorrectSignedBeaconBlockMhKey)
+		validateSignedBeaconBlock(bc, BeaconNodeTester.TestEvents["2375703"].HeadMessage, BeaconNodeTester.TestEvents["2375703"].CorrectParentRoot, BeaconNodeTester.TestEvents["2375703"].CorrectEth1DataBlockHash, BeaconNodeTester.TestEvents["2375703"].CorrectSignedBeaconBlockMhKey)
 	}
 	if bc.PerformBeaconStateProcessing {
 		validateBeaconState(bc, BeaconNodeTester.TestEvents["2375703"].HeadMessage, BeaconNodeTester.TestEvents["2375703"].CorrectBeaconStateMhKey)
