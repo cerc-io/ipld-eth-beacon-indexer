@@ -303,7 +303,7 @@ func (ps *ProcessSlot) getSignedBeaconBlock(serverAddress string) error {
 		ps.SszSignedBeaconBlock = []byte{}
 		ps.ParentBlockRoot = ""
 		ps.Status = "skipped"
-		return nil
+		return err
 	}
 
 	var signedBeaconBlock SignedBeaconBlock
@@ -314,7 +314,7 @@ func (ps *ProcessSlot) getSignedBeaconBlock(serverAddress string) error {
 		ps.SszSignedBeaconBlock = []byte{}
 		ps.ParentBlockRoot = ""
 		ps.Status = "skipped"
-		return nil
+		return err
 	}
 
 	ps.FullSignedBeaconBlock = &signedBeaconBlock

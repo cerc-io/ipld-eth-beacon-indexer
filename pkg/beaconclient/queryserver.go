@@ -59,6 +59,9 @@ func querySsz(endpoint string, slot string) ([]byte, int, error) {
 		loghelper.LogSlotError(slot, err).Error("Unable to turn response into a []bytes array!")
 		return nil, rc, fmt.Errorf("Unable to turn response into a []bytes array!: %s", err.Error())
 	}
+	if rc != 200 {
+		return body, rc, fmt.Errorf("HTTP Error: %d", rc)
+	}
 	return body, rc, nil
 }
 
