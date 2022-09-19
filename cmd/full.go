@@ -34,7 +34,7 @@ import (
 var fullCmd = &cobra.Command{
 	Use:   "full",
 	Short: "Capture all components of the application (head and historical)",
-	Long:  `Capture all components of the application (head and historical`,
+	Long:  `Capture all components of the application (head and historical)`,
 	Run: func(cmd *cobra.Command, args []string) {
 		startFullProcessing()
 	},
