@@ -34,7 +34,7 @@ INSERT INTO eth_beacon.slots (epoch, slot, block_root, state_root, status)
 VALUES ($1, $2, $3, $4, $5) ON CONFLICT (slot, block_root) DO NOTHING`
 	// Statement to upsert to the eth_beacon.signed_blocks table.
 	UpsertSignedBeaconBlockStmt string = `
-INSERT INTO eth_beacon.signed_block (slot, block_root, parent_block_root, eth1_block_hash, mh_key)
+INSERT INTO eth_beacon.signed_block (slot, block_root, parent_block_root, eth1_data_block_hash, mh_key)
 VALUES ($1, $2, $3, $4, $5) ON CONFLICT (slot, block_root) DO NOTHING`
 	// Statement to upsert to the eth_beacon.state table.
 	UpsertBeaconState string = `

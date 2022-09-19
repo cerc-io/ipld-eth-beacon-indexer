@@ -568,7 +568,7 @@ func queryDbSlotAndBlock(db sql.Database, querySlot string, queryBlockRoot strin
 
 // A helper function to query the eth_beacon.signed_block table based on the slot and block_root.
 func queryDbSignedBeaconBlock(db sql.Database, querySlot string, queryBlockRoot string) (int, string, string, string, string) {
-	sqlStatement := `SELECT slot, block_root, parent_block_root, eth1_block_hash, mh_key FROM eth_beacon.signed_block WHERE slot=$1 AND block_root=$2;`
+	sqlStatement := `SELECT slot, block_root, parent_block_root, eth1_data_block_hash, mh_key FROM eth_beacon.signed_block WHERE slot=$1 AND block_root=$2;`
 	var slot int
 	var blockRoot, parentBlockRoot, eth1DataBlockHash, mhKey string
 	row := db.QueryRow(context.Background(), sqlStatement, querySlot, queryBlockRoot)
