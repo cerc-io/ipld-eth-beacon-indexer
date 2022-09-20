@@ -98,7 +98,7 @@ var _ = Describe("Capturehistoric", func() {
 				BeaconNodeTester.runKnownGapsProcess(bc, 2, 2, 0, 2, 0)
 			})
 		})
-		Context("When theres a reprocessing error", Label("reprocessingError"), func() {
+		Context("When theres a reprocessing error", Label("reprocessingError", "flaky"), func() {
 			It("Should update the reprocessing error.", func() {
 				bc := setUpTest(BeaconNodeTester.TestConfig, "99")
 				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)

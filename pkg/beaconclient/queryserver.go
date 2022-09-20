@@ -18,7 +18,6 @@
 package beaconclient
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -53,47 +52,18 @@ func querySsz(endpoint string, slot string) ([]byte, int, error) {
 		return nil, 0, fmt.Errorf("Unable to query Beacon Node: %s", err.Error())
 	}
 	defer response.Body.Close()
+
 	rc := response.StatusCode
+	// Any 2xx code is OK.
+	if rc < 200 || rc >= 300 {
+		return nil, rc, fmt.Errorf("HTTP Error: %d", rc)
+	}
+
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		loghelper.LogSlotError(slot, err).Error("Unable to turn response into a []bytes array!")
 		return nil, rc, fmt.Errorf("Unable to turn response into a []bytes array!: %s", err.Error())
 	}
-	if rc != 200 {
-		return body, rc, fmt.Errorf("HTTP Error: %d", rc)
-	}
+
 	return body, rc, nil
-}
-
-// A function to query the blockroot for a given slot.
-func queryBlockRoot(endpoint string, slot string) (string, error) {
-	log.WithFields(log.Fields{"endpoint": endpoint}).Debug("Querying endpoint")
-	client := &http.Client{}
-	req, err := http.NewRequest("GET", endpoint, nil)
-	if err != nil {
-		loghelper.LogSlotError(slot, err).Error("Unable to create a request!")
-		return "", fmt.Errorf("Unable to create a request!: %s", err.Error())
-	}
-	req.Header.Set("Accept", "application/json")
-	response, err := client.Do(req)
-	if err != nil {
-		loghelper.LogSlotError(slot, err).Error("Unable to query Beacon Node!")
-		return "", fmt.Errorf("Unable to query Beacon Node: %s", err.Error())
-	}
-	defer response.Body.Close()
-	body, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		loghelper.LogSlotError(slot, err).Error("Unable to turn response into a []bytes array!")
-		return "", fmt.Errorf("Unable to turn response into a []bytes array!: %s", err.Error())
-	}
-
-	resp := BlockRootResponse{}
-	if err := json.Unmarshal(body, &resp); err != nil {
-		loghelper.LogEndpoint(endpoint).WithFields(log.Fields{
-			"rawMessage": string(body),
-			"err":        err,
-		}).Error("Unable to unmarshal the block root")
-		return "", err
-	}
-	return resp.Data.Root, nil
 }

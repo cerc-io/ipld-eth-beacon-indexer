@@ -62,12 +62,17 @@ type DbSlots struct {
 
 // A struct to capture whats being written to eth-beacon.signed_block table.
 type DbSignedBeaconBlock struct {
-	Slot              string // The slot.
-	BlockRoot         string // The block root
-	ParentBlock       string // The parent block root.
-	Eth1DataBlockHash string // The eth1 block_hash
-	MhKey             string // The ipld multihash key.
-
+	Slot                string // The slot.
+	BlockRoot           string // The block root
+	ParentBlock         string // The parent block root.
+	Eth1DataBlockHash   string // The eth1 block_hash
+	MhKey               string // The ipld multihash key.
+	PayloadBlockNumber  int64
+	PayloadTimestamp    int64
+	PayloadBlockHash    string
+	PayloadParentHash   string
+	PayloadStateRoot    string
+	PayloadReceiptsRoot string
 }
 
 // A struct to capture whats being written to eth-beacon.state table.

@@ -191,7 +191,7 @@ func processFullSlot(
 		}
 
 		parseBeaconTime := time.Now()
-		finalBlockRoot, finalStateRoot, finalEth1DataBlockHash, err := ps.provideFinalHash()
+		finalBlockRoot, finalStateRoot, _, err := ps.provideFinalHash()
 		if err != nil {
 			return err, "CalculateBlockRoot"
 		}
@@ -199,11 +199,25 @@ func processFullSlot(
 
 		if spd.CheckDb {
 			checkDbTime := time.Now()
-			inDb, err := IsSlotInDb(ctx, ps.Db, strconv.Itoa(ps.Slot), finalBlockRoot, finalStateRoot)
-			if err != nil {
-				return err, "checkDb"
+			var blockRequired bool
+			if spd.PerformBeaconBlockProcessing {
+				blockExists, err := checkSlotAndRoot(ps.Db, CheckSignedBeaconBlockStmt, strconv.Itoa(ps.Slot), finalBlockRoot)
+				if err != nil {
+					return err, "checkDb"
+				}
+				blockRequired = !blockExists
 			}
-			if inDb {
+
+			var stateRequired bool
+			if spd.PerformBeaconStateProcessing {
+				stateExists, err := checkSlotAndRoot(ps.Db, CheckBeaconStateStmt, strconv.Itoa(ps.Slot), finalStateRoot)
+				if err != nil {
+					return err, "checkDb"
+				}
+				stateRequired = !stateExists
+			}
+
+			if !blockRequired && !stateRequired {
 				log.WithField("slot", slot).Info("Slot already in the DB.")
 				return nil, ""
 			}
@@ -212,7 +226,7 @@ func processFullSlot(
 
 		// Get this object ready to write
 		createDbWriteTime := time.Now()
-		dw, err := ps.createWriteObjects(finalBlockRoot, finalStateRoot, finalEth1DataBlockHash)
+		dw, err := ps.createWriteObjects()
 		if err != nil {
 			return err, "blockRoot"
 		}
@@ -303,6 +317,11 @@ func (ps *ProcessSlot) getSignedBeaconBlock(serverAddress string) error {
 		ps.SszSignedBeaconBlock = []byte{}
 		ps.ParentBlockRoot = ""
 		ps.Status = "skipped"
+
+		// A 404 is normal in the case of a "skipped" slot.
+		if rc == 404 {
+			return nil
+		}
 		return err
 	}
 
@@ -389,7 +408,7 @@ func (ps *ProcessSlot) checkPreviousSlot(tx sql.Tx, ctx context.Context, previou
 }
 
 // Transforms all the raw data into DB models that can be written to the DB.
-func (ps *ProcessSlot) createWriteObjects(blockRoot, stateRoot, eth1DataBlockHash string) (*DatabaseWriter, error) {
+func (ps *ProcessSlot) createWriteObjects() (*DatabaseWriter, error) {
 	var status string
 	if ps.Status != "" {
 		status = ps.Status
@@ -397,7 +416,15 @@ func (ps *ProcessSlot) createWriteObjects(blockRoot, stateRoot, eth1DataBlockHas
 		status = "proposed"
 	}
 
-	dw, err := CreateDatabaseWrite(ps.Db, ps.Slot, stateRoot, blockRoot, ps.ParentBlockRoot, eth1DataBlockHash, status, &ps.SszSignedBeaconBlock, &ps.SszBeaconState, ps.Metrics)
+	parseBeaconTime := time.Now()
+	blockRoot, stateRoot, eth1DataBlockHash, err := ps.provideFinalHash()
+	if err != nil {
+		return nil, err
+	}
+	ps.PerformanceMetrics.ParseBeaconObjectForHash = time.Since(parseBeaconTime)
+
+	dw, err := CreateDatabaseWrite(ps.Db, ps.Slot, stateRoot, blockRoot, ps.ParentBlockRoot, eth1DataBlockHash,
+		status, &ps.SszSignedBeaconBlock, &ps.SszBeaconState, ps.Metrics)
 	if err != nil {
 		return dw, err
 	}
