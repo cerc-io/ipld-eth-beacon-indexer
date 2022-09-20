@@ -36,6 +36,11 @@ VALUES ($1, $2, $3, $4, $5) ON CONFLICT (slot, block_root) DO NOTHING`
 	UpsertSignedBeaconBlockStmt string = `
 INSERT INTO eth_beacon.signed_block (slot, block_root, parent_block_root, eth1_data_block_hash, mh_key)
 VALUES ($1, $2, $3, $4, $5) ON CONFLICT (slot, block_root) DO NOTHING`
+	UpsertSignedBeaconBlockWithPayloadStmt string = `
+INSERT INTO eth_beacon.signed_block (slot, block_root, parent_block_root, eth1_data_block_hash, mh_key,
+                                     payload_block_number, payload_timestamp, payload_block_hash,
+                                     payload_parent_hash, payload_state_root, payload_receipts_root)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) ON CONFLICT (slot, block_root) DO NOTHING`
 	// Statement to upsert to the eth_beacon.state table.
 	UpsertBeaconState string = `
 INSERT INTO eth_beacon.state (slot, state_root, mh_key)
@@ -95,7 +100,7 @@ type DatabaseWriter struct {
 }
 
 func CreateDatabaseWrite(db sql.Database, slot int, stateRoot string, blockRoot string, parentBlockRoot string,
-	eth1DataBlockHash string, status string, rawSignedBeaconBlock *[]byte, rawBeaconState *[]byte, metrics *BeaconClientMetrics) (*DatabaseWriter, error) {
+	eth1DataBlockHash string, payloadSummary *ExecutionPayloadSummary, status string, rawSignedBeaconBlock *[]byte, rawBeaconState *[]byte, metrics *BeaconClientMetrics) (*DatabaseWriter, error) {
 	ctx := context.Background()
 	tx, err := db.Begin(ctx)
 	if err != nil {
@@ -110,7 +115,7 @@ func CreateDatabaseWrite(db sql.Database, slot int, stateRoot string, blockRoot 
 		Metrics:              metrics,
 	}
 	dw.prepareSlotsModel(slot, stateRoot, blockRoot, status)
-	err = dw.prepareSignedBeaconBlockModel(slot, blockRoot, parentBlockRoot, eth1DataBlockHash)
+	err = dw.prepareSignedBeaconBlockModel(slot, blockRoot, parentBlockRoot, eth1DataBlockHash, payloadSummary)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +142,8 @@ func (dw *DatabaseWriter) prepareSlotsModel(slot int, stateRoot string, blockRoo
 }
 
 // Create the model for the eth_beacon.signed_block table.
-func (dw *DatabaseWriter) prepareSignedBeaconBlockModel(slot int, blockRoot string, parentBlockRoot string, eth1DataBlockHash string) error {
+func (dw *DatabaseWriter) prepareSignedBeaconBlockModel(slot int, blockRoot string, parentBlockRoot string, eth1DataBlockHash string,
+	payloadSummary *ExecutionPayloadSummary) error {
 	mhKey, err := MultihashKeyFromSSZRoot([]byte(dw.DbSlots.BlockRoot))
 	if err != nil {
 		return err
@@ -148,6 +154,7 @@ func (dw *DatabaseWriter) prepareSignedBeaconBlockModel(slot int, blockRoot stri
 		ParentBlock:       parentBlockRoot,
 		Eth1DataBlockHash: eth1DataBlockHash,
 		MhKey:             mhKey,
+		ExecutionPayload:  payloadSummary,
 	}
 	log.Debug("dw.DbSignedBeaconBlock: ", dw.DbSignedBeaconBlock)
 	return nil
@@ -257,9 +264,35 @@ func (dw *DatabaseWriter) upsertPublicBlocks(key string, data *[]byte) error {
 
 // Upsert to the eth_beacon.signed_block table.
 func (dw *DatabaseWriter) upsertSignedBeaconBlock() error {
-	_, err := dw.Tx.Exec(dw.Ctx, UpsertSignedBeaconBlockStmt, dw.DbSignedBeaconBlock.Slot, dw.DbSignedBeaconBlock.BlockRoot, dw.DbSignedBeaconBlock.ParentBlock, dw.DbSignedBeaconBlock.Eth1DataBlockHash, dw.DbSignedBeaconBlock.MhKey)
+	block := dw.DbSignedBeaconBlock
+	var err error
+	if nil != block.ExecutionPayload {
+		_, err = dw.Tx.Exec(dw.Ctx,
+			UpsertSignedBeaconBlockWithPayloadStmt,
+			block.Slot,
+			block.BlockRoot,
+			block.ParentBlock,
+			block.Eth1DataBlockHash,
+			block.MhKey,
+			block.ExecutionPayload.PayloadBlockNumber,
+			block.ExecutionPayload.PayloadTimestamp,
+			block.ExecutionPayload.PayloadBlockHash,
+			block.ExecutionPayload.PayloadParentHash,
+			block.ExecutionPayload.PayloadStateRoot,
+			block.ExecutionPayload.PayloadReceiptsRoot,
+		)
+	} else {
+		_, err = dw.Tx.Exec(dw.Ctx,
+			UpsertSignedBeaconBlockStmt,
+			block.Slot,
+			block.BlockRoot,
+			block.ParentBlock,
+			block.Eth1DataBlockHash,
+			block.MhKey,
+		)
+	}
 	if err != nil {
-		loghelper.LogSlotError(dw.DbSlots.Slot, err).WithFields(log.Fields{"block_root": dw.DbSignedBeaconBlock.BlockRoot}).Error("Unable to write to the slot to the eth_beacon.signed_block table")
+		loghelper.LogSlotError(dw.DbSlots.Slot, err).WithFields(log.Fields{"block_root": block.BlockRoot}).Error("Unable to write to the slot to the eth_beacon.signed_block table")
 		return err
 	}
 	return nil

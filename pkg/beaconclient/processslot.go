@@ -417,14 +417,17 @@ func (ps *ProcessSlot) createWriteObjects() (*DatabaseWriter, error) {
 	}
 
 	parseBeaconTime := time.Now()
+	// These will normally be pre-calculated by this point.
 	blockRoot, stateRoot, eth1DataBlockHash, err := ps.provideFinalHash()
 	if err != nil {
 		return nil, err
 	}
 	ps.PerformanceMetrics.ParseBeaconObjectForHash = time.Since(parseBeaconTime)
 
+	payloadSummary := ps.provideExecutionPayloadDetails()
+
 	dw, err := CreateDatabaseWrite(ps.Db, ps.Slot, stateRoot, blockRoot, ps.ParentBlockRoot, eth1DataBlockHash,
-		status, &ps.SszSignedBeaconBlock, &ps.SszBeaconState, ps.Metrics)
+		payloadSummary, status, &ps.SszSignedBeaconBlock, &ps.SszBeaconState, ps.Metrics)
 	if err != nil {
 		return dw, err
 	}
@@ -472,6 +475,22 @@ func (ps *ProcessSlot) provideFinalHash() (string, string, string, error) {
 		}
 	}
 	return blockRoot, stateRoot, eth1DataBlockHash, nil
+}
+
+func (ps *ProcessSlot) provideExecutionPayloadDetails() *ExecutionPayloadSummary {
+	if nil == ps.FullSignedBeaconBlock || !ps.FullSignedBeaconBlock.IsBellatrix() {
+		return nil
+	}
+
+	payload := ps.FullSignedBeaconBlock.bellatrix.Message.Body.ExecutionPayload
+	return &ExecutionPayloadSummary{
+		PayloadBlockNumber:  uint64(payload.BlockNumber),
+		PayloadTimestamp:    uint64(payload.Timestamp),
+		PayloadBlockHash:    toHex(payload.BlockHash),
+		PayloadParentHash:   toHex(payload.ParentHash),
+		PayloadStateRoot:    toHex(payload.StateRoot),
+		PayloadReceiptsRoot: toHex(payload.ReceiptsRoot),
+	}
 }
 
 func toHex(r [32]byte) string {
