@@ -37,7 +37,7 @@ var (
 	BcBlockRootEndpoint  = func(slot string) string {
 		return "/eth/v1/beacon/blocks/" + slot + "/root"
 	}
-	bcSlotsPerEpoch = 32 // Number of slots in a single Epoch
+	bcSlotsPerEpoch uint64 = 32 // Number of slots in a single Epoch
 	//bcSlotPerHistoricalVector = 8192                                // The number of slots in a historic vector.
 	//bcFinalizedTopicEndpoint  = "/eth/v1/events?topics=finalized_checkpoint" // Endpoint used to subscribe to the head of the chain
 )
@@ -58,8 +58,8 @@ type BeaconClient struct {
 	// Used for Head Tracking
 
 	PerformHeadTracking bool                   // Should we track head?
-	StartingSlot        int                    // If we're performing head tracking. What is the first slot we processed.
-	PreviousSlot        int                    // Whats the previous slot we processed
+	StartingSlot        uint64                 // If we're performing head tracking. What is the first slot we processed.
+	PreviousSlot        uint64                 // Whats the previous slot we processed
 	PreviousBlockRoot   string                 // Whats the previous block root, used to check the next blocks parent.
 	HeadTracking        *SseEvents[Head]       // Track the head block
 	ReOrgTracking       *SseEvents[ChainReorg] // Track all Reorgs

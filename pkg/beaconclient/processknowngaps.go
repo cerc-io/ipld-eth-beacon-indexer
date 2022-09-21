@@ -97,21 +97,21 @@ func (kgp KnownGapsProcessing) handleProcessingErrors(ctx context.Context, errMe
 			// Check to see if this if this entry already exists.
 			res, err := kgp.db.Exec(context.Background(), checkKgSingleSlotStmt, errMs.slot, errMs.slot)
 			if err != nil {
-				loghelper.LogSlotError(strconv.Itoa(errMs.slot), err).Error("Unable to see if this slot is in the eth_beacon.known_gaps table")
+				loghelper.LogSlotError(strconv.FormatUint(errMs.slot, 10), err).Error("Unable to see if this slot is in the eth_beacon.known_gaps table")
 			}
 
 			rows, err := res.RowsAffected()
 			if err != nil {
-				loghelper.LogSlotError(strconv.Itoa(errMs.slot), err).WithFields(log.Fields{
+				loghelper.LogSlotError(strconv.FormatUint(errMs.slot, 10), err).WithFields(log.Fields{
 					"queryStatement": checkKgSingleSlotStmt,
 				}).Error("Unable to get the number of rows affected by this statement.")
 			}
 
 			if rows > 0 {
-				loghelper.LogSlotError(strconv.Itoa(errMs.slot), errMs.err).Error("We received an error when processing a knownGap")
+				loghelper.LogSlotError(strconv.FormatUint(errMs.slot, 10), errMs.err).Error("We received an error when processing a knownGap")
 				err = updateKnownGapErrors(kgp.db, errMs.slot, errMs.slot, errMs.err, kgp.metrics)
 				if err != nil {
-					loghelper.LogSlotError(strconv.Itoa(errMs.slot), err).Error("Error processing known gap")
+					loghelper.LogSlotError(strconv.FormatUint(errMs.slot, 10), err).Error("Error processing known gap")
 				}
 			} else {
 				writeKnownGaps(kgp.db, 1, errMs.slot, errMs.slot, errMs.err, errMs.errProcess, kgp.metrics)

@@ -66,14 +66,14 @@ type BatchProcessing interface {
 
 // A struct to pass around indicating a table entry for slots to process.
 type slotsToProcess struct {
-	startSlot int // The start slot
-	endSlot   int // The end slot
+	startSlot uint64 // The start slot
+	endSlot   uint64 // The end slot
 }
 
 type batchHistoricError struct {
 	err        error  // The error that occurred when attempting to a slot
 	errProcess string // The process that caused the error.
-	slot       int    // The slot which the error is for.
+	slot       uint64 // The slot which the error is for.
 }
 
 // Wrapper function for the BatchProcessing interface.
@@ -92,7 +92,7 @@ type batchHistoricError struct {
 // 5. Handle any errors.
 func handleBatchProcess(ctx context.Context, maxWorkers int, bp BatchProcessing, spd SlotProcessingDetails, incrementTracker func(uint64)) []error {
 	slotsCh := make(chan slotsToProcess)
-	workCh := make(chan int)
+	workCh := make(chan uint64)
 	processedCh := make(chan slotsToProcess)
 	errCh := make(chan batchHistoricError)
 	finalErrCh := make(chan []error, 1)

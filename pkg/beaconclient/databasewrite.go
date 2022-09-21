@@ -100,7 +100,7 @@ type DatabaseWriter struct {
 	rawSignedBeaconBlock *[]byte
 }
 
-func CreateDatabaseWrite(db sql.Database, slot int, stateRoot string, blockRoot string, parentBlockRoot string,
+func CreateDatabaseWrite(db sql.Database, slot uint64, stateRoot string, blockRoot string, parentBlockRoot string,
 	eth1DataBlockHash string, payloadHeader *ExecutionPayloadHeader, status string, rawSignedBeaconBlock *[]byte, rawBeaconState *[]byte, metrics *BeaconClientMetrics) (*DatabaseWriter, error) {
 	ctx := context.Background()
 	tx, err := db.Begin(ctx)
@@ -130,10 +130,10 @@ func CreateDatabaseWrite(db sql.Database, slot int, stateRoot string, blockRoot 
 // Write functions to write each all together...
 // Should I do one atomic write?
 // Create the model for the eth_beacon.slots table
-func (dw *DatabaseWriter) prepareSlotsModel(slot int, stateRoot string, blockRoot string, status string) {
+func (dw *DatabaseWriter) prepareSlotsModel(slot uint64, stateRoot string, blockRoot string, status string) {
 	dw.DbSlots = &DbSlots{
 		Epoch:     calculateEpoch(slot, bcSlotsPerEpoch),
-		Slot:      strconv.Itoa(slot),
+		Slot:      strconv.FormatUint((slot), 10),
 		StateRoot: stateRoot,
 		BlockRoot: blockRoot,
 		Status:    status,
@@ -143,14 +143,14 @@ func (dw *DatabaseWriter) prepareSlotsModel(slot int, stateRoot string, blockRoo
 }
 
 // Create the model for the eth_beacon.signed_block table.
-func (dw *DatabaseWriter) prepareSignedBeaconBlockModel(slot int, blockRoot string, parentBlockRoot string, eth1DataBlockHash string,
+func (dw *DatabaseWriter) prepareSignedBeaconBlockModel(slot uint64, blockRoot string, parentBlockRoot string, eth1DataBlockHash string,
 	payloadHeader *ExecutionPayloadHeader) error {
 	mhKey, err := MultihashKeyFromSSZRoot([]byte(dw.DbSlots.BlockRoot))
 	if err != nil {
 		return err
 	}
 	dw.DbSignedBeaconBlock = &DbSignedBeaconBlock{
-		Slot:                   strconv.Itoa(slot),
+		Slot:                   slot,
 		BlockRoot:              blockRoot,
 		ParentBlock:            parentBlockRoot,
 		Eth1DataBlockHash:      eth1DataBlockHash,
@@ -175,13 +175,13 @@ func (dw *DatabaseWriter) prepareSignedBeaconBlockModel(slot int, blockRoot stri
 }
 
 // Create the model for the eth_beacon.state table.
-func (dw *DatabaseWriter) prepareBeaconStateModel(slot int, stateRoot string) error {
+func (dw *DatabaseWriter) prepareBeaconStateModel(slot uint64, stateRoot string) error {
 	mhKey, err := MultihashKeyFromSSZRoot([]byte(dw.DbSlots.StateRoot))
 	if err != nil {
 		return err
 	}
 	dw.DbBeaconState = &DbBeaconState{
-		Slot:      strconv.Itoa(slot),
+		Slot:      slot,
 		StateRoot: stateRoot,
 		MhKey:     mhKey,
 	}
@@ -344,7 +344,7 @@ func (dw *DatabaseWriter) upsertBeaconState() error {
 // Update a given slot to be marked as forked within a transaction. Provide the slot and the latest latestBlockRoot.
 // We will mark all entries for the given slot that don't match the provided latestBlockRoot as forked.
 func transactReorgs(tx sql.Tx, ctx context.Context, slot string, latestBlockRoot string, metrics *BeaconClientMetrics) {
-	slotNum, strErr := strconv.Atoi(slot)
+	slotNum, strErr := strconv.ParseUint(slot, 10, 64)
 	if strErr != nil {
 		loghelper.LogReorgError(slot, latestBlockRoot, strErr).Error("We can't convert the slot to an int...")
 	}
@@ -440,17 +440,17 @@ func updateProposed(tx sql.Tx, ctx context.Context, slot string, latestBlockRoot
 // A wrapper function to call upsertKnownGaps. This function will break down the range of known_gaps into
 // smaller chunks. For example, instead of having an entry of 1-101, if we increment the entries by 10 slots, we would
 // have 10 entries as follows: 1-10, 11-20, etc...
-func transactKnownGaps(tx sql.Tx, ctx context.Context, tableIncrement int, startSlot int, endSlot int, entryError error, entryProcess string, metric *BeaconClientMetrics) {
+func transactKnownGaps(tx sql.Tx, ctx context.Context, tableIncrement int, startSlot uint64, endSlot uint64, entryError error, entryProcess string, metric *BeaconClientMetrics) {
 	var entryErrorMsg string
 	if entryError == nil {
 		entryErrorMsg = ""
 	} else {
 		entryErrorMsg = entryError.Error()
 	}
-	if endSlot-startSlot <= tableIncrement {
+	if endSlot-startSlot <= uint64(tableIncrement) {
 		kgModel := DbKnownGaps{
-			StartSlot:         strconv.Itoa(startSlot),
-			EndSlot:           strconv.Itoa(endSlot),
+			StartSlot:         strconv.FormatUint(startSlot, 10),
+			EndSlot:           strconv.FormatUint(endSlot, 10),
 			CheckedOut:        false,
 			ReprocessingError: "",
 			EntryError:        entryErrorMsg,
@@ -460,22 +460,22 @@ func transactKnownGaps(tx sql.Tx, ctx context.Context, tableIncrement int, start
 	} else {
 		totalSlots := endSlot - startSlot
 		var chunks int
-		chunks = totalSlots / tableIncrement
-		if totalSlots%tableIncrement != 0 {
+		chunks = int(totalSlots / uint64(tableIncrement))
+		if totalSlots%uint64(tableIncrement) != 0 {
 			chunks = chunks + 1
 		}
 
 		for i := 0; i < chunks; i++ {
-			var tempStart, tempEnd int
-			tempStart = startSlot + (i * tableIncrement)
+			var tempStart, tempEnd uint64
+			tempStart = startSlot + (uint64(i * tableIncrement))
 			if i+1 == chunks {
 				tempEnd = endSlot
 			} else {
-				tempEnd = startSlot + ((i + 1) * tableIncrement)
+				tempEnd = startSlot + uint64((i+1)*tableIncrement)
 			}
 			kgModel := DbKnownGaps{
-				StartSlot:         strconv.Itoa(tempStart),
-				EndSlot:           strconv.Itoa(tempEnd),
+				StartSlot:         strconv.FormatUint(tempStart, 10),
+				EndSlot:           strconv.FormatUint(tempEnd, 10),
 				CheckedOut:        false,
 				ReprocessingError: "",
 				EntryError:        entryErrorMsg,
@@ -488,11 +488,11 @@ func transactKnownGaps(tx sql.Tx, ctx context.Context, tableIncrement int, start
 
 // Wrapper function, instead of adding the knownGaps entries to a transaction, it will
 // create the transaction and write it.
-func writeKnownGaps(db sql.Database, tableIncrement int, startSlot int, endSlot int, entryError error, entryProcess string, metric *BeaconClientMetrics) {
+func writeKnownGaps(db sql.Database, tableIncrement int, startSlot uint64, endSlot uint64, entryError error, entryProcess string, metric *BeaconClientMetrics) {
 	ctx := context.Background()
 	tx, err := db.Begin(ctx)
 	if err != nil {
-		loghelper.LogSlotRangeError(strconv.Itoa(startSlot), strconv.Itoa(endSlot), err).Fatal("Unable to create a new transaction for knownGaps")
+		loghelper.LogSlotRangeError(strconv.FormatUint(startSlot, 10), strconv.FormatUint(endSlot, 10), err).Fatal("Unable to create a new transaction for knownGaps")
 	}
 	defer func() {
 		err := tx.Rollback(ctx)
@@ -502,7 +502,8 @@ func writeKnownGaps(db sql.Database, tableIncrement int, startSlot int, endSlot 
 	}()
 	transactKnownGaps(tx, ctx, tableIncrement, startSlot, endSlot, entryError, entryProcess, metric)
 	if err = tx.Commit(ctx); err != nil {
-		loghelper.LogSlotRangeError(strconv.Itoa(startSlot), strconv.Itoa(endSlot), err).Fatal("Unable to execute the transaction for knownGaps")
+		loghelper.LogSlotRangeError(strconv.FormatUint(startSlot, 10), strconv.FormatUint(endSlot, 10), err).Fatal("Unable to execute the transaction for knownGaps")
+
 	}
 }
 
@@ -525,8 +526,8 @@ func upsertKnownGaps(tx sql.Tx, ctx context.Context, knModel DbKnownGaps, metric
 }
 
 // A function to write the gap between the highest slot in the DB and the first processed slot.
-func writeStartUpGaps(db sql.Database, tableIncrement int, firstSlot int, metric *BeaconClientMetrics) {
-	var maxSlot int
+func writeStartUpGaps(db sql.Database, tableIncrement int, firstSlot uint64, metric *BeaconClientMetrics) {
+	var maxSlot uint64
 	err := db.QueryRow(context.Background(), QueryHighestSlotStmt).Scan(&maxSlot)
 	if err != nil {
 		loghelper.LogError(err).Fatal("Unable to get the max block from the DB. We must close the application or we might have undetected gaps.")
@@ -554,19 +555,19 @@ func writeStartUpGaps(db sql.Database, tableIncrement int, firstSlot int, metric
 }
 
 // A function to update a knownGap range with a reprocessing error.
-func updateKnownGapErrors(db sql.Database, startSlot int, endSlot int, reprocessingErr error, metric *BeaconClientMetrics) error {
+func updateKnownGapErrors(db sql.Database, startSlot uint64, endSlot uint64, reprocessingErr error, metric *BeaconClientMetrics) error {
 	res, err := db.Exec(context.Background(), UpsertKnownGapsErrorStmt, startSlot, endSlot, reprocessingErr.Error())
 	if err != nil {
-		loghelper.LogSlotRangeError(strconv.Itoa(startSlot), strconv.Itoa(endSlot), err).Error("Unable to update reprocessing_error")
+		loghelper.LogSlotRangeError(strconv.FormatUint(startSlot, 10), strconv.FormatUint(endSlot, 10), err).Error("Unable to update reprocessing_error")
 		return err
 	}
 	row, err := res.RowsAffected()
 	if err != nil {
-		loghelper.LogSlotRangeError(strconv.Itoa(startSlot), strconv.Itoa(endSlot), err).Error("Unable to count rows affected when trying to update reprocessing_error.")
+		loghelper.LogSlotRangeError(strconv.FormatUint(startSlot, 10), strconv.FormatUint(endSlot, 10), err).Error("Unable to count rows affected when trying to update reprocessing_error.")
 		return err
 	}
 	if row != 1 {
-		loghelper.LogSlotRangeError(strconv.Itoa(startSlot), strconv.Itoa(endSlot), err).WithFields(log.Fields{
+		loghelper.LogSlotRangeError(strconv.FormatUint(startSlot, 10), strconv.FormatUint(endSlot, 10), err).WithFields(log.Fields{
 			"rowCount": row,
 		}).Error("The rows affected by the upsert for reprocessing_error is not 1.")
 		metric.IncrementKnownGapsReprocessError(1)
@@ -577,9 +578,9 @@ func updateKnownGapErrors(db sql.Database, startSlot int, endSlot int, reprocess
 }
 
 // A quick helper function to calculate the epoch.
-func calculateEpoch(slot int, slotPerEpoch int) string {
+func calculateEpoch(slot uint64, slotPerEpoch uint64) string {
 	epoch := slot / slotPerEpoch
-	return strconv.Itoa(epoch)
+	return strconv.FormatUint(epoch, 10)
 }
 
 // A helper function to check to see if the slot is processed.

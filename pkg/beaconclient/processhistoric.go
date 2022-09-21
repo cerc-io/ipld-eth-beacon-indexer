@@ -74,7 +74,7 @@ func (hp HistoricProcessing) handleProcessingErrors(ctx context.Context, errMess
 		case <-ctx.Done():
 			return
 		case errMs := <-errMessages:
-			loghelper.LogSlotError(strconv.Itoa(errMs.slot), errMs.err)
+			loghelper.LogSlotError(strconv.FormatUint(errMs.slot, 10), errMs.err)
 			writeKnownGaps(hp.db, 1, errMs.slot, errMs.slot, errMs.err, errMs.errProcess, hp.metrics)
 		}
 	}
@@ -97,7 +97,7 @@ func (hp HistoricProcessing) releaseDbLocks() error {
 }
 
 // Process the slot range.
-func processSlotRangeWorker(ctx context.Context, workCh <-chan int, errCh chan<- batchHistoricError, spd SlotProcessingDetails, incrementTracker func(uint64)) {
+func processSlotRangeWorker(ctx context.Context, workCh <-chan uint64, errCh chan<- batchHistoricError, spd SlotProcessingDetails, incrementTracker func(uint64)) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -178,7 +178,7 @@ func getBatchProcessRow(ctx context.Context, db sql.Database, getStartEndSlotStm
 					time.Sleep(1 * time.Second)
 					break
 				}
-				loghelper.LogSlotRangeStatementError(strconv.Itoa(sp.startSlot), strconv.Itoa(sp.endSlot), getStartEndSlotStmt, err).Error("Unable to get a row")
+				loghelper.LogSlotRangeStatementError(strconv.FormatUint(sp.startSlot, 10), strconv.FormatUint(sp.endSlot, 10), getStartEndSlotStmt, err).Error("Unable to get a row")
 				errCount = append(errCount, err)
 				break
 			}
@@ -186,25 +186,25 @@ func getBatchProcessRow(ctx context.Context, db sql.Database, getStartEndSlotStm
 			// Checkout the Row
 			res, err := tx.Exec(dbCtx, checkOutRowStmt, sp.startSlot, sp.endSlot, uniqueNodeIdentifier)
 			if err != nil {
-				loghelper.LogSlotRangeStatementError(strconv.Itoa(sp.startSlot), strconv.Itoa(sp.endSlot), checkOutRowStmt, err).Error("Unable to checkout the row")
+				loghelper.LogSlotRangeStatementError(strconv.FormatUint(sp.startSlot, 10), strconv.FormatUint(sp.endSlot, 10), checkOutRowStmt, err).Error("Unable to checkout the row")
 				errCount = append(errCount, err)
 				break
 			}
 			rows, err := res.RowsAffected()
 			if err != nil {
-				loghelper.LogSlotRangeStatementError(strconv.Itoa(sp.startSlot), strconv.Itoa(sp.endSlot), checkOutRowStmt, fmt.Errorf("Unable to determine the rows affected when trying to checkout a row."))
+				loghelper.LogSlotRangeStatementError(strconv.FormatUint(sp.startSlot, 10), strconv.FormatUint(sp.endSlot, 10), checkOutRowStmt, fmt.Errorf("Unable to determine the rows affected when trying to checkout a row."))
 				errCount = append(errCount, err)
 				break
 			}
 			if rows > 1 {
-				loghelper.LogSlotRangeStatementError(strconv.Itoa(sp.startSlot), strconv.Itoa(sp.endSlot), checkOutRowStmt, err).WithFields(log.Fields{
+				loghelper.LogSlotRangeStatementError(strconv.FormatUint(sp.startSlot, 10), strconv.FormatUint(sp.endSlot, 10), checkOutRowStmt, err).WithFields(log.Fields{
 					"rowsReturn": rows,
 				}).Error("We locked too many rows.....")
 				errCount = append(errCount, err)
 				break
 			}
 			if rows == 0 {
-				loghelper.LogSlotRangeStatementError(strconv.Itoa(sp.startSlot), strconv.Itoa(sp.endSlot), checkOutRowStmt, err).WithFields(log.Fields{
+				loghelper.LogSlotRangeStatementError(strconv.FormatUint(sp.startSlot, 10), strconv.FormatUint(sp.endSlot, 10), checkOutRowStmt, err).WithFields(log.Fields{
 					"rowsReturn": rows,
 				}).Error("We did not lock a single row.")
 				errCount = append(errCount, err)
@@ -212,7 +212,7 @@ func getBatchProcessRow(ctx context.Context, db sql.Database, getStartEndSlotStm
 			}
 			err = tx.Commit(dbCtx)
 			if err != nil {
-				loghelper.LogSlotRangeError(strconv.Itoa(sp.startSlot), strconv.Itoa(sp.endSlot), err).Error("Unable commit transactions.")
+				loghelper.LogSlotRangeError(strconv.FormatUint(sp.startSlot, 10), strconv.FormatUint(sp.endSlot, 10), err).Error("Unable commit transactions.")
 				errCount = append(errCount, err)
 				break
 			}
@@ -241,11 +241,11 @@ func removeRowPostProcess(ctx context.Context, db sql.Database, processCh <-chan
 					"endSlot":   slots.endSlot,
 				}).Debug("Starting to check to see if the following slots have been processed")
 				for {
-					isStartProcess, err := isSlotProcessed(db, checkProcessedStmt, strconv.Itoa(slots.startSlot))
+					isStartProcess, err := isSlotProcessed(db, checkProcessedStmt, strconv.FormatUint(slots.startSlot, 10))
 					if err != nil {
 						errCh <- err
 					}
-					isEndProcess, err := isSlotProcessed(db, checkProcessedStmt, strconv.Itoa(slots.endSlot))
+					isEndProcess, err := isSlotProcessed(db, checkProcessedStmt, strconv.FormatUint(slots.endSlot, 10))
 					if err != nil {
 						errCh <- err
 					}
@@ -255,7 +255,7 @@ func removeRowPostProcess(ctx context.Context, db sql.Database, processCh <-chan
 					time.Sleep(3 * time.Second)
 				}
 
-				_, err := db.Exec(context.Background(), removeStmt, strconv.Itoa(slots.startSlot), strconv.Itoa(slots.endSlot))
+				_, err := db.Exec(context.Background(), removeStmt, strconv.FormatUint(slots.startSlot, 10), strconv.FormatUint(slots.endSlot, 10))
 				if err != nil {
 					errCh <- err
 				}

@@ -42,7 +42,7 @@ func (bc *BeaconClient) handleHead() {
 	for {
 		head := <-bc.HeadTracking.ProcessCh
 		// Process all the work here.
-		slot, err := strconv.Atoi(head.Slot)
+		slot, err := strconv.ParseUint(head.Slot, 10, 64)
 		if err != nil {
 			bc.HeadTracking.ErrorCh <- &SseError{
 				err: fmt.Errorf("Unable to turn the slot from string to int: %s", head.Slot),
