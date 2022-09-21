@@ -192,10 +192,14 @@ var (
 		},
 		"2375703": {
 			HeadMessage: beaconclient.Head{
-				Slot:                     "2375703",
-				Block:                    "0x4392372c5f6e39499e31bf924388b5815639103149f0f54f8a453773b1802301",
-				State:                    "0xb6215b560273af63ec7e011572b60ec1ca0b0232f8ff44fcd4ed55c7526e964e",
-				CurrentDutyDependentRoot: "", PreviousDutyDependentRoot: "", EpochTransition: false, ExecutionOptimistic: false},
+				Slot:                      "2375703",
+				Block:                     "0x4392372c5f6e39499e31bf924388b5815639103149f0f54f8a453773b1802301",
+				State:                     "0xb6215b560273af63ec7e011572b60ec1ca0b0232f8ff44fcd4ed55c7526e964e",
+				CurrentDutyDependentRoot:  "",
+				PreviousDutyDependentRoot: "",
+				EpochTransition:           false,
+				ExecutionOptimistic:       false,
+			},
 			TestNotes:                     "An easy to process Altair Block",
 			SignedBeaconBlock:             filepath.Join("ssz-data", "2375703", "signed-beacon-block.ssz"),
 			BeaconState:                   filepath.Join("ssz-data", "2375703", "beacon-state.ssz"),
@@ -206,14 +210,72 @@ var (
 		},
 		"3797056": {
 			HeadMessage: beaconclient.Head{
-				Slot:                     "3797056",
-				Block:                    "",
-				State:                    "",
-				CurrentDutyDependentRoot: "", PreviousDutyDependentRoot: "", EpochTransition: false, ExecutionOptimistic: false},
+				Slot:                      "3797056",
+				Block:                     "",
+				State:                     "",
+				CurrentDutyDependentRoot:  "",
+				PreviousDutyDependentRoot: "",
+				EpochTransition:           false,
+				ExecutionOptimistic:       false,
+			},
 			TestNotes: "An easy to process Altair Block",
 			// The file below should not exist, this will trigger an error message and 404 response from the mock.
 			SignedBeaconBlock: filepath.Join("ssz-data", "3797056", "should-not-exist.txt"),
 			BeaconState:       filepath.Join("ssz-data", "3797056", "beacon-state.ssz"),
+		},
+		"4636671": {
+			HeadMessage: beaconclient.Head{
+				Slot:                      "4636671",
+				Block:                     "0xe7d4f3b7924c30ae047fceabb853b8afdae32b85e0a87ab6c4c37421b353a1da",
+				State:                     "0x66146a0bc8656a63aaf5dd357f327cac58c83fc90582ced82bebcc6e5f11855b",
+				CurrentDutyDependentRoot:  "",
+				PreviousDutyDependentRoot: "",
+				EpochTransition:           false,
+				ExecutionOptimistic:       false,
+			},
+			TestNotes:                     "The last Altair block",
+			SignedBeaconBlock:             filepath.Join("ssz-data", "4636671", "signed-beacon-block.ssz"),
+			BeaconState:                   filepath.Join("ssz-data", "4636671", "beacon-state.ssz"),
+			CorrectEth1DataBlockHash:      "0xa5b11e0cfb9ffd53e298f0d24fe07bc7a19ada6e52fa3f09397e1b34c07b4ec6",
+			CorrectParentRoot:             "0x47fc3b7a28512a2570438c02bd0b96ebcac8bbcd97eed6d50f15454f37ac51b8",
+			CorrectSignedBeaconBlockMhKey: "",
+			CorrectBeaconStateMhKey:       "",
+		},
+		"4636672": {
+			HeadMessage: beaconclient.Head{
+				Slot:                      "4636672",
+				Block:                     "0x9429ce339da8944dd2e1565be8cac5bf634cae2120b6937c081e39148a7f4b1a",
+				State:                     "0x0067a5d28b38e6e2f59a73046fabbf16a782b978c2c89621a679e7f682b05bd4",
+				CurrentDutyDependentRoot:  "",
+				PreviousDutyDependentRoot: "",
+				EpochTransition:           true,
+				ExecutionOptimistic:       false,
+			},
+			TestNotes:                     "The first Bellatrix block (empty ExecutionPayload)",
+			SignedBeaconBlock:             filepath.Join("ssz-data", "4636672", "signed-beacon-block.ssz"),
+			BeaconState:                   filepath.Join("ssz-data", "4636672", "beacon-state.ssz"),
+			CorrectEth1DataBlockHash:      "0x3b7d392e46db19704d677cadb3310c3776d8c0b8cb2af1c324bb4a394b7f8164",
+			CorrectParentRoot:             "0xe7d4f3b7924c30ae047fceabb853b8afdae32b85e0a87ab6c4c37421b353a1da",
+			CorrectSignedBeaconBlockMhKey: "/blocks/QLVAEQRQPA4TIMRZMNSTGMZZMRQTQOJUGRSGIMTFGE2TMNLCMU4GGYLDGVRGMNRTGRRWCZJSGEZDAYRWHEZTOYZQHAYWKMZZGE2DQYJXMY2GEMLB",
+			CorrectBeaconStateMhKey:       "",
+		},
+		"4700013": {
+			HeadMessage: beaconclient.Head{
+				Slot:                      "4700013",
+				Block:                     "0x810a00400a80cdffc11ffdcf17ac404ac4dba215b95221955a9dfddf163d0b0d",
+				State:                     "0x171ef131e0638eddfe1ef73e7b483e344b1cf128b092f2c39e946eb7775b3a2f",
+				CurrentDutyDependentRoot:  "",
+				PreviousDutyDependentRoot: "",
+				EpochTransition:           true,
+				ExecutionOptimistic:       false,
+			},
+			TestNotes:                     "The first Bellatrix block post-Merge (with ExecutionPayload)",
+			SignedBeaconBlock:             filepath.Join("ssz-data", "4700013", "signed-beacon-block.ssz"),
+			BeaconState:                   filepath.Join("ssz-data", "4700013", "beacon-state.ssz"),
+			CorrectEth1DataBlockHash:      "0xb8736ada384707e156f2e0e69d8311ceda11f96806921644a378fd55899894ca",
+			CorrectParentRoot:             "0x60e751f7d2cf0ae24b195bda37e9add56a7d8c4b75469c018c0f912518c3bae8",
+			CorrectSignedBeaconBlockMhKey: "/blocks/QLVAEQRQPA4DCMDBGAYDIMBQME4DAY3EMZTGGMJRMZTGIY3GGE3WCYZUGA2GCYZUMRRGCMRRGVRDSNJSGIYTSNJVME4WIZTEMRTDCNRTMQYGEMDE",
+			CorrectBeaconStateMhKey:       "",
 		},
 	}
 	TestConfig = Config{
@@ -303,6 +365,20 @@ var _ = Describe("Capturehead", Label("head"), func() {
 
 			})
 		})
+		Context("Correctly formatted Bellatrix Test Blocks", Label("unit", "bellatrix"), func() {
+			It("Should turn it into a struct successfully (pre-Merge).", func() {
+				bc := setUpTest(BeaconNodeTester.TestConfig, "4636672")
+				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
+				defer httpmock.DeactivateAndReset()
+				BeaconNodeTester.testProcessBlock(bc, BeaconNodeTester.TestEvents["4636672"].HeadMessage, 144896, maxRetry, 1, 0, 0)
+			})
+			It("Should turn it into a struct successfully (post-Merge).", func() {
+				bc := setUpTest(BeaconNodeTester.TestConfig, "4700013")
+				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
+				defer httpmock.DeactivateAndReset()
+				BeaconNodeTester.testProcessBlock(bc, BeaconNodeTester.TestEvents["4700013"].HeadMessage, 146875, maxRetry, 1, 0, 0)
+			})
+		})
 		Context("Correctly formatted Phase0 Test Blocks", func() {
 			It("Should turn it into a struct successfully.", func() {
 				bc := setUpTest(BeaconNodeTester.TestConfig, "99")
@@ -315,7 +391,6 @@ var _ = Describe("Capturehead", Label("head"), func() {
 				defer httpmock.DeactivateAndReset()
 				BeaconNodeTester.testProcessBlock(bc, BeaconNodeTester.TestEvents["100-dummy-2"].HeadMessage, 3, maxRetry, 1, 0, 0)
 			})
-
 		})
 		Context("Two consecutive correct blocks", func() {
 			It("Should handle both blocks correctly, without any reorgs or known_gaps", func() {
@@ -568,11 +643,15 @@ func queryDbSlotAndBlock(db sql.Database, querySlot string, queryBlockRoot strin
 
 // A helper function to query the eth_beacon.signed_block table based on the slot and block_root.
 func queryDbSignedBeaconBlock(db sql.Database, querySlot string, queryBlockRoot string) (int, string, string, string, string) {
-	sqlStatement := `SELECT slot, block_root, parent_block_root, eth1_data_block_hash, mh_key FROM eth_beacon.signed_block WHERE slot=$1 AND block_root=$2;`
-	var slot int
-	var blockRoot, parentBlockRoot, eth1DataBlockHash, mhKey string
+	sqlStatement := `SELECT slot, block_root, parent_block_root, eth1_data_block_hash, mh_key, 
+       payload_block_number, payload_timestamp, payload_block_hash,
+       payload_parent_hash, payload_state_root payload_receipts_root FROM eth_beacon.signed_block WHERE slot=$1 AND block_root=$2;`
+	var slot, payloadBlockNumber, payloadTimestamp int
+	var blockRoot, parentBlockRoot, eth1DataBlockHash, mhKey, payloadBlockHash, payloadParentHash, payloadStateRoot, payloadReceiptsRoot string
 	row := db.QueryRow(context.Background(), sqlStatement, querySlot, queryBlockRoot)
-	err := row.Scan(&slot, &blockRoot, &parentBlockRoot, &eth1DataBlockHash, &mhKey)
+	err := row.Scan(&slot, &blockRoot, &parentBlockRoot, &eth1DataBlockHash, &mhKey,
+		&payloadBlockNumber, &payloadTimestamp, &payloadBlockHash, &payloadParentHash,
+		&payloadStateRoot, &payloadReceiptsRoot)
 	Expect(err).ToNot(HaveOccurred())
 	return slot, blockRoot, parentBlockRoot, eth1DataBlockHash, mhKey
 }

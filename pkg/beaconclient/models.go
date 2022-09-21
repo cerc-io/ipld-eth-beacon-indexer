@@ -60,23 +60,25 @@ type DbSlots struct {
 	Status    string // The status, it can be proposed | forked | skipped.
 }
 
-type ExecutionPayloadSummary struct {
-	PayloadBlockNumber  uint64
-	PayloadTimestamp    uint64
-	PayloadBlockHash    string
-	PayloadParentHash   string
-	PayloadStateRoot    string
-	PayloadReceiptsRoot string
+// A struct to handle the details of an embedded Eth1-block (ie, the ExecutionPayload)
+type DbExecutionPayloadHeader struct {
+	BlockNumber      uint64
+	Timestamp        uint64
+	BlockHash        string
+	ParentHash       string
+	StateRoot        string
+	ReceiptsRoot     string
+	TransactionsRoot string
 }
 
 // A struct to capture whats being written to eth-beacon.signed_block table.
 type DbSignedBeaconBlock struct {
-	Slot              string // The slot.
-	BlockRoot         string // The block root
-	ParentBlock       string // The parent block root.
-	Eth1DataBlockHash string // The eth1 block_hash
-	MhKey             string // The ipld multihash key.
-	ExecutionPayload  *ExecutionPayloadSummary
+	Slot                   string                    // The slot.
+	BlockRoot              string                    // The block root
+	ParentBlock            string                    // The parent block root.
+	Eth1DataBlockHash      string                    // The eth1 block_hash
+	MhKey                  string                    // The ipld multihash key.
+	ExecutionPayloadHeader *DbExecutionPayloadHeader // The ExecutionPayloadHeader (after Bellatrix only).
 }
 
 // A struct to capture whats being written to eth-beacon.state table.

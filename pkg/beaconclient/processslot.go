@@ -424,10 +424,10 @@ func (ps *ProcessSlot) createWriteObjects() (*DatabaseWriter, error) {
 	}
 	ps.PerformanceMetrics.ParseBeaconObjectForHash = time.Since(parseBeaconTime)
 
-	payloadSummary := ps.provideExecutionPayloadDetails()
+	payloadHeader := ps.provideExecutionPayloadDetails()
 
 	dw, err := CreateDatabaseWrite(ps.Db, ps.Slot, stateRoot, blockRoot, ps.ParentBlockRoot, eth1DataBlockHash,
-		payloadSummary, status, &ps.SszSignedBeaconBlock, &ps.SszBeaconState, ps.Metrics)
+		payloadHeader, status, &ps.SszSignedBeaconBlock, &ps.SszBeaconState, ps.Metrics)
 	if err != nil {
 		return dw, err
 	}
@@ -477,20 +477,21 @@ func (ps *ProcessSlot) provideFinalHash() (string, string, string, error) {
 	return blockRoot, stateRoot, eth1DataBlockHash, nil
 }
 
-func (ps *ProcessSlot) provideExecutionPayloadDetails() *ExecutionPayloadSummary {
+func (ps *ProcessSlot) provideExecutionPayloadDetails() *ExecutionPayloadHeader {
 	if nil == ps.FullSignedBeaconBlock || !ps.FullSignedBeaconBlock.IsBellatrix() {
 		return nil
 	}
 
-	payload := ps.FullSignedBeaconBlock.bellatrix.Message.Body.ExecutionPayload
-	return &ExecutionPayloadSummary{
-		PayloadBlockNumber:  uint64(payload.BlockNumber),
-		PayloadTimestamp:    uint64(payload.Timestamp),
-		PayloadBlockHash:    toHex(payload.BlockHash),
-		PayloadParentHash:   toHex(payload.ParentHash),
-		PayloadStateRoot:    toHex(payload.StateRoot),
-		PayloadReceiptsRoot: toHex(payload.ReceiptsRoot),
+	payload := ps.FullSignedBeaconBlock.Block().Body().ExecutionPayloadHeader()
+	blockNumber := uint64(payload.BlockNumber)
+
+	// The earliest blocks on the Bellatrix fork, pre-Merge, have zeroed ExecutionPayloads.
+	// There is nothing useful to to store in that case, even though the structure exists.
+	if blockNumber == 0 {
+		return nil
 	}
+
+	return payload
 }
 
 func toHex(r [32]byte) string {

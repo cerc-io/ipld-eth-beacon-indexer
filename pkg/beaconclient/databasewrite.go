@@ -39,8 +39,9 @@ VALUES ($1, $2, $3, $4, $5) ON CONFLICT (slot, block_root) DO NOTHING`
 	UpsertSignedBeaconBlockWithPayloadStmt string = `
 INSERT INTO eth_beacon.signed_block (slot, block_root, parent_block_root, eth1_data_block_hash, mh_key,
                                      payload_block_number, payload_timestamp, payload_block_hash,
-                                     payload_parent_hash, payload_state_root, payload_receipts_root)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) ON CONFLICT (slot, block_root) DO NOTHING`
+                                     payload_parent_hash, payload_state_root, payload_receipts_root,
+                                     payload_transactions_root)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) ON CONFLICT (slot, block_root) DO NOTHING`
 	// Statement to upsert to the eth_beacon.state table.
 	UpsertBeaconState string = `
 INSERT INTO eth_beacon.state (slot, state_root, mh_key)
@@ -100,7 +101,7 @@ type DatabaseWriter struct {
 }
 
 func CreateDatabaseWrite(db sql.Database, slot int, stateRoot string, blockRoot string, parentBlockRoot string,
-	eth1DataBlockHash string, payloadSummary *ExecutionPayloadSummary, status string, rawSignedBeaconBlock *[]byte, rawBeaconState *[]byte, metrics *BeaconClientMetrics) (*DatabaseWriter, error) {
+	eth1DataBlockHash string, payloadHeader *ExecutionPayloadHeader, status string, rawSignedBeaconBlock *[]byte, rawBeaconState *[]byte, metrics *BeaconClientMetrics) (*DatabaseWriter, error) {
 	ctx := context.Background()
 	tx, err := db.Begin(ctx)
 	if err != nil {
@@ -115,7 +116,7 @@ func CreateDatabaseWrite(db sql.Database, slot int, stateRoot string, blockRoot 
 		Metrics:              metrics,
 	}
 	dw.prepareSlotsModel(slot, stateRoot, blockRoot, status)
-	err = dw.prepareSignedBeaconBlockModel(slot, blockRoot, parentBlockRoot, eth1DataBlockHash, payloadSummary)
+	err = dw.prepareSignedBeaconBlockModel(slot, blockRoot, parentBlockRoot, eth1DataBlockHash, payloadHeader)
 	if err != nil {
 		return nil, err
 	}
@@ -143,19 +144,32 @@ func (dw *DatabaseWriter) prepareSlotsModel(slot int, stateRoot string, blockRoo
 
 // Create the model for the eth_beacon.signed_block table.
 func (dw *DatabaseWriter) prepareSignedBeaconBlockModel(slot int, blockRoot string, parentBlockRoot string, eth1DataBlockHash string,
-	payloadSummary *ExecutionPayloadSummary) error {
+	payloadHeader *ExecutionPayloadHeader) error {
 	mhKey, err := MultihashKeyFromSSZRoot([]byte(dw.DbSlots.BlockRoot))
 	if err != nil {
 		return err
 	}
 	dw.DbSignedBeaconBlock = &DbSignedBeaconBlock{
-		Slot:              strconv.Itoa(slot),
-		BlockRoot:         blockRoot,
-		ParentBlock:       parentBlockRoot,
-		Eth1DataBlockHash: eth1DataBlockHash,
-		MhKey:             mhKey,
-		ExecutionPayload:  payloadSummary,
+		Slot:                   strconv.Itoa(slot),
+		BlockRoot:              blockRoot,
+		ParentBlock:            parentBlockRoot,
+		Eth1DataBlockHash:      eth1DataBlockHash,
+		MhKey:                  mhKey,
+		ExecutionPayloadHeader: nil,
 	}
+
+	if nil != payloadHeader {
+		dw.DbSignedBeaconBlock.ExecutionPayloadHeader = &DbExecutionPayloadHeader{
+			BlockNumber:      uint64(payloadHeader.BlockNumber),
+			Timestamp:        uint64(payloadHeader.Timestamp),
+			BlockHash:        toHex(payloadHeader.BlockHash),
+			ParentHash:       toHex(payloadHeader.ParentHash),
+			StateRoot:        toHex(payloadHeader.StateRoot),
+			ReceiptsRoot:     toHex(payloadHeader.ReceiptsRoot),
+			TransactionsRoot: toHex(payloadHeader.TransactionsRoot),
+		}
+	}
+
 	log.Debug("dw.DbSignedBeaconBlock: ", dw.DbSignedBeaconBlock)
 	return nil
 }
@@ -266,7 +280,7 @@ func (dw *DatabaseWriter) upsertPublicBlocks(key string, data *[]byte) error {
 func (dw *DatabaseWriter) upsertSignedBeaconBlock() error {
 	block := dw.DbSignedBeaconBlock
 	var err error
-	if nil != block.ExecutionPayload {
+	if nil != block.ExecutionPayloadHeader {
 		_, err = dw.Tx.Exec(dw.Ctx,
 			UpsertSignedBeaconBlockWithPayloadStmt,
 			block.Slot,
@@ -274,12 +288,13 @@ func (dw *DatabaseWriter) upsertSignedBeaconBlock() error {
 			block.ParentBlock,
 			block.Eth1DataBlockHash,
 			block.MhKey,
-			block.ExecutionPayload.PayloadBlockNumber,
-			block.ExecutionPayload.PayloadTimestamp,
-			block.ExecutionPayload.PayloadBlockHash,
-			block.ExecutionPayload.PayloadParentHash,
-			block.ExecutionPayload.PayloadStateRoot,
-			block.ExecutionPayload.PayloadReceiptsRoot,
+			block.ExecutionPayloadHeader.BlockNumber,
+			block.ExecutionPayloadHeader.Timestamp,
+			block.ExecutionPayloadHeader.BlockHash,
+			block.ExecutionPayloadHeader.ParentHash,
+			block.ExecutionPayloadHeader.StateRoot,
+			block.ExecutionPayloadHeader.ReceiptsRoot,
+			block.ExecutionPayloadHeader.TransactionsRoot,
 		)
 	} else {
 		_, err = dw.Tx.Exec(dw.Ctx,

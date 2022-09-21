@@ -17,6 +17,7 @@ type Eth1Data common.Eth1Data
 type Root common.Root
 type Signature common.BLSSignature
 type Slot common.Slot
+type ExecutionPayloadHeader common.ExecutionPayloadHeader
 
 type BeaconBlock struct {
 	spec      *common.Spec
@@ -264,6 +265,15 @@ func (b *BeaconBlockBody) Eth1Data() Eth1Data {
 	}
 
 	return Eth1Data{}
+}
+
+func (b *BeaconBlockBody) ExecutionPayloadHeader() *ExecutionPayloadHeader {
+	if b.IsBellatrix() {
+		payloadHeader := b.bellatrix.ExecutionPayload.Header(chooseSpec(b.spec))
+		return (*ExecutionPayloadHeader)(payloadHeader)
+	}
+
+	return nil
 }
 
 func (b *BeaconBlock) HashTreeRoot() Root {
