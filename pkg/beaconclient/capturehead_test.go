@@ -30,7 +30,7 @@ import (
 
 	"github.com/jarcoal/httpmock"
 	. "github.com/onsi/ginkgo/v2"
-	"github.com/r3labs/sse"
+	"github.com/r3labs/sse/v2"
 	log "github.com/sirupsen/logrus"
 
 	. "github.com/onsi/gomega"
@@ -594,7 +594,7 @@ func validateSlot(bc *beaconclient.BeaconClient, headMessage beaconclient.Head, 
 // A helper function to validate the expected output from the eth_beacon.signed_block table.
 func validateSignedBeaconBlock(bc *beaconclient.BeaconClient, headMessage beaconclient.Head,
 	correctParentRoot string, correctEth1DataBlockHash string, correctMhKey string,
-	correctExecutionPayloadheader *beaconclient.DbExecutionPayloadHeader) {
+	correctExecutionPayloadHeader *beaconclient.DbExecutionPayloadHeader) {
 	dbSignedBlock := queryDbSignedBeaconBlock(bc.Db, headMessage.Slot, headMessage.Block)
 	log.Info("validateSignedBeaconBlock: ", headMessage)
 	baseSlot, err := strconv.ParseUint(headMessage.Slot, 10, 64)
@@ -604,7 +604,7 @@ func validateSignedBeaconBlock(bc *beaconclient.BeaconClient, headMessage beacon
 	Expect(dbSignedBlock.ParentBlock).To(Equal(correctParentRoot))
 	Expect(dbSignedBlock.Eth1DataBlockHash).To(Equal(correctEth1DataBlockHash))
 	Expect(dbSignedBlock.MhKey).To(Equal(correctMhKey))
-	Expect(dbSignedBlock.ExecutionPayloadHeader).To(Equal(correctExecutionPayloadheader))
+	Expect(dbSignedBlock.ExecutionPayloadHeader).To(Equal(correctExecutionPayloadHeader))
 }
 
 // A helper function to validate the expected output from the eth_beacon.state table.

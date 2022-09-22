@@ -26,7 +26,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/r3labs/sse"
+	"github.com/r3labs/sse/v2"
 	log "github.com/sirupsen/logrus"
 	"github.com/vulcanize/ipld-eth-beacon-indexer/internal/boot"
 	"github.com/vulcanize/ipld-eth-beacon-indexer/internal/shutdown"

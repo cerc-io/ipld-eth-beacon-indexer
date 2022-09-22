@@ -9,10 +9,11 @@ require (
 	github.com/multiformats/go-multihash v0.2.1
 	github.com/onsi/ginkgo/v2 v2.1.4
 	github.com/onsi/gomega v1.19.0
+	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.13.0
 	github.com/protolambda/zrnt v0.28.0
 	github.com/protolambda/ztyp v0.2.2
-	github.com/r3labs/sse v0.0.0-20210224172625-26fe804710bc
+	github.com/r3labs/sse/v2 v2.8.1
 	github.com/sirupsen/logrus v1.9.0
 )
 
@@ -22,7 +23,6 @@ require (
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
-	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/hashicorp/golang-lru v0.5.5-0.20210104140557-80c98217689d // indirect
 	github.com/holiman/uint256 v1.2.0 // indirect
@@ -59,7 +59,6 @@ require (
 	github.com/prometheus/common v0.37.0 // indirect
 	github.com/prometheus/procfs v0.8.0 // indirect
 	github.com/protolambda/bls12-381-util v0.0.0-20210720105258-a772f2aac13e // indirect
-	github.com/prysmaticlabs/gohashtree v0.0.2-alpha // indirect
 	github.com/rogpeppe/go-internal v1.8.0 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
@@ -73,7 +72,6 @@ require (
 )
 
 require (
-	github.com/ferranbt/fastssz v0.1.2 // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
 	github.com/georgysavva/scany v1.2.0
 	github.com/hashicorp/hcl v1.0.0 // indirect

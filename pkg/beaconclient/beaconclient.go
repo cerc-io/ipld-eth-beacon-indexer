@@ -18,11 +18,11 @@ package beaconclient
 import (
 	"context"
 	"fmt"
-	"math/rand"
-
-	"github.com/r3labs/sse"
+	"github.com/r3labs/sse/v2"
 	log "github.com/sirupsen/logrus"
 	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/database/sql"
+	"math/rand"
+	"time"
 )
 
 // TODO: Use prysms config values instead of hardcoding them here.
@@ -128,7 +128,14 @@ func createSseEvent[P ProcessedEvents](baseEndpoint string, path string) *SseEve
 		ProcessCh:  make(chan *P),
 		SseClient: func(endpoint string) *sse.Client {
 			log.WithFields(log.Fields{"endpoint": endpoint}).Info("Creating SSE client")
-			return sse.NewClient(endpoint)
+			client := sse.NewClient(endpoint)
+			client.ReconnectNotify = func(err error, duration time.Duration) {
+				log.WithFields(log.Fields{"endpoint": endpoint}).Warn("Reconnecting SSE client")
+			}
+			client.OnDisconnect(func(c *sse.Client) {
+				log.WithFields(log.Fields{"endpoint": endpoint}).Warn("SSE client disconnected")
+			})
+			return client
 		}(endpoint),
 	}
 	return sseEvents
