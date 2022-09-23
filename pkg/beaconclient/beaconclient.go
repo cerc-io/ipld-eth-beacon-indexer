@@ -80,7 +80,7 @@ type SseEvents[P ProcessedEvents] struct {
 	MessagesCh chan *sse.Event // Contains all the messages from the SSE Channel
 	ErrorCh    chan *SseError  // Contains any errors while SSE streaming occurred
 	ProcessCh  chan *P         // Used to capture processed data in its proper struct.
-	SseClient  *sse.Client     // sse.Client object that is used to interact with the SSE stream
+	sseClient  *sse.Client     // sse.Client object that is used to interact with the SSE stream
 }
 
 // An object to capture any errors when turning an SSE message to JSON.
@@ -126,17 +126,40 @@ func createSseEvent[P ProcessedEvents](baseEndpoint string, path string) *SseEve
 		MessagesCh: make(chan *sse.Event, 1),
 		ErrorCh:    make(chan *SseError),
 		ProcessCh:  make(chan *P),
-		SseClient: func(endpoint string) *sse.Client {
-			log.WithFields(log.Fields{"endpoint": endpoint}).Info("Creating SSE client")
-			client := sse.NewClient(endpoint)
-			client.ReconnectNotify = func(err error, duration time.Duration) {
-				log.WithFields(log.Fields{"endpoint": endpoint}).Warn("Reconnecting SSE client")
-			}
-			client.OnDisconnect(func(c *sse.Client) {
-				log.WithFields(log.Fields{"endpoint": endpoint}).Warn("SSE client disconnected")
-			})
-			return client
-		}(endpoint),
 	}
 	return sseEvents
+}
+
+func (se *SseEvents[P]) Connect() error {
+	if nil == se.sseClient {
+		se.initClient()
+	}
+	return se.sseClient.SubscribeChanRaw(se.MessagesCh)
+}
+
+func (se *SseEvents[P]) Disconnect() {
+	if nil == se.sseClient {
+		return
+	}
+
+	log.WithFields(log.Fields{"endpoint": se.Endpoint}).Info("Disconnecting and destroying SSE client")
+	se.sseClient.Unsubscribe(se.MessagesCh)
+	se.sseClient.Connection.CloseIdleConnections()
+	se.sseClient = nil
+}
+
+func (se *SseEvents[P]) initClient() {
+	if nil != se.sseClient {
+		se.Disconnect()
+	}
+
+	log.WithFields(log.Fields{"endpoint": se.Endpoint}).Info("Creating SSE client")
+	client := sse.NewClient(se.Endpoint)
+	client.ReconnectNotify = func(err error, duration time.Duration) {
+		log.WithFields(log.Fields{"endpoint": se.Endpoint}).Warn("Reconnecting SSE client")
+	}
+	client.OnDisconnect(func(c *sse.Client) {
+		log.WithFields(log.Fields{"endpoint": se.Endpoint}).Warn("SSE client disconnected")
+	})
+	se.sseClient = client
 }

@@ -50,7 +50,7 @@ func (bc *BeaconClient) StopHeadTracking() error {
 // This function closes the SSE subscription, but waits until the MessagesCh is empty
 func (se *SseEvents[ProcessedEvents]) finishProcessingChannel(finish chan<- bool) {
 	loghelper.LogEndpoint(se.Endpoint).Info("Received a close event.")
-	se.SseClient.Unsubscribe(se.MessagesCh)
+	se.Disconnect()
 	for len(se.MessagesCh) != 0 || len(se.ProcessCh) != 0 {
 		time.Sleep(time.Duration(shutdownWaitInterval) * time.Millisecond)
 	}

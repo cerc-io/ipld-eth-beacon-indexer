@@ -38,7 +38,7 @@ func handleIncomingSseEvent[P ProcessedEvents](eventHandler *SseEvents[P], errMe
 	go func() {
 		errG := new(errgroup.Group)
 		errG.Go(func() error {
-			err := eventHandler.SseClient.SubscribeChanRaw(eventHandler.MessagesCh)
+			err := eventHandler.Connect()
 			if err != nil {
 				return err
 			}
@@ -55,6 +55,8 @@ func handleIncomingSseEvent[P ProcessedEvents](eventHandler *SseEvents[P], errMe
 		}
 
 	}()
+
+	// TODO(telackey): Doesn't there need to be a check here that the handler hasn't been shutdown?
 	for {
 		var idleTimer *time.Timer = nil
 		var idleTimerC <-chan time.Time = nil
@@ -95,9 +97,8 @@ func handleIncomingSseEvent[P ProcessedEvents](eventHandler *SseEvents[P], errMe
 			},
 			).Error("TIMEOUT - Attempting to resubscribe")
 			errMetricInc(1)
-			eventHandler.SseClient.Unsubscribe(eventHandler.MessagesCh)
-			eventHandler.SseClient.Connection.CloseIdleConnections()
-			err = eventHandler.SseClient.SubscribeChanRaw(eventHandler.MessagesCh)
+			eventHandler.Disconnect()
+			err = eventHandler.Connect()
 			if err != nil {
 				log.Error("Unable to re-subscribe.", err)
 			}
@@ -123,6 +124,6 @@ func processMsg[P ProcessedEvents](msg []byte, processCh chan<- *P, errorCh chan
 // Capture all of the event topics.
 func (bc *BeaconClient) captureEventTopic() {
 	log.Info("We are capturing all SSE events")
-	go handleIncomingSseEvent(bc.HeadTracking, bc.Metrics.IncrementHeadError, time.Second*15)
+	go handleIncomingSseEvent(bc.HeadTracking, bc.Metrics.IncrementHeadError, time.Second*30)
 	go handleIncomingSseEvent(bc.ReOrgTracking, bc.Metrics.IncrementReorgError, 0)
 }
