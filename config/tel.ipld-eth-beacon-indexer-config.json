@@ -1,24 +1,22 @@
 {
   "db": {
     "address": "localhost",
-    "password": "password",
-    "port": 8076,
-    "username": "vdbm",
-    "name": "vulcanize_testing",
+    "password": "secret12",
+    "port": 45432,
+    "username": "postgres",
+    "name": "postgres",
     "driver": "PGX"
   },
   "bc": {
     "address": "localhost",
-    "port": 5052,
+    "port": 8001,
     "type": "lighthouse",
     "bootRetryInterval": 30,
     "bootMaxRetry": 5,
     "maxHistoricProcessWorker": 2,
     "connectionProtocol": "http",
     "uniqueNodeIdentifier": 100,
-    "checkDb": true,
-    "performBeaconStateProcessing": false,
-    "performBeaconBlockProcessing": true
+    "checkDb": true
   },
   "t": {
     "skipSync": true

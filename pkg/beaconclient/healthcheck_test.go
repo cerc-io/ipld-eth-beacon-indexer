@@ -31,11 +31,10 @@ var _ = Describe("Healthcheck", func() {
 
 	BeforeEach(func() {
 		var err error
-		Bc, err = beaconclient.CreateBeaconClient(context.Background(), "http", "localhost", 8005, 10, bcUniqueIdentifier, false)
+		Bc, err = beaconclient.CreateBeaconClient(context.Background(), "http", "localhost", 8005, 10, bcUniqueIdentifier, false, true, true)
 		Expect(err).ToNot(HaveOccurred())
-		errBc, err = beaconclient.CreateBeaconClient(context.Background(), "http", "blah-blah", 1010, 10, bcUniqueIdentifier, false)
+		errBc, err = beaconclient.CreateBeaconClient(context.Background(), "http", "blah-blah", 1010, 10, bcUniqueIdentifier, false, true, true)
 		Expect(err).ToNot(HaveOccurred())
-
 	})
 	Describe("Connecting to the lighthouse client", Label("integration"), func() {
 		Context("When the client is running", func() {

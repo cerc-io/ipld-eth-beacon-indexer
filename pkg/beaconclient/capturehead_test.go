@@ -223,24 +223,6 @@ var (
 			SignedBeaconBlock: filepath.Join("ssz-data", "3797056", "should-not-exist.txt"),
 			BeaconState:       filepath.Join("ssz-data", "3797056", "beacon-state.ssz"),
 		},
-		"4636671": {
-			HeadMessage: beaconclient.Head{
-				Slot:                      "4636671",
-				Block:                     "0xe7d4f3b7924c30ae047fceabb853b8afdae32b85e0a87ab6c4c37421b353a1da",
-				State:                     "0x66146a0bc8656a63aaf5dd357f327cac58c83fc90582ced82bebcc6e5f11855b",
-				CurrentDutyDependentRoot:  "",
-				PreviousDutyDependentRoot: "",
-				EpochTransition:           false,
-				ExecutionOptimistic:       false,
-			},
-			TestNotes:                     "The last Altair block",
-			SignedBeaconBlock:             filepath.Join("ssz-data", "4636671", "signed-beacon-block.ssz"),
-			BeaconState:                   filepath.Join("ssz-data", "4636671", "beacon-state.ssz"),
-			CorrectEth1DataBlockHash:      "0xa5b11e0cfb9ffd53e298f0d24fe07bc7a19ada6e52fa3f09397e1b34c07b4ec6",
-			CorrectParentRoot:             "0x47fc3b7a28512a2570438c02bd0b96ebcac8bbcd97eed6d50f15454f37ac51b8",
-			CorrectSignedBeaconBlockMhKey: "",
-			CorrectBeaconStateMhKey:       "",
-		},
 		"4636672": {
 			HeadMessage: beaconclient.Head{
 				Slot:                      "4636672",
@@ -288,19 +270,21 @@ var (
 		},
 	}
 	TestConfig = Config{
-		protocol:                protocol,
-		address:                 address,
-		port:                    port,
-		dummyParentRoot:         dummyParentRoot,
-		dbHost:                  dbHost,
-		dbPort:                  dbPort,
-		dbName:                  dbName,
-		dbUser:                  dbUser,
-		dbPassword:              dbPassword,
-		dbDriver:                dbDriver,
-		knownGapsTableIncrement: knownGapsTableIncrement,
-		bcUniqueIdentifier:      bcUniqueIdentifier,
-		checkDb:                 true,
+		protocol:                     protocol,
+		address:                      address,
+		port:                         port,
+		dummyParentRoot:              dummyParentRoot,
+		dbHost:                       dbHost,
+		dbPort:                       dbPort,
+		dbName:                       dbName,
+		dbUser:                       dbUser,
+		dbPassword:                   dbPassword,
+		dbDriver:                     dbDriver,
+		knownGapsTableIncrement:      knownGapsTableIncrement,
+		bcUniqueIdentifier:           bcUniqueIdentifier,
+		checkDb:                      true,
+		performBeaconStateProcessing: true,
+		performBeaconBlockProcessing: true,
 	}
 
 	BeaconNodeTester = TestBeaconNode{
@@ -541,19 +525,21 @@ var _ = Describe("Capturehead", Label("head"), func() {
 })
 
 type Config struct {
-	protocol                string
-	address                 string
-	port                    int
-	dummyParentRoot         string
-	dbHost                  string
-	dbPort                  int
-	dbName                  string
-	dbUser                  string
-	dbPassword              string
-	dbDriver                string
-	knownGapsTableIncrement int
-	bcUniqueIdentifier      int
-	checkDb                 bool
+	protocol                     string
+	address                      string
+	port                         int
+	dummyParentRoot              string
+	dbHost                       string
+	dbPort                       int
+	dbName                       string
+	dbUser                       string
+	dbPassword                   string
+	dbDriver                     string
+	knownGapsTableIncrement      int
+	bcUniqueIdentifier           int
+	checkDb                      bool
+	performBeaconBlockProcessing bool
+	performBeaconStateProcessing bool
 }
 
 //////////////////////////////////////////////////////
@@ -563,7 +549,7 @@ type Config struct {
 // Must run before each test. We can't use the beforeEach because of the way
 // Gingko treats race conditions.
 func setUpTest(config Config, maxSlot string) *beaconclient.BeaconClient {
-	bc, err := beaconclient.CreateBeaconClient(context.Background(), config.protocol, config.address, config.port, config.knownGapsTableIncrement, config.bcUniqueIdentifier, config.checkDb)
+	bc, err := beaconclient.CreateBeaconClient(context.Background(), config.protocol, config.address, config.port, config.knownGapsTableIncrement, config.bcUniqueIdentifier, config.checkDb, config.performBeaconBlockProcessing, config.performBeaconStateProcessing)
 	Expect(err).ToNot(HaveOccurred())
 	db, err := postgres.SetupPostgresDb(config.dbHost, config.dbPort, config.dbName, config.dbUser, config.dbPassword, config.dbDriver)
 	Expect(err).ToNot(HaveOccurred())
@@ -611,12 +597,11 @@ func validateSignedBeaconBlock(bc *beaconclient.BeaconClient, headMessage beacon
 func validateBeaconState(bc *beaconclient.BeaconClient, headMessage beaconclient.Head, correctMhKey string) {
 	dbSlot, stateRoot, mhKey := queryDbBeaconState(bc.Db, headMessage.Slot, headMessage.State)
 	log.Info("validateBeaconState: ", headMessage)
-	baseSlot, err := strconv.Atoi(headMessage.Slot)
+	baseSlot, err := strconv.ParseUint(headMessage.Slot, 10, 64)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(dbSlot).To(Equal(baseSlot))
 	Expect(stateRoot).To(Equal(headMessage.State))
 	Expect(mhKey).To(Equal(correctMhKey))
-
 }
 
 // Wrapper function to send a head message to the beaconclient

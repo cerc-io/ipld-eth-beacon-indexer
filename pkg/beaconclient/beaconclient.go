@@ -90,7 +90,8 @@ type SseError struct {
 }
 
 // A Function to create the BeaconClient.
-func CreateBeaconClient(ctx context.Context, connectionProtocol string, bcAddress string, bcPort int, bcKgTableIncrement int, uniqueNodeIdentifier int, checkDb bool) (*BeaconClient, error) {
+func CreateBeaconClient(ctx context.Context, connectionProtocol string, bcAddress string, bcPort int,
+	bcKgTableIncrement int, uniqueNodeIdentifier int, checkDb bool, performBeaconBlockProcessing bool, performBeaconStateProcessing bool) (*BeaconClient, error) {
 	if uniqueNodeIdentifier == 0 {
 		uniqueNodeIdentifier := rand.Int()
 		log.WithField("randomUniqueNodeIdentifier", uniqueNodeIdentifier).Warn("No uniqueNodeIdentifier provided, we are going to use a randomly generated one.")
@@ -112,8 +113,8 @@ func CreateBeaconClient(ctx context.Context, connectionProtocol string, bcAddres
 		Metrics:                      metrics,
 		UniqueNodeIdentifier:         uniqueNodeIdentifier,
 		CheckDb:                      checkDb,
-		PerformBeaconBlockProcessing: true,
-		PerformBeaconStateProcessing: false,
+		PerformBeaconBlockProcessing: performBeaconBlockProcessing,
+		PerformBeaconStateProcessing: performBeaconStateProcessing,
 		//FinalizationTracking: createSseEvent[FinalizedCheckpoint](endpoint, bcFinalizedTopicEndpoint),
 	}, nil
 }
@@ -156,10 +157,10 @@ func (se *SseEvents[P]) initClient() {
 	log.WithFields(log.Fields{"endpoint": se.Endpoint}).Info("Creating SSE client")
 	client := sse.NewClient(se.Endpoint)
 	client.ReconnectNotify = func(err error, duration time.Duration) {
-		log.WithFields(log.Fields{"endpoint": se.Endpoint}).Warn("Reconnecting SSE client")
+		log.WithFields(log.Fields{"endpoint": se.Endpoint}).Debug("Reconnecting SSE client")
 	}
 	client.OnDisconnect(func(c *sse.Client) {
-		log.WithFields(log.Fields{"endpoint": se.Endpoint}).Warn("SSE client disconnected")
+		log.WithFields(log.Fields{"endpoint": se.Endpoint}).Debug("SSE client disconnected")
 	})
 	se.sseClient = client
 }
