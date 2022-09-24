@@ -27,10 +27,10 @@ import (
 )
 
 // This function will perform all the heavy lifting for tracking the head of the chain.
-func (bc *BeaconClient) CaptureHistoric(ctx context.Context, maxWorkers int) []error {
+func (bc *BeaconClient) CaptureHistoric(ctx context.Context, maxWorkers int, minimumSlot uint64) []error {
 	log.Info("We are starting the historical processing service.")
 	bc.HistoricalProcess = HistoricProcessing{db: bc.Db, metrics: bc.Metrics, uniqueNodeIdentifier: bc.UniqueNodeIdentifier}
-	errs := handleBatchProcess(ctx, maxWorkers, bc.HistoricalProcess, bc.SlotProcessingDetails(), bc.Metrics.IncrementHistoricSlotProcessed)
+	errs := handleBatchProcess(ctx, maxWorkers, bc.HistoricalProcess, bc.SlotProcessingDetails(), bc.Metrics.IncrementHistoricSlotProcessed, minimumSlot)
 	log.Debug("Exiting Historical")
 	return errs
 }
@@ -52,10 +52,10 @@ func (bc *BeaconClient) StopHistoric(cancel context.CancelFunc) error {
 //
 // 2. Known Gaps Processing
 type BatchProcessing interface {
-	getSlotRange(context.Context, chan<- slotsToProcess) []error       // Write the slots to process in a channel, return an error if you cant get the next slots to write.
-	handleProcessingErrors(context.Context, <-chan batchHistoricError) // Custom logic to handle errors.
-	removeTableEntry(context.Context, <-chan slotsToProcess) error     // With the provided start and end slot, remove the entry from the database.
-	releaseDbLocks() error                                             // Update the checked_out column to false for whatever table is being updated.
+	getSlotRange(context.Context, chan<- slotsToProcess, uint64) []error // Write the slots to process in a channel, return an error if you cant get the next slots to write.
+	handleProcessingErrors(context.Context, <-chan batchHistoricError)   // Custom logic to handle errors.
+	removeTableEntry(context.Context, <-chan slotsToProcess) error       // With the provided start and end slot, remove the entry from the database.
+	releaseDbLocks() error                                               // Update the checked_out column to false for whatever table is being updated.
 }
 
 /// ^^^
@@ -90,7 +90,7 @@ type batchHistoricError struct {
 // 4. Remove the slot entry from the DB.
 //
 // 5. Handle any errors.
-func handleBatchProcess(ctx context.Context, maxWorkers int, bp BatchProcessing, spd SlotProcessingDetails, incrementTracker func(uint64)) []error {
+func handleBatchProcess(ctx context.Context, maxWorkers int, bp BatchProcessing, spd SlotProcessingDetails, incrementTracker func(uint64), minimumSlot uint64) []error {
 	slotsCh := make(chan slotsToProcess)
 	workCh := make(chan uint64)
 	processedCh := make(chan slotsToProcess)
@@ -160,7 +160,7 @@ func handleBatchProcess(ctx context.Context, maxWorkers int, bp BatchProcessing,
 
 	// Get slots from the DB.
 	go func() {
-		errs := bp.getSlotRange(ctx, slotsCh) // Periodically adds new entries....
+		errs := bp.getSlotRange(ctx, slotsCh, minimumSlot) // Periodically adds new entries....
 		if errs != nil {
 			finalErrCh <- errs
 		}

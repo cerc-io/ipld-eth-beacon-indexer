@@ -205,7 +205,7 @@ func (tbc TestBeaconNode) writeEventToHistoricProcess(bc *beaconclient.BeaconCli
 // Start the CaptureHistoric function, and check for the correct inserted slots.
 func (tbc TestBeaconNode) runHistoricalProcess(bc *beaconclient.BeaconClient, maxWorkers int, expectedInserts, expectedReorgs, expectedKnownGaps, expectedKnownGapsReprocessError uint64) {
 	ctx, cancel := context.WithCancel(context.Background())
-	go bc.CaptureHistoric(ctx, maxWorkers)
+	go bc.CaptureHistoric(ctx, maxWorkers, 0)
 	validateMetrics(bc, expectedInserts, expectedReorgs, expectedKnownGaps, expectedKnownGapsReprocessError)
 	log.Debug("Calling the stop function for historical processing..")
 	err := bc.StopHistoric(cancel)
@@ -217,7 +217,7 @@ func (tbc TestBeaconNode) runHistoricalProcess(bc *beaconclient.BeaconClient, ma
 // Wrapper function that processes knownGaps
 func (tbc TestBeaconNode) runKnownGapsProcess(bc *beaconclient.BeaconClient, maxWorkers int, expectedInserts, expectedReorgs, expectedKnownGaps, expectedKnownGapsReprocessError uint64) {
 	ctx, cancel := context.WithCancel(context.Background())
-	go bc.ProcessKnownGaps(ctx, maxWorkers)
+	go bc.ProcessKnownGaps(ctx, maxWorkers, 0)
 	validateMetrics(bc, expectedInserts, expectedReorgs, expectedKnownGaps, expectedKnownGapsReprocessError)
 	err := bc.StopKnownGapsProcessing(cancel)
 	time.Sleep(5 * time.Second)

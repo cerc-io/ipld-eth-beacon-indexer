@@ -30,11 +30,11 @@ import (
 var (
 	// Get a single non-checked out row row from eth_beacon.known_gaps.
 	getKgEntryStmt string = `SELECT start_slot, end_slot FROM eth_beacon.known_gaps
-	WHERE checked_out=false
+	WHERE checked_out=false AND end_slot >= $1
 	ORDER BY priority ASC
 	LIMIT 1;`
 	// Used to periodically check to see if there is a new entry in the eth_beacon.known_gaps table.
-	checkKgEntryStmt string = `SELECT * FROM eth_beacon.known_gaps WHERE checked_out=false;`
+	checkKgEntryStmt string = `SELECT * FROM eth_beacon.known_gaps WHERE checked_out=false AND end_slot >= $1;`
 	// Used to checkout a row from the eth_beacon.known_gaps table
 	lockKgEntryStmt string = `UPDATE eth_beacon.known_gaps
 	SET checked_out=true, checked_out_by=$3
@@ -58,10 +58,10 @@ type KnownGapsProcessing struct {
 }
 
 // This function will perform all the heavy lifting for tracking the head of the chain.
-func (bc *BeaconClient) ProcessKnownGaps(ctx context.Context, maxWorkers int) []error {
+func (bc *BeaconClient) ProcessKnownGaps(ctx context.Context, maxWorkers int, minimumSlot uint64) []error {
 	log.Info("We are starting the known gaps processing service.")
 	bc.KnownGapsProcess = KnownGapsProcessing{db: bc.Db, uniqueNodeIdentifier: bc.UniqueNodeIdentifier, metrics: bc.Metrics}
-	errs := handleBatchProcess(ctx, maxWorkers, bc.KnownGapsProcess, bc.SlotProcessingDetails(), bc.Metrics.IncrementKnownGapsProcessed)
+	errs := handleBatchProcess(ctx, maxWorkers, bc.KnownGapsProcess, bc.SlotProcessingDetails(), bc.Metrics.IncrementKnownGapsProcessed, minimumSlot)
 	log.Debug("Exiting known gaps processing service")
 	return errs
 }
@@ -78,8 +78,8 @@ func (bc *BeaconClient) StopKnownGapsProcessing(cancel context.CancelFunc) error
 }
 
 // Get a single row of historical slots from the table.
-func (kgp KnownGapsProcessing) getSlotRange(ctx context.Context, slotCh chan<- slotsToProcess) []error {
-	return getBatchProcessRow(ctx, kgp.db, getKgEntryStmt, checkKgEntryStmt, lockKgEntryStmt, slotCh, strconv.Itoa(kgp.uniqueNodeIdentifier))
+func (kgp KnownGapsProcessing) getSlotRange(ctx context.Context, slotCh chan<- slotsToProcess, minimumSlot uint64) []error {
+	return getBatchProcessRow(ctx, kgp.db, getKgEntryStmt, checkKgEntryStmt, lockKgEntryStmt, slotCh, strconv.Itoa(kgp.uniqueNodeIdentifier), minimumSlot)
 }
 
 // Remove the table entry.

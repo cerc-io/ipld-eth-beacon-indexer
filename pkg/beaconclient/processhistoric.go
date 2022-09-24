@@ -33,11 +33,11 @@ import (
 var (
 	// Get a single highest priority and non-checked out row row from eth_beacon.historical_process
 	getHpEntryStmt string = `SELECT start_slot, end_slot FROM eth_beacon.historic_process
-	WHERE checked_out=false
+	WHERE checked_out=false AND end_slot >= $1
 	ORDER BY priority ASC
 	LIMIT 1;`
 	// Used to periodically check to see if there is a new entry in the eth_beacon.historic_process table.
-	checkHpEntryStmt string = `SELECT * FROM eth_beacon.historic_process WHERE checked_out=false;`
+	checkHpEntryStmt string = `SELECT * FROM eth_beacon.historic_process WHERE checked_out=false AND end_slot >= $1;`
 	// Used to checkout a row from the eth_beacon.historic_process table
 	lockHpEntryStmt string = `UPDATE eth_beacon.historic_process
 	SET checked_out=true, checked_out_by=$3
@@ -58,8 +58,8 @@ type HistoricProcessing struct {
 }
 
 // Get a single row of historical slots from the table.
-func (hp HistoricProcessing) getSlotRange(ctx context.Context, slotCh chan<- slotsToProcess) []error {
-	return getBatchProcessRow(ctx, hp.db, getHpEntryStmt, checkHpEntryStmt, lockHpEntryStmt, slotCh, strconv.Itoa(hp.uniqueNodeIdentifier))
+func (hp HistoricProcessing) getSlotRange(ctx context.Context, slotCh chan<- slotsToProcess, minimumSlot uint64) []error {
+	return getBatchProcessRow(ctx, hp.db, getHpEntryStmt, checkHpEntryStmt, lockHpEntryStmt, slotCh, strconv.Itoa(hp.uniqueNodeIdentifier), minimumSlot)
 }
 
 // Remove the table entry.
@@ -123,7 +123,7 @@ func processSlotRangeWorker(ctx context.Context, workCh <-chan uint64, errCh cha
 // It also locks the row by updating the checked_out column.
 // The statement for getting the start_slot and end_slot must be provided.
 // The statement for "locking" the row must also be provided.
-func getBatchProcessRow(ctx context.Context, db sql.Database, getStartEndSlotStmt string, checkNewRowsStmt string, checkOutRowStmt string, slotCh chan<- slotsToProcess, uniqueNodeIdentifier string) []error {
+func getBatchProcessRow(ctx context.Context, db sql.Database, getStartEndSlotStmt string, checkNewRowsStmt string, checkOutRowStmt string, slotCh chan<- slotsToProcess, uniqueNodeIdentifier string, minimumSlot uint64) []error {
 	errCount := make([]error, 0)
 
 	// 5 is an arbitrary number. It allows us to retry a few times before
@@ -139,7 +139,7 @@ func getBatchProcessRow(ctx context.Context, db sql.Database, getStartEndSlotStm
 					"errCount": errCount,
 				}).Error("New error entry added")
 			}
-			processRow, err := db.Exec(context.Background(), checkNewRowsStmt)
+			processRow, err := db.Exec(context.Background(), checkNewRowsStmt, minimumSlot)
 			if err != nil {
 				errCount = append(errCount, err)
 			}
@@ -172,7 +172,7 @@ func getBatchProcessRow(ctx context.Context, db sql.Database, getStartEndSlotStm
 
 			// Query the DB for slots.
 			sp := slotsToProcess{}
-			err = tx.QueryRow(dbCtx, getStartEndSlotStmt).Scan(&sp.startSlot, &sp.endSlot)
+			err = tx.QueryRow(dbCtx, getStartEndSlotStmt, minimumSlot).Scan(&sp.startSlot, &sp.endSlot)
 			if err != nil {
 				if err == pgx.ErrNoRows {
 					time.Sleep(1 * time.Second)
