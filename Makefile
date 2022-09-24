@@ -71,6 +71,16 @@ unit-test-local:
 	--fail-on-pending --keep-going \
 	--trace
 
+.PHONY: unit-test-local-bellatrix
+unit-test-local-bellatrix:
+	go vet ./...
+	go fmt ./...
+	$(GINKGO) -r --label-filter 'unit && !flaky && bellatrix' \
+	--randomize-all --randomize-suites \
+	--flake-attempts=3 \
+	--fail-on-pending --keep-going \
+	--trace
+
 .PHONY: unit-test-ci
 unit-test-ci:
 	go vet ./...
