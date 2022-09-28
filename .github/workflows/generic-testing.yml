@@ -64,7 +64,11 @@ jobs:
       - name: Check to make sure HEALTH file is present
         shell: bash
         run: |
-          until $(docker compose -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-ipld-eth-beacon-indexer.yml" --env-file ./config.sh cp ipld-eth-beacon-indexer:/root/HEALTH ./HEALTH) ; do sleep 10; done
+          until $(docker compose \
+          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-ipld-eth-beacon-db.yml" \
+          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-ipld-eth-beacon-indexer.yml" \
+          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/latest/docker-compose-lighthouse.yml" \
+          --env-file ./config.sh cp ipld-eth-beacon-indexer:/root/HEALTH ./HEALTH) ; do sleep 10; done
           cat ./HEALTH
           if [[ "$(cat ./HEALTH)" -eq "0" ]]; then echo "Application boot successful" && (exit 0); else docker compose -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-ipld-eth-beacon-indexer.yml" cp ipld-eth-beacon-indexer:/root/ipld-eth-beacon-indexer.log . && cat ipld-eth-beacon-indexer.log && (exit 1); fi
 
