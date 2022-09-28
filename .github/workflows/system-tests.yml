@@ -15,7 +15,7 @@ on:
         required: true
 env:
   stack-orchestrator-ref: ${{ inputs.stack-orchestrator-ref || '7fb664270a0ba09e2caa3095e8c91f3fdb5b38af' }}
-  ipld-eth-beacon-db-ref: ${{ inputs.ipld-eth-beacon-db-ref  || '3dfe416302d553f8240f6051c08a7899b0e39e12' }}
+  ipld-eth-beacon-db-ref: ${{ inputs.ipld-eth-beacon-db-ref  || '6b38fe9b18f7b19a803c626b742cafdccc1a2365' }}
   GOPATH: /tmp/go
   bc_protocol: "http"
   bc_address: ${{secrets.BC_ADDRESS}}
