@@ -31,7 +31,7 @@ var _ = Describe("Healthcheck", func() {
 
 	BeforeEach(func() {
 		var err error
-		Bc, err = beaconclient.CreateBeaconClient(context.Background(), "http", "localhost", 8005, 10, bcUniqueIdentifier, false, true, true)
+		Bc, err = beaconclient.CreateBeaconClient(context.Background(), "http", "localhost", 5052, 10, bcUniqueIdentifier, false, true, true)
 		Expect(err).ToNot(HaveOccurred())
 		errBc, err = beaconclient.CreateBeaconClient(context.Background(), "http", "blah-blah", 1010, 10, bcUniqueIdentifier, false, true, true)
 		Expect(err).ToNot(HaveOccurred())
