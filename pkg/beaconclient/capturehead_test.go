@@ -565,10 +565,10 @@ func setUpTest(config Config, maxSlot string) *beaconclient.BeaconClient {
 }
 
 // A helper function to validate the expected output from the eth_beacon.slots table.
-func validateSlot(bc *beaconclient.BeaconClient, headMessage beaconclient.Head, correctEpoch uint64, correctStatus string) {
+func validateSlot(bc *beaconclient.BeaconClient, headMessage beaconclient.Head, correctEpoch beaconclient.Epoch, correctStatus string) {
 	epoch, dbSlot, blockRoot, stateRoot, status := queryDbSlotAndBlock(bc.Db, headMessage.Slot, headMessage.Block)
 	log.Info("validateSlot: ", headMessage)
-	baseSlot, err := strconv.ParseUint(headMessage.Slot, 10, 64)
+	baseSlot, err := beaconclient.ParseSlot(headMessage.Slot)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(dbSlot).To(Equal(baseSlot))
 	Expect(epoch).To(Equal(correctEpoch))
@@ -583,9 +583,9 @@ func validateSignedBeaconBlock(bc *beaconclient.BeaconClient, headMessage beacon
 	correctExecutionPayloadHeader *beaconclient.DbExecutionPayloadHeader) {
 	dbSignedBlock := queryDbSignedBeaconBlock(bc.Db, headMessage.Slot, headMessage.Block)
 	log.Info("validateSignedBeaconBlock: ", headMessage)
-	baseSlot, err := strconv.ParseUint(headMessage.Slot, 10, 64)
+	baseSlot, err := beaconclient.ParseSlot(headMessage.Slot)
 	Expect(err).ToNot(HaveOccurred())
-	Expect(dbSignedBlock.Slot).To(Equal(baseSlot))
+	Expect(dbSignedBlock.Slot).To(Equal(baseSlot.Number()))
 	Expect(dbSignedBlock.BlockRoot).To(Equal(headMessage.Block))
 	Expect(dbSignedBlock.ParentBlock).To(Equal(correctParentRoot))
 	Expect(dbSignedBlock.Eth1DataBlockHash).To(Equal(correctEth1DataBlockHash))
@@ -597,7 +597,7 @@ func validateSignedBeaconBlock(bc *beaconclient.BeaconClient, headMessage beacon
 func validateBeaconState(bc *beaconclient.BeaconClient, headMessage beaconclient.Head, correctMhKey string) {
 	dbSlot, stateRoot, mhKey := queryDbBeaconState(bc.Db, headMessage.Slot, headMessage.State)
 	log.Info("validateBeaconState: ", headMessage)
-	baseSlot, err := strconv.ParseUint(headMessage.Slot, 10, 64)
+	baseSlot, err := beaconclient.ParseSlot(headMessage.Slot)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(dbSlot).To(Equal(baseSlot))
 	Expect(stateRoot).To(Equal(headMessage.State))
@@ -633,9 +633,10 @@ func sendHeadMessage(bc *beaconclient.BeaconClient, head beaconclient.Head, maxR
 }
 
 // A helper function to query the eth_beacon.slots table based on the slot and block_root
-func queryDbSlotAndBlock(db sql.Database, querySlot string, queryBlockRoot string) (uint64, uint64, string, string, string) {
+func queryDbSlotAndBlock(db sql.Database, querySlot string, queryBlockRoot string) (beaconclient.Epoch, beaconclient.Slot, string, string, string) {
 	sqlStatement := `SELECT epoch, slot, block_root, state_root, status FROM eth_beacon.slots WHERE slot=$1 AND block_root=$2;`
-	var epoch, slot uint64
+	var epoch beaconclient.Epoch
+	var slot beaconclient.Slot
 	var blockRoot, stateRoot, status string
 	log.Debug("Starting to query the eth_beacon.slots table, ", querySlot, " ", queryBlockRoot)
 	err := db.QueryRow(context.Background(), sqlStatement, querySlot, queryBlockRoot).Scan(&epoch, &slot, &blockRoot, &stateRoot, &status)
@@ -651,7 +652,7 @@ func queryDbSignedBeaconBlock(db sql.Database, querySlot string, queryBlockRoot 
        payload_parent_hash, payload_state_root, payload_receipts_root,
        payload_transactions_root FROM eth_beacon.signed_block WHERE slot=$1 AND block_root=$2;`
 
-	var slot uint64
+	var slot beaconclient.Slot
 	var payloadBlockNumber, payloadTimestamp *uint64
 	var blockRoot, parentBlockRoot, eth1DataBlockHash, mhKey string
 	var payloadBlockHash, payloadParentHash, payloadStateRoot, payloadReceiptsRoot, payloadTransactionsRoot *string
@@ -663,7 +664,7 @@ func queryDbSignedBeaconBlock(db sql.Database, querySlot string, queryBlockRoot 
 	Expect(err).ToNot(HaveOccurred())
 
 	signedBlock := beaconclient.DbSignedBeaconBlock{
-		Slot:                   slot,
+		Slot:                   slot.Number(),
 		BlockRoot:              blockRoot,
 		ParentBlock:            parentBlockRoot,
 		Eth1DataBlockHash:      eth1DataBlockHash,
@@ -687,9 +688,9 @@ func queryDbSignedBeaconBlock(db sql.Database, querySlot string, queryBlockRoot 
 }
 
 // A helper function to query the eth_beacon.signed_block table based on the slot and block_root.
-func queryDbBeaconState(db sql.Database, querySlot string, queryStateRoot string) (uint64, string, string) {
+func queryDbBeaconState(db sql.Database, querySlot string, queryStateRoot string) (beaconclient.Slot, string, string) {
 	sqlStatement := `SELECT slot, state_root, mh_key FROM eth_beacon.state WHERE slot=$1 AND state_root=$2;`
-	var slot uint64
+	var slot beaconclient.Slot
 	var stateRoot, mhKey string
 	row := db.QueryRow(context.Background(), sqlStatement, querySlot, queryStateRoot)
 	err := row.Scan(&slot, &stateRoot, &mhKey)
@@ -926,7 +927,7 @@ func (tbc TestBeaconNode) provideSsz(slotIdentifier string, sszIdentifier string
 
 // Helper function to test three reorg messages. There are going to be many functions like this,
 // Because we need to test the same logic for multiple phases.
-func (tbc TestBeaconNode) testMultipleReorgs(bc *beaconclient.BeaconClient, firstHead beaconclient.Head, secondHead beaconclient.Head, thirdHead beaconclient.Head, epoch uint64, maxRetry int) {
+func (tbc TestBeaconNode) testMultipleReorgs(bc *beaconclient.BeaconClient, firstHead beaconclient.Head, secondHead beaconclient.Head, thirdHead beaconclient.Head, epoch beaconclient.Epoch, maxRetry int) {
 	go bc.CaptureHead()
 	time.Sleep(1 * time.Second)
 
@@ -958,7 +959,7 @@ func (tbc TestBeaconNode) testMultipleReorgs(bc *beaconclient.BeaconClient, firs
 		NewHeadBlock:        secondHead.Block,
 		OldHeadState:        thirdHead.State,
 		NewHeadState:        secondHead.State,
-		Epoch:               strconv.FormatUint(epoch, 10),
+		Epoch:               epoch.Format(),
 		ExecutionOptimistic: false,
 	})
 	Expect(err).ToNot(HaveOccurred())
@@ -988,7 +989,7 @@ func (tbc TestBeaconNode) testMultipleReorgs(bc *beaconclient.BeaconClient, firs
 }
 
 // A test to validate a single block was processed correctly
-func (tbc TestBeaconNode) testProcessBlock(bc *beaconclient.BeaconClient, head beaconclient.Head, epoch uint64, maxRetry int, expectedSuccessInsert uint64, expectedKnownGaps uint64, expectedReorgs uint64) {
+func (tbc TestBeaconNode) testProcessBlock(bc *beaconclient.BeaconClient, head beaconclient.Head, epoch beaconclient.Epoch, maxRetry int, expectedSuccessInsert uint64, expectedKnownGaps uint64, expectedReorgs uint64) {
 	go bc.CaptureHead()
 	time.Sleep(1 * time.Second)
 	sendHeadMessage(bc, head, maxRetry, expectedSuccessInsert)
@@ -1018,7 +1019,7 @@ func (tbc TestBeaconNode) testProcessBlock(bc *beaconclient.BeaconClient, head b
 
 // A test that ensures that if two HeadMessages occur for a single slot they are marked
 // as proposed and forked correctly.
-func (tbc TestBeaconNode) testMultipleHead(bc *beaconclient.BeaconClient, firstHead beaconclient.Head, secondHead beaconclient.Head, epoch uint64, maxRetry int) {
+func (tbc TestBeaconNode) testMultipleHead(bc *beaconclient.BeaconClient, firstHead beaconclient.Head, secondHead beaconclient.Head, epoch beaconclient.Epoch, maxRetry int) {
 	go bc.CaptureHead()
 	time.Sleep(1 * time.Second)
 

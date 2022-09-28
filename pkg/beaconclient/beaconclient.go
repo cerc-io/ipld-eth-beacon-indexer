@@ -58,8 +58,8 @@ type BeaconClient struct {
 	// Used for Head Tracking
 
 	PerformHeadTracking bool                   // Should we track head?
-	StartingSlot        uint64                 // If we're performing head tracking. What is the first slot we processed.
-	PreviousSlot        uint64                 // Whats the previous slot we processed
+	StartingSlot        Slot                   // If we're performing head tracking. What is the first slot we processed.
+	PreviousSlot        Slot                   // Whats the previous slot we processed
 	PreviousBlockRoot   string                 // Whats the previous block root, used to check the next blocks parent.
 	HeadTracking        *SseEvents[Head]       // Track the head block
 	ReOrgTracking       *SseEvents[ChainReorg] // Track all Reorgs

@@ -53,8 +53,8 @@ type ChainReorg struct {
 
 // A struct to capture whats being written to the eth-beacon.slots table.
 type DbSlots struct {
-	Epoch     string // The epoch.
-	Slot      string // The slot.
+	Epoch     uint64 // The epoch.
+	Slot      uint64 // The slot.
 	BlockRoot string // The block root
 	StateRoot string // The state root
 	Status    string // The status, it can be proposed | forked | skipped.
@@ -90,8 +90,8 @@ type DbBeaconState struct {
 
 // A structure to capture whats being written to the eth-beacon.known_gaps table.
 type DbKnownGaps struct {
-	StartSlot         string // The start slot for known_gaps, inclusive.
-	EndSlot           string // The end slot for known_gaps, inclusive.
+	StartSlot         uint64 // The start slot for known_gaps, inclusive.
+	EndSlot           uint64 // The end slot for known_gaps, inclusive.
 	CheckedOut        bool   // Indicates if any process is currently processing this entry.
 	ReprocessingError string // The error that occurred when attempting to reprocess these entries.
 	EntryError        string // The error that caused this entry to be added to the table. Could be null.

@@ -19,6 +19,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/beaconclient"
 	"strconv"
 
 	log "github.com/sirupsen/logrus"
@@ -81,7 +82,7 @@ func startFullProcessing() {
 
 	errG, _ := errgroup.WithContext(context.Background())
 	errG.Go(func() error {
-		errs := Bc.CaptureHistoric(hpContext, viper.GetInt("bc.maxHistoricProcessWorker"), viper.GetUint64("bc.minimumSlot"))
+		errs := Bc.CaptureHistoric(hpContext, viper.GetInt("bc.maxHistoricProcessWorker"), beaconclient.Slot(viper.GetUint64("bc.minimumSlot")))
 		if len(errs) != 0 {
 			if len(errs) != 0 {
 				log.WithFields(log.Fields{"errs": errs}).Error("All errors when processing historic events")
@@ -95,7 +96,7 @@ func startFullProcessing() {
 		go func() {
 			errG := new(errgroup.Group)
 			errG.Go(func() error {
-				errs := Bc.ProcessKnownGaps(kgCtx, viper.GetInt("kg.maxKnownGapsWorker"), viper.GetUint64("kg.minimumSlot"))
+				errs := Bc.ProcessKnownGaps(kgCtx, viper.GetInt("kg.maxKnownGapsWorker"), beaconclient.Slot(viper.GetUint64("kg.minimumSlot")))
 				if len(errs) != 0 {
 					log.WithFields(log.Fields{"errs": errs}).Error("All errors when processing knownGaps")
 					return fmt.Errorf("Application ended because there were too many error when attempting to process knownGaps")

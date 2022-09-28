@@ -37,18 +37,18 @@ type BlockRootMessage struct {
 }
 
 // A helper function to query endpoints that utilize slots.
-func querySsz(endpoint string, slot string) ([]byte, int, error) {
+func querySsz(endpoint string, slot Slot) ([]byte, int, error) {
 	log.WithFields(log.Fields{"endpoint": endpoint}).Debug("Querying endpoint")
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", endpoint, nil)
 	if err != nil {
-		loghelper.LogSlotError(slot, err).Error("Unable to create a request!")
+		loghelper.LogSlotError(slot.Number(), err).Error("Unable to create a request!")
 		return nil, 0, fmt.Errorf("Unable to create a request!: %s", err.Error())
 	}
 	req.Header.Set("Accept", "application/octet-stream")
 	response, err := client.Do(req)
 	if err != nil {
-		loghelper.LogSlotError(slot, err).Error("Unable to query Beacon Node!")
+		loghelper.LogSlotError(slot.Number(), err).Error("Unable to query Beacon Node!")
 		return nil, 0, fmt.Errorf("Unable to query Beacon Node: %s", err.Error())
 	}
 	defer response.Body.Close()
@@ -61,7 +61,7 @@ func querySsz(endpoint string, slot string) ([]byte, int, error) {
 
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		loghelper.LogSlotError(slot, err).Error("Unable to turn response into a []bytes array!")
+		loghelper.LogSlotError(slot.Number(), err).Error("Unable to turn response into a []bytes array!")
 		return nil, rc, fmt.Errorf("Unable to turn response into a []bytes array!: %s", err.Error())
 	}
 

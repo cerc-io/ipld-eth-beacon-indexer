@@ -11,13 +11,40 @@ import (
 	"github.com/protolambda/ztyp/codec"
 	"github.com/protolambda/ztyp/tree"
 	log "github.com/sirupsen/logrus"
+	"strconv"
 )
 
 type Eth1Data common.Eth1Data
 type Root common.Root
 type Signature common.BLSSignature
-type Slot common.Slot
+type Slot uint64
+type Epoch uint64
 type ExecutionPayloadHeader common.ExecutionPayloadHeader
+
+func ParseSlot(v string) (Slot, error) {
+	slotNum, err := strconv.ParseUint(v, 10, 64)
+	return Slot(slotNum), err
+}
+
+func (s *Slot) Format() string {
+	return strconv.FormatUint(uint64(*s), 10)
+}
+
+func (s *Slot) Number() uint64 {
+	return uint64(*s)
+}
+
+func (s *Slot) Plus(v uint64) Slot {
+	return Slot(v + s.Number())
+}
+
+func (s *Slot) PlusInt(v int) Slot {
+	return s.Plus(uint64(v))
+}
+
+func (e *Epoch) Format() string {
+	return strconv.FormatUint(uint64(*e), 10)
+}
 
 type BeaconBlock struct {
 	spec      *common.Spec
