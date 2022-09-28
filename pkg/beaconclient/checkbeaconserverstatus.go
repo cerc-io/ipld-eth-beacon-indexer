@@ -16,9 +16,11 @@
 package beaconclient
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -71,14 +73,17 @@ func (bc BeaconClient) QueryHeadSync() (Sync, error) {
 	}
 
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	var body bytes.Buffer
+	buf := bufio.NewWriter(&body)
+	_, err = io.Copy(buf, resp.Body)
+
 	if err != nil {
 		return syncStatus, err
 	}
 
-	if err := json.Unmarshal(body, &syncStatus); err != nil {
+	if err := json.Unmarshal(body.Bytes(), &syncStatus); err != nil {
 		loghelper.LogEndpoint(bcSync).WithFields(log.Fields{
-			"rawMessage": string(body),
+			"rawMessage": body.String(),
 			"err":        err,
 		}).Error("Unable to unmarshal sync status")
 		return syncStatus, err
@@ -149,14 +154,16 @@ func (bc BeaconClient) queryLighthouseDbInfo() (LighthouseDatabaseInfo, error) {
 	}
 
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	var body bytes.Buffer
+	buf := bufio.NewWriter(&body)
+	_, err = io.Copy(buf, resp.Body)
 	if err != nil {
 		return dbInfo, err
 	}
 
-	if err := json.Unmarshal(body, &dbInfo); err != nil {
+	if err := json.Unmarshal(body.Bytes(), &dbInfo); err != nil {
 		loghelper.LogEndpoint(lhDbInfo).WithFields(log.Fields{
-			"rawMessage": string(body),
+			"rawMessage": body.String(),
 			"err":        err,
 		}).Error("Unable to unmarshal the lighthouse database information")
 		return dbInfo, err

@@ -18,8 +18,10 @@
 package beaconclient
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	log "github.com/sirupsen/logrus"
@@ -59,11 +61,13 @@ func querySsz(endpoint string, slot Slot) ([]byte, int, error) {
 		return nil, rc, fmt.Errorf("HTTP Error: %d", rc)
 	}
 
-	body, err := ioutil.ReadAll(response.Body)
+	var body bytes.Buffer
+	buf := bufio.NewWriter(&body)
+	_, err = io.Copy(buf, response.Body)
 	if err != nil {
 		loghelper.LogSlotError(slot.Number(), err).Error("Unable to turn response into a []bytes array!")
 		return nil, rc, fmt.Errorf("Unable to turn response into a []bytes array!: %s", err.Error())
 	}
 
-	return body, rc, nil
+	return body.Bytes(), rc, nil
 }
