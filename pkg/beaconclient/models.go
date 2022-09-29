@@ -53,34 +53,45 @@ type ChainReorg struct {
 
 // A struct to capture whats being written to the eth-beacon.slots table.
 type DbSlots struct {
-	Epoch     string // The epoch.
-	Slot      string // The slot.
+	Epoch     uint64 // The epoch.
+	Slot      uint64 // The slot.
 	BlockRoot string // The block root
 	StateRoot string // The state root
 	Status    string // The status, it can be proposed | forked | skipped.
 }
 
+// A struct to handle the details of an embedded Eth1-block (ie, the ExecutionPayload)
+type DbExecutionPayloadHeader struct {
+	BlockNumber      uint64
+	Timestamp        uint64
+	BlockHash        string
+	ParentHash       string
+	StateRoot        string
+	ReceiptsRoot     string
+	TransactionsRoot string
+}
+
 // A struct to capture whats being written to eth-beacon.signed_block table.
 type DbSignedBeaconBlock struct {
-	Slot          string // The slot.
-	BlockRoot     string // The block root
-	ParentBlock   string // The parent block root.
-	Eth1BlockHash string // The eth1 block_hash
-	MhKey         string // The ipld multihash key.
-
+	Slot                   uint64                    // The slot.
+	BlockRoot              string                    // The block root
+	ParentBlock            string                    // The parent block root.
+	Eth1DataBlockHash      string                    // The eth1 block_hash
+	MhKey                  string                    // The ipld multihash key.
+	ExecutionPayloadHeader *DbExecutionPayloadHeader // The ExecutionPayloadHeader (after Bellatrix only).
 }
 
 // A struct to capture whats being written to eth-beacon.state table.
 type DbBeaconState struct {
-	Slot      string // The slot.
+	Slot      uint64 // The slot.
 	StateRoot string // The state root
 	MhKey     string // The ipld multihash key.
 }
 
 // A structure to capture whats being written to the eth-beacon.known_gaps table.
 type DbKnownGaps struct {
-	StartSlot         string // The start slot for known_gaps, inclusive.
-	EndSlot           string // The end slot for known_gaps, inclusive.
+	StartSlot         uint64 // The start slot for known_gaps, inclusive.
+	EndSlot           uint64 // The end slot for known_gaps, inclusive.
 	CheckedOut        bool   // Indicates if any process is currently processing this entry.
 	ReprocessingError string // The error that occurred when attempting to reprocess these entries.
 	EntryError        string // The error that caused this entry to be added to the table. Could be null.

@@ -23,7 +23,7 @@ import (
 	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/loghelper"
 )
 
-//Create a metric struct and register each channel with prometheus
+// Create a metric struct and register each channel with prometheus
 func CreateBeaconClientMetrics() (*BeaconClientMetrics, error) {
 	metrics := &BeaconClientMetrics{
 		SlotInserts:             0,
@@ -138,7 +138,7 @@ func (m *BeaconClientMetrics) IncrementReorgError(inc uint64) {
 }
 
 // Wrapper function to increment the number of knownGaps that were updated with reprocessing errors.
-//If we want to use mutexes later we can easily update all occurrences here.
+// If we want to use mutexes later we can easily update all occurrences here.
 func (m *BeaconClientMetrics) IncrementKnownGapsReprocessError(inc uint64) {
 	atomic.AddUint64(&m.KnownGapsReprocessError, inc)
 }

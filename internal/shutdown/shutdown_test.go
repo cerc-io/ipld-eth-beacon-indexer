@@ -26,7 +26,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/r3labs/sse"
+	"github.com/r3labs/sse/v2"
 	log "github.com/sirupsen/logrus"
 	"github.com/vulcanize/ipld-eth-beacon-indexer/internal/boot"
 	"github.com/vulcanize/ipld-eth-beacon-indexer/internal/shutdown"
@@ -51,6 +51,8 @@ var (
 	bcKgTableIncrement     int           = 10
 	bcUniqueIdentifier     int           = 100
 	bcCheckDb              bool          = false
+	bcProcessBeaconBlocks  bool          = true
+	bcProcessBeaconState   bool          = true
 	maxWaitSecondsShutdown time.Duration = time.Duration(1) * time.Second
 	DB                     sql.Database
 	BC                     *beaconclient.BeaconClient
@@ -63,7 +65,7 @@ var _ = Describe("Shutdown", func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 		BC, DB, err = boot.BootApplicationWithRetry(ctx, dbAddress, dbPort, dbName, dbUsername, dbPassword, dbDriver, bcAddress,
-			bcPort, bcConnectionProtocol, bcType, bcBootRetryInterval, bcBootMaxRetry, bcKgTableIncrement, "head", true, bcUniqueIdentifier, bcCheckDb)
+			bcPort, bcConnectionProtocol, bcType, bcBootRetryInterval, bcBootMaxRetry, bcKgTableIncrement, "head", true, bcUniqueIdentifier, bcCheckDb, bcProcessBeaconBlocks, bcProcessBeaconState)
 		notifierCh = make(chan os.Signal, 1)
 		Expect(err).To(BeNil())
 	})

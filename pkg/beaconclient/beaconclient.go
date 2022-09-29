@@ -18,11 +18,11 @@ package beaconclient
 import (
 	"context"
 	"fmt"
-	"math/rand"
-
-	"github.com/r3labs/sse"
+	"github.com/r3labs/sse/v2"
 	log "github.com/sirupsen/logrus"
 	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/database/sql"
+	"math/rand"
+	"time"
 )
 
 // TODO: Use prysms config values instead of hardcoding them here.
@@ -37,27 +37,29 @@ var (
 	BcBlockRootEndpoint  = func(slot string) string {
 		return "/eth/v1/beacon/blocks/" + slot + "/root"
 	}
-	bcSlotsPerEpoch = 32 // Number of slots in a single Epoch
+	bcSlotsPerEpoch uint64 = 32 // Number of slots in a single Epoch
 	//bcSlotPerHistoricalVector = 8192                                // The number of slots in a historic vector.
 	//bcFinalizedTopicEndpoint  = "/eth/v1/events?topics=finalized_checkpoint" // Endpoint used to subscribe to the head of the chain
 )
 
 // A struct that capture the Beacon Server that the Beacon Client will be interacting with and querying.
 type BeaconClient struct {
-	Context                context.Context      // A context generic context with multiple uses.
-	ServerEndpoint         string               // What is the endpoint of the beacon server.
-	Db                     sql.Database         // Database object used for reads and writes.
-	Metrics                *BeaconClientMetrics // An object used to keep track of certain BeaconClient Metrics.
-	KnownGapTableIncrement int                  // The max number of slots within a single known_gaps table entry.
-	UniqueNodeIdentifier   int                  // The unique identifier within the cluster of this individual node.
-	KnownGapsProcess       KnownGapsProcessing  // object keeping track of knowngaps processing
-	CheckDb                bool                 // Should we check the DB to see if the slot exists before processing it?
+	Context                      context.Context      // A context generic context with multiple uses.
+	ServerEndpoint               string               // What is the endpoint of the beacon server.
+	Db                           sql.Database         // Database object used for reads and writes.
+	Metrics                      *BeaconClientMetrics // An object used to keep track of certain BeaconClient Metrics.
+	KnownGapTableIncrement       int                  // The max number of slots within a single known_gaps table entry.
+	UniqueNodeIdentifier         int                  // The unique identifier within the cluster of this individual node.
+	KnownGapsProcess             KnownGapsProcessing  // object keeping track of knowngaps processing
+	CheckDb                      bool                 // Should we check the DB to see if the slot exists before processing it?
+	PerformBeaconStateProcessing bool                 // Should we process BeaconStates?
+	PerformBeaconBlockProcessing bool                 // Should we process BeaconBlocks?
 
 	// Used for Head Tracking
 
 	PerformHeadTracking bool                   // Should we track head?
-	StartingSlot        int                    // If we're performing head tracking. What is the first slot we processed.
-	PreviousSlot        int                    // Whats the previous slot we processed
+	StartingSlot        Slot                   // If we're performing head tracking. What is the first slot we processed.
+	PreviousSlot        Slot                   // Whats the previous slot we processed
 	PreviousBlockRoot   string                 // Whats the previous block root, used to check the next blocks parent.
 	HeadTracking        *SseEvents[Head]       // Track the head block
 	ReOrgTracking       *SseEvents[ChainReorg] // Track all Reorgs
@@ -78,7 +80,7 @@ type SseEvents[P ProcessedEvents] struct {
 	MessagesCh chan *sse.Event // Contains all the messages from the SSE Channel
 	ErrorCh    chan *SseError  // Contains any errors while SSE streaming occurred
 	ProcessCh  chan *P         // Used to capture processed data in its proper struct.
-	SseClient  *sse.Client     // sse.Client object that is used to interact with the SSE stream
+	sseClient  *sse.Client     // sse.Client object that is used to interact with the SSE stream
 }
 
 // An object to capture any errors when turning an SSE message to JSON.
@@ -88,7 +90,8 @@ type SseError struct {
 }
 
 // A Function to create the BeaconClient.
-func CreateBeaconClient(ctx context.Context, connectionProtocol string, bcAddress string, bcPort int, bcKgTableIncrement int, uniqueNodeIdentifier int, checkDb bool) (*BeaconClient, error) {
+func CreateBeaconClient(ctx context.Context, connectionProtocol string, bcAddress string, bcPort int,
+	bcKgTableIncrement int, uniqueNodeIdentifier int, checkDb bool, performBeaconBlockProcessing bool, performBeaconStateProcessing bool) (*BeaconClient, error) {
 	if uniqueNodeIdentifier == 0 {
 		uniqueNodeIdentifier := rand.Int()
 		log.WithField("randomUniqueNodeIdentifier", uniqueNodeIdentifier).Warn("No uniqueNodeIdentifier provided, we are going to use a randomly generated one.")
@@ -102,14 +105,16 @@ func CreateBeaconClient(ctx context.Context, connectionProtocol string, bcAddres
 	endpoint := fmt.Sprintf("%s://%s:%d", connectionProtocol, bcAddress, bcPort)
 	log.Info("Creating the BeaconClient")
 	return &BeaconClient{
-		Context:                ctx,
-		ServerEndpoint:         endpoint,
-		KnownGapTableIncrement: bcKgTableIncrement,
-		HeadTracking:           createSseEvent[Head](endpoint, BcHeadTopicEndpoint),
-		ReOrgTracking:          createSseEvent[ChainReorg](endpoint, bcReorgTopicEndpoint),
-		Metrics:                metrics,
-		UniqueNodeIdentifier:   uniqueNodeIdentifier,
-		CheckDb:                checkDb,
+		Context:                      ctx,
+		ServerEndpoint:               endpoint,
+		KnownGapTableIncrement:       bcKgTableIncrement,
+		HeadTracking:                 createSseEvent[Head](endpoint, BcHeadTopicEndpoint),
+		ReOrgTracking:                createSseEvent[ChainReorg](endpoint, bcReorgTopicEndpoint),
+		Metrics:                      metrics,
+		UniqueNodeIdentifier:         uniqueNodeIdentifier,
+		CheckDb:                      checkDb,
+		PerformBeaconBlockProcessing: performBeaconBlockProcessing,
+		PerformBeaconStateProcessing: performBeaconStateProcessing,
 		//FinalizationTracking: createSseEvent[FinalizedCheckpoint](endpoint, bcFinalizedTopicEndpoint),
 	}, nil
 }
@@ -122,10 +127,40 @@ func createSseEvent[P ProcessedEvents](baseEndpoint string, path string) *SseEve
 		MessagesCh: make(chan *sse.Event, 1),
 		ErrorCh:    make(chan *SseError),
 		ProcessCh:  make(chan *P),
-		SseClient: func(endpoint string) *sse.Client {
-			log.WithFields(log.Fields{"endpoint": endpoint}).Info("Creating SSE client")
-			return sse.NewClient(endpoint)
-		}(endpoint),
 	}
 	return sseEvents
+}
+
+func (se *SseEvents[P]) Connect() error {
+	if nil == se.sseClient {
+		se.initClient()
+	}
+	return se.sseClient.SubscribeChanRaw(se.MessagesCh)
+}
+
+func (se *SseEvents[P]) Disconnect() {
+	if nil == se.sseClient {
+		return
+	}
+
+	log.WithFields(log.Fields{"endpoint": se.Endpoint}).Info("Disconnecting and destroying SSE client")
+	se.sseClient.Unsubscribe(se.MessagesCh)
+	se.sseClient.Connection.CloseIdleConnections()
+	se.sseClient = nil
+}
+
+func (se *SseEvents[P]) initClient() {
+	if nil != se.sseClient {
+		se.Disconnect()
+	}
+
+	log.WithFields(log.Fields{"endpoint": se.Endpoint}).Info("Creating SSE client")
+	client := sse.NewClient(se.Endpoint)
+	client.ReconnectNotify = func(err error, duration time.Duration) {
+		log.WithFields(log.Fields{"endpoint": se.Endpoint}).Debug("Reconnecting SSE client")
+	}
+	client.OnDisconnect(func(c *sse.Client) {
+		log.WithFields(log.Fields{"endpoint": se.Endpoint}).Debug("SSE client disconnected")
+	})
+	se.sseClient = client
 }

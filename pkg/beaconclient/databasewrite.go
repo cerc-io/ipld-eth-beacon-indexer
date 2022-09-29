@@ -18,8 +18,6 @@ package beaconclient
 import (
 	"context"
 	"fmt"
-	"strconv"
-
 	"github.com/jackc/pgx/v4"
 	log "github.com/sirupsen/logrus"
 	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/database/sql"
@@ -34,8 +32,14 @@ INSERT INTO eth_beacon.slots (epoch, slot, block_root, state_root, status)
 VALUES ($1, $2, $3, $4, $5) ON CONFLICT (slot, block_root) DO NOTHING`
 	// Statement to upsert to the eth_beacon.signed_blocks table.
 	UpsertSignedBeaconBlockStmt string = `
-INSERT INTO eth_beacon.signed_block (slot, block_root, parent_block_root, eth1_block_hash, mh_key)
+INSERT INTO eth_beacon.signed_block (slot, block_root, parent_block_root, eth1_data_block_hash, mh_key)
 VALUES ($1, $2, $3, $4, $5) ON CONFLICT (slot, block_root) DO NOTHING`
+	UpsertSignedBeaconBlockWithPayloadStmt string = `
+INSERT INTO eth_beacon.signed_block (slot, block_root, parent_block_root, eth1_data_block_hash, mh_key,
+                                     payload_block_number, payload_timestamp, payload_block_hash,
+                                     payload_parent_hash, payload_state_root, payload_receipts_root,
+                                     payload_transactions_root)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) ON CONFLICT (slot, block_root) DO NOTHING`
 	// Statement to upsert to the eth_beacon.state table.
 	UpsertBeaconState string = `
 INSERT INTO eth_beacon.state (slot, state_root, mh_key)
@@ -94,8 +98,8 @@ type DatabaseWriter struct {
 	rawSignedBeaconBlock *[]byte
 }
 
-func CreateDatabaseWrite(db sql.Database, slot int, stateRoot string, blockRoot string, parentBlockRoot string,
-	eth1BlockHash string, status string, rawSignedBeaconBlock *[]byte, rawBeaconState *[]byte, metrics *BeaconClientMetrics) (*DatabaseWriter, error) {
+func CreateDatabaseWrite(db sql.Database, slot Slot, stateRoot string, blockRoot string, parentBlockRoot string,
+	eth1DataBlockHash string, payloadHeader *ExecutionPayloadHeader, status string, rawSignedBeaconBlock *[]byte, rawBeaconState *[]byte, metrics *BeaconClientMetrics) (*DatabaseWriter, error) {
 	ctx := context.Background()
 	tx, err := db.Begin(ctx)
 	if err != nil {
@@ -110,7 +114,7 @@ func CreateDatabaseWrite(db sql.Database, slot int, stateRoot string, blockRoot 
 		Metrics:              metrics,
 	}
 	dw.prepareSlotsModel(slot, stateRoot, blockRoot, status)
-	err = dw.prepareSignedBeaconBlockModel(slot, blockRoot, parentBlockRoot, eth1BlockHash)
+	err = dw.prepareSignedBeaconBlockModel(slot, blockRoot, parentBlockRoot, eth1DataBlockHash, payloadHeader)
 	if err != nil {
 		return nil, err
 	}
@@ -124,10 +128,10 @@ func CreateDatabaseWrite(db sql.Database, slot int, stateRoot string, blockRoot 
 // Write functions to write each all together...
 // Should I do one atomic write?
 // Create the model for the eth_beacon.slots table
-func (dw *DatabaseWriter) prepareSlotsModel(slot int, stateRoot string, blockRoot string, status string) {
+func (dw *DatabaseWriter) prepareSlotsModel(slot Slot, stateRoot string, blockRoot string, status string) {
 	dw.DbSlots = &DbSlots{
 		Epoch:     calculateEpoch(slot, bcSlotsPerEpoch),
-		Slot:      strconv.Itoa(slot),
+		Slot:      slot.Number(),
 		StateRoot: stateRoot,
 		BlockRoot: blockRoot,
 		Status:    status,
@@ -137,30 +141,45 @@ func (dw *DatabaseWriter) prepareSlotsModel(slot int, stateRoot string, blockRoo
 }
 
 // Create the model for the eth_beacon.signed_block table.
-func (dw *DatabaseWriter) prepareSignedBeaconBlockModel(slot int, blockRoot string, parentBlockRoot string, eth1BlockHash string) error {
+func (dw *DatabaseWriter) prepareSignedBeaconBlockModel(slot Slot, blockRoot string, parentBlockRoot string, eth1DataBlockHash string,
+	payloadHeader *ExecutionPayloadHeader) error {
 	mhKey, err := MultihashKeyFromSSZRoot([]byte(dw.DbSlots.BlockRoot))
 	if err != nil {
 		return err
 	}
 	dw.DbSignedBeaconBlock = &DbSignedBeaconBlock{
-		Slot:          strconv.Itoa(slot),
-		BlockRoot:     blockRoot,
-		ParentBlock:   parentBlockRoot,
-		Eth1BlockHash: eth1BlockHash,
-		MhKey:         mhKey,
+		Slot:                   slot.Number(),
+		BlockRoot:              blockRoot,
+		ParentBlock:            parentBlockRoot,
+		Eth1DataBlockHash:      eth1DataBlockHash,
+		MhKey:                  mhKey,
+		ExecutionPayloadHeader: nil,
 	}
+
+	if nil != payloadHeader {
+		dw.DbSignedBeaconBlock.ExecutionPayloadHeader = &DbExecutionPayloadHeader{
+			BlockNumber:      uint64(payloadHeader.BlockNumber),
+			Timestamp:        uint64(payloadHeader.Timestamp),
+			BlockHash:        toHex(payloadHeader.BlockHash),
+			ParentHash:       toHex(payloadHeader.ParentHash),
+			StateRoot:        toHex(payloadHeader.StateRoot),
+			ReceiptsRoot:     toHex(payloadHeader.ReceiptsRoot),
+			TransactionsRoot: toHex(payloadHeader.TransactionsRoot),
+		}
+	}
+
 	log.Debug("dw.DbSignedBeaconBlock: ", dw.DbSignedBeaconBlock)
 	return nil
 }
 
 // Create the model for the eth_beacon.state table.
-func (dw *DatabaseWriter) prepareBeaconStateModel(slot int, stateRoot string) error {
+func (dw *DatabaseWriter) prepareBeaconStateModel(slot Slot, stateRoot string) error {
 	mhKey, err := MultihashKeyFromSSZRoot([]byte(dw.DbSlots.StateRoot))
 	if err != nil {
 		return err
 	}
 	dw.DbBeaconState = &DbBeaconState{
-		Slot:      strconv.Itoa(slot),
+		Slot:      slot.Number(),
 		StateRoot: stateRoot,
 		MhKey:     mhKey,
 	}
@@ -229,6 +248,11 @@ func (dw *DatabaseWriter) upsertSlots() error {
 
 // Add the information for the signed_block to a transaction.
 func (dw *DatabaseWriter) transactSignedBeaconBlocks() error {
+	if nil == dw.rawSignedBeaconBlock || len(*dw.rawSignedBeaconBlock) == 0 {
+		log.Warn("Skipping writing of empty BeaconBlock.")
+		return nil
+	}
+
 	err := dw.upsertPublicBlocks(dw.DbSignedBeaconBlock.MhKey, dw.rawSignedBeaconBlock)
 	if err != nil {
 		return err
@@ -252,9 +276,36 @@ func (dw *DatabaseWriter) upsertPublicBlocks(key string, data *[]byte) error {
 
 // Upsert to the eth_beacon.signed_block table.
 func (dw *DatabaseWriter) upsertSignedBeaconBlock() error {
-	_, err := dw.Tx.Exec(dw.Ctx, UpsertSignedBeaconBlockStmt, dw.DbSignedBeaconBlock.Slot, dw.DbSignedBeaconBlock.BlockRoot, dw.DbSignedBeaconBlock.ParentBlock, dw.DbSignedBeaconBlock.Eth1BlockHash, dw.DbSignedBeaconBlock.MhKey)
+	block := dw.DbSignedBeaconBlock
+	var err error
+	if nil != block.ExecutionPayloadHeader {
+		_, err = dw.Tx.Exec(dw.Ctx,
+			UpsertSignedBeaconBlockWithPayloadStmt,
+			block.Slot,
+			block.BlockRoot,
+			block.ParentBlock,
+			block.Eth1DataBlockHash,
+			block.MhKey,
+			block.ExecutionPayloadHeader.BlockNumber,
+			block.ExecutionPayloadHeader.Timestamp,
+			block.ExecutionPayloadHeader.BlockHash,
+			block.ExecutionPayloadHeader.ParentHash,
+			block.ExecutionPayloadHeader.StateRoot,
+			block.ExecutionPayloadHeader.ReceiptsRoot,
+			block.ExecutionPayloadHeader.TransactionsRoot,
+		)
+	} else {
+		_, err = dw.Tx.Exec(dw.Ctx,
+			UpsertSignedBeaconBlockStmt,
+			block.Slot,
+			block.BlockRoot,
+			block.ParentBlock,
+			block.Eth1DataBlockHash,
+			block.MhKey,
+		)
+	}
 	if err != nil {
-		loghelper.LogSlotError(dw.DbSlots.Slot, err).WithFields(log.Fields{"block_root": dw.DbSignedBeaconBlock.BlockRoot}).Error("Unable to write to the slot to the eth_beacon.signed_block table")
+		loghelper.LogSlotError(dw.DbSlots.Slot, err).WithFields(log.Fields{"block_root": block.BlockRoot}).Error("Unable to write to the slot to the eth_beacon.signed_block table")
 		return err
 	}
 	return nil
@@ -262,6 +313,11 @@ func (dw *DatabaseWriter) upsertSignedBeaconBlock() error {
 
 // Add the information for the state to a transaction.
 func (dw *DatabaseWriter) transactBeaconState() error {
+	if nil == dw.rawBeaconState || len(*dw.rawBeaconState) == 0 {
+		log.Warn("Skipping writing of empty BeaconState.")
+		return nil
+	}
+
 	err := dw.upsertPublicBlocks(dw.DbBeaconState.MhKey, dw.rawBeaconState)
 	if err != nil {
 		return err
@@ -285,56 +341,51 @@ func (dw *DatabaseWriter) upsertBeaconState() error {
 
 // Update a given slot to be marked as forked within a transaction. Provide the slot and the latest latestBlockRoot.
 // We will mark all entries for the given slot that don't match the provided latestBlockRoot as forked.
-func transactReorgs(tx sql.Tx, ctx context.Context, slot string, latestBlockRoot string, metrics *BeaconClientMetrics) {
-	slotNum, strErr := strconv.Atoi(slot)
-	if strErr != nil {
-		loghelper.LogReorgError(slot, latestBlockRoot, strErr).Error("We can't convert the slot to an int...")
-	}
-
+func transactReorgs(tx sql.Tx, ctx context.Context, slot Slot, latestBlockRoot string, metrics *BeaconClientMetrics) {
 	forkCount, err := updateForked(tx, ctx, slot, latestBlockRoot)
 	if err != nil {
-		loghelper.LogReorgError(slot, latestBlockRoot, err).Error("We ran into some trouble while updating all forks.")
-		transactKnownGaps(tx, ctx, 1, slotNum, slotNum, err, "reorg", metrics)
+		loghelper.LogReorgError(slot.Number(), latestBlockRoot, err).Error("We ran into some trouble while updating all forks.")
+		transactKnownGaps(tx, ctx, 1, slot, slot, err, "reorg", metrics)
 	}
 	proposedCount, err := updateProposed(tx, ctx, slot, latestBlockRoot)
 	if err != nil {
-		loghelper.LogReorgError(slot, latestBlockRoot, err).Error("We ran into some trouble while trying to update the proposed slot.")
-		transactKnownGaps(tx, ctx, 1, slotNum, slotNum, err, "reorg", metrics)
+		loghelper.LogReorgError(slot.Number(), latestBlockRoot, err).Error("We ran into some trouble while trying to update the proposed slot.")
+		transactKnownGaps(tx, ctx, 1, slot, slot, err, "reorg", metrics)
 	}
 
 	if forkCount > 0 {
-		loghelper.LogReorg(slot, latestBlockRoot).WithFields(log.Fields{
+		loghelper.LogReorg(slot.Number(), latestBlockRoot).WithFields(log.Fields{
 			"forkCount": forkCount,
 		}).Info("Updated rows that were forked.")
 	} else {
-		loghelper.LogReorg(slot, latestBlockRoot).WithFields(log.Fields{
+		loghelper.LogReorg(slot.Number(), latestBlockRoot).WithFields(log.Fields{
 			"forkCount": forkCount,
 		}).Warn("There were no forked rows to update.")
 	}
 
 	if proposedCount == 1 {
-		loghelper.LogReorg(slot, latestBlockRoot).WithFields(log.Fields{
+		loghelper.LogReorg(slot.Number(), latestBlockRoot).WithFields(log.Fields{
 			"proposedCount": proposedCount,
 		}).Info("Updated the row that should have been marked as proposed.")
 	} else if proposedCount > 1 {
-		loghelper.LogReorg(slot, latestBlockRoot).WithFields(log.Fields{
+		loghelper.LogReorg(slot.Number(), latestBlockRoot).WithFields(log.Fields{
 			"proposedCount": proposedCount,
 		}).Error("Too many rows were marked as proposed!")
-		transactKnownGaps(tx, ctx, 1, slotNum, slotNum, fmt.Errorf("Too many rows were marked as unproposed."), "reorg", metrics)
+		transactKnownGaps(tx, ctx, 1, slot, slot, fmt.Errorf("Too many rows were marked as unproposed."), "reorg", metrics)
 	} else if proposedCount == 0 {
-		transactKnownGaps(tx, ctx, 1, slotNum, slotNum, fmt.Errorf("Unable to find properly proposed row in DB"), "reorg", metrics)
-		loghelper.LogReorg(slot, latestBlockRoot).Info("Updated the row that should have been marked as proposed.")
+		transactKnownGaps(tx, ctx, 1, slot, slot, fmt.Errorf("Unable to find properly proposed row in DB"), "reorg", metrics)
+		loghelper.LogReorg(slot.Number(), latestBlockRoot).Info("Updated the row that should have been marked as proposed.")
 	}
 
 	metrics.IncrementReorgsInsert(1)
 }
 
 // Wrapper function that will create a transaction and execute the function.
-func writeReorgs(db sql.Database, slot string, latestBlockRoot string, metrics *BeaconClientMetrics) {
+func writeReorgs(db sql.Database, slot Slot, latestBlockRoot string, metrics *BeaconClientMetrics) {
 	ctx := context.Background()
 	tx, err := db.Begin(ctx)
 	if err != nil {
-		loghelper.LogReorgError(slot, latestBlockRoot, err).Fatal("Unable to create a new transaction for reorgs")
+		loghelper.LogReorgError(slot.Number(), latestBlockRoot, err).Fatal("Unable to create a new transaction for reorgs")
 	}
 	defer func() {
 		err := tx.Rollback(ctx)
@@ -344,35 +395,35 @@ func writeReorgs(db sql.Database, slot string, latestBlockRoot string, metrics *
 	}()
 	transactReorgs(tx, ctx, slot, latestBlockRoot, metrics)
 	if err = tx.Commit(ctx); err != nil {
-		loghelper.LogReorgError(slot, latestBlockRoot, err).Fatal("Unable to execute the transaction for reorgs")
+		loghelper.LogReorgError(slot.Number(), latestBlockRoot, err).Fatal("Unable to execute the transaction for reorgs")
 	}
 }
 
 // Update the slots table by marking the old slot's as forked.
-func updateForked(tx sql.Tx, ctx context.Context, slot string, latestBlockRoot string) (int64, error) {
+func updateForked(tx sql.Tx, ctx context.Context, slot Slot, latestBlockRoot string) (int64, error) {
 	res, err := tx.Exec(ctx, UpdateForkedStmt, slot, latestBlockRoot)
 	if err != nil {
-		loghelper.LogReorgError(slot, latestBlockRoot, err).Error("We are unable to update the eth_beacon.slots table with the forked slots")
+		loghelper.LogReorgError(slot.Number(), latestBlockRoot, err).Error("We are unable to update the eth_beacon.slots table with the forked slots")
 		return 0, err
 	}
 	count, err := res.RowsAffected()
 	if err != nil {
-		loghelper.LogReorgError(slot, latestBlockRoot, err).Error("Unable to figure out how many entries were marked as forked.")
+		loghelper.LogReorgError(slot.Number(), latestBlockRoot, err).Error("Unable to figure out how many entries were marked as forked.")
 		return 0, err
 	}
 	return count, err
 }
 
 // Mark a slot as proposed.
-func updateProposed(tx sql.Tx, ctx context.Context, slot string, latestBlockRoot string) (int64, error) {
+func updateProposed(tx sql.Tx, ctx context.Context, slot Slot, latestBlockRoot string) (int64, error) {
 	res, err := tx.Exec(ctx, UpdateProposedStmt, slot, latestBlockRoot)
 	if err != nil {
-		loghelper.LogReorgError(slot, latestBlockRoot, err).Error("We are unable to update the eth_beacon.slots table with the proposed slot.")
+		loghelper.LogReorgError(slot.Number(), latestBlockRoot, err).Error("We are unable to update the eth_beacon.slots table with the proposed slot.")
 		return 0, err
 	}
 	count, err := res.RowsAffected()
 	if err != nil {
-		loghelper.LogReorgError(slot, latestBlockRoot, err).Error("Unable to figure out how many entries were marked as proposed")
+		loghelper.LogReorgError(slot.Number(), latestBlockRoot, err).Error("Unable to figure out how many entries were marked as proposed")
 		return 0, err
 	}
 
@@ -382,17 +433,17 @@ func updateProposed(tx sql.Tx, ctx context.Context, slot string, latestBlockRoot
 // A wrapper function to call upsertKnownGaps. This function will break down the range of known_gaps into
 // smaller chunks. For example, instead of having an entry of 1-101, if we increment the entries by 10 slots, we would
 // have 10 entries as follows: 1-10, 11-20, etc...
-func transactKnownGaps(tx sql.Tx, ctx context.Context, tableIncrement int, startSlot int, endSlot int, entryError error, entryProcess string, metric *BeaconClientMetrics) {
+func transactKnownGaps(tx sql.Tx, ctx context.Context, tableIncrement int, startSlot Slot, endSlot Slot, entryError error, entryProcess string, metric *BeaconClientMetrics) {
 	var entryErrorMsg string
 	if entryError == nil {
 		entryErrorMsg = ""
 	} else {
 		entryErrorMsg = entryError.Error()
 	}
-	if endSlot-startSlot <= tableIncrement {
+	if endSlot.Number()-startSlot.Number() <= uint64(tableIncrement) {
 		kgModel := DbKnownGaps{
-			StartSlot:         strconv.Itoa(startSlot),
-			EndSlot:           strconv.Itoa(endSlot),
+			StartSlot:         startSlot.Number(),
+			EndSlot:           endSlot.Number(),
 			CheckedOut:        false,
 			ReprocessingError: "",
 			EntryError:        entryErrorMsg,
@@ -400,24 +451,24 @@ func transactKnownGaps(tx sql.Tx, ctx context.Context, tableIncrement int, start
 		}
 		upsertKnownGaps(tx, ctx, kgModel, metric)
 	} else {
-		totalSlots := endSlot - startSlot
+		totalSlots := endSlot.Number() - startSlot.Number()
 		var chunks int
-		chunks = totalSlots / tableIncrement
-		if totalSlots%tableIncrement != 0 {
+		chunks = int(totalSlots / uint64(tableIncrement))
+		if totalSlots%uint64(tableIncrement) != 0 {
 			chunks = chunks + 1
 		}
 
 		for i := 0; i < chunks; i++ {
-			var tempStart, tempEnd int
-			tempStart = startSlot + (i * tableIncrement)
+			var tempStart, tempEnd Slot
+			tempStart = startSlot.PlusInt(i * tableIncrement)
 			if i+1 == chunks {
 				tempEnd = endSlot
 			} else {
-				tempEnd = startSlot + ((i + 1) * tableIncrement)
+				tempEnd = startSlot.PlusInt((i + 1) * tableIncrement)
 			}
 			kgModel := DbKnownGaps{
-				StartSlot:         strconv.Itoa(tempStart),
-				EndSlot:           strconv.Itoa(tempEnd),
+				StartSlot:         tempStart.Number(),
+				EndSlot:           tempEnd.Number(),
 				CheckedOut:        false,
 				ReprocessingError: "",
 				EntryError:        entryErrorMsg,
@@ -430,11 +481,11 @@ func transactKnownGaps(tx sql.Tx, ctx context.Context, tableIncrement int, start
 
 // Wrapper function, instead of adding the knownGaps entries to a transaction, it will
 // create the transaction and write it.
-func writeKnownGaps(db sql.Database, tableIncrement int, startSlot int, endSlot int, entryError error, entryProcess string, metric *BeaconClientMetrics) {
+func writeKnownGaps(db sql.Database, tableIncrement int, startSlot Slot, endSlot Slot, entryError error, entryProcess string, metric *BeaconClientMetrics) {
 	ctx := context.Background()
 	tx, err := db.Begin(ctx)
 	if err != nil {
-		loghelper.LogSlotRangeError(strconv.Itoa(startSlot), strconv.Itoa(endSlot), err).Fatal("Unable to create a new transaction for knownGaps")
+		loghelper.LogSlotRangeError(startSlot.Number(), endSlot.Number(), err).Fatal("Unable to create a new transaction for knownGaps")
 	}
 	defer func() {
 		err := tx.Rollback(ctx)
@@ -444,7 +495,7 @@ func writeKnownGaps(db sql.Database, tableIncrement int, startSlot int, endSlot 
 	}()
 	transactKnownGaps(tx, ctx, tableIncrement, startSlot, endSlot, entryError, entryProcess, metric)
 	if err = tx.Commit(ctx); err != nil {
-		loghelper.LogSlotRangeError(strconv.Itoa(startSlot), strconv.Itoa(endSlot), err).Fatal("Unable to execute the transaction for knownGaps")
+		loghelper.LogSlotRangeError(startSlot.Number(), endSlot.Number(), err).Fatal("Unable to execute the transaction for knownGaps")
 	}
 }
 
@@ -467,8 +518,8 @@ func upsertKnownGaps(tx sql.Tx, ctx context.Context, knModel DbKnownGaps, metric
 }
 
 // A function to write the gap between the highest slot in the DB and the first processed slot.
-func writeStartUpGaps(db sql.Database, tableIncrement int, firstSlot int, metric *BeaconClientMetrics) {
-	var maxSlot int
+func writeStartUpGaps(db sql.Database, tableIncrement int, firstSlot Slot, metric *BeaconClientMetrics) {
+	var maxSlot Slot
 	err := db.QueryRow(context.Background(), QueryHighestSlotStmt).Scan(&maxSlot)
 	if err != nil {
 		loghelper.LogError(err).Fatal("Unable to get the max block from the DB. We must close the application or we might have undetected gaps.")
@@ -496,19 +547,19 @@ func writeStartUpGaps(db sql.Database, tableIncrement int, firstSlot int, metric
 }
 
 // A function to update a knownGap range with a reprocessing error.
-func updateKnownGapErrors(db sql.Database, startSlot int, endSlot int, reprocessingErr error, metric *BeaconClientMetrics) error {
+func updateKnownGapErrors(db sql.Database, startSlot Slot, endSlot Slot, reprocessingErr error, metric *BeaconClientMetrics) error {
 	res, err := db.Exec(context.Background(), UpsertKnownGapsErrorStmt, startSlot, endSlot, reprocessingErr.Error())
 	if err != nil {
-		loghelper.LogSlotRangeError(strconv.Itoa(startSlot), strconv.Itoa(endSlot), err).Error("Unable to update reprocessing_error")
+		loghelper.LogSlotRangeError(startSlot.Number(), endSlot.Number(), err).Error("Unable to update reprocessing_error")
 		return err
 	}
 	row, err := res.RowsAffected()
 	if err != nil {
-		loghelper.LogSlotRangeError(strconv.Itoa(startSlot), strconv.Itoa(endSlot), err).Error("Unable to count rows affected when trying to update reprocessing_error.")
+		loghelper.LogSlotRangeError(startSlot.Number(), endSlot.Number(), err).Error("Unable to count rows affected when trying to update reprocessing_error.")
 		return err
 	}
 	if row != 1 {
-		loghelper.LogSlotRangeError(strconv.Itoa(startSlot), strconv.Itoa(endSlot), err).WithFields(log.Fields{
+		loghelper.LogSlotRangeError(startSlot.Number(), endSlot.Number(), err).WithFields(log.Fields{
 			"rowCount": row,
 		}).Error("The rows affected by the upsert for reprocessing_error is not 1.")
 		metric.IncrementKnownGapsReprocessError(1)
@@ -519,13 +570,12 @@ func updateKnownGapErrors(db sql.Database, startSlot int, endSlot int, reprocess
 }
 
 // A quick helper function to calculate the epoch.
-func calculateEpoch(slot int, slotPerEpoch int) string {
-	epoch := slot / slotPerEpoch
-	return strconv.Itoa(epoch)
+func calculateEpoch(slot Slot, slotPerEpoch uint64) uint64 {
+	return slot.Number() / slotPerEpoch
 }
 
 // A helper function to check to see if the slot is processed.
-func isSlotProcessed(db sql.Database, checkProcessStmt string, slot string) (bool, error) {
+func isSlotProcessed(db sql.Database, checkProcessStmt string, slot Slot) (bool, error) {
 	processRow, err := db.Exec(context.Background(), checkProcessStmt, slot)
 	if err != nil {
 		return false, err
@@ -542,7 +592,7 @@ func isSlotProcessed(db sql.Database, checkProcessStmt string, slot string) (boo
 
 // Check to see if this slot is in the DB. Check eth_beacon.slots, eth_beacon.signed_block
 // and eth_beacon.state. If the slot exists, return true
-func IsSlotInDb(ctx context.Context, db sql.Database, slot string, blockRoot string, stateRoot string) (bool, error) {
+func IsSlotInDb(ctx context.Context, db sql.Database, slot Slot, blockRoot string, stateRoot string) (bool, error) {
 	var (
 		isInBeaconState       bool
 		isInSignedBeaconBlock bool
@@ -585,7 +635,7 @@ func IsSlotInDb(ctx context.Context, db sql.Database, slot string, blockRoot str
 
 // Provide a statement, slot, and root, and this function will check to see
 // if the slot and root exist in the table.
-func checkSlotAndRoot(db sql.Database, statement, slot, root string) (bool, error) {
+func checkSlotAndRoot(db sql.Database, statement string, slot Slot, root string) (bool, error) {
 	processRow, err := db.Exec(context.Background(), statement, slot, root)
 	if err != nil {
 		return false, err

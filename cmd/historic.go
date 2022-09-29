@@ -19,6 +19,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/beaconclient"
 	"os"
 	"strconv"
 
@@ -50,7 +51,8 @@ func startHistoricProcessing() {
 
 	Bc, Db, err := boot.BootApplicationWithRetry(ctx, viper.GetString("db.address"), viper.GetInt("db.port"), viper.GetString("db.name"), viper.GetString("db.username"), viper.GetString("db.password"), viper.GetString("db.driver"),
 		viper.GetString("bc.address"), viper.GetInt("bc.port"), viper.GetString("bc.connectionProtocol"), viper.GetString("bc.type"), viper.GetInt("bc.bootRetryInterval"), viper.GetInt("bc.bootMaxRetry"),
-		viper.GetInt("kg.increment"), "historic", viper.GetBool("t.skipSync"), viper.GetInt("bc.uniqueNodeIdentifier"), viper.GetBool("bc.checkDb"))
+		viper.GetInt("kg.increment"), "historic", viper.GetBool("t.skipSync"), viper.GetInt("bc.uniqueNodeIdentifier"), viper.GetBool("bc.checkDb"),
+		viper.GetBool("bc.performBeaconBlockProcessing"), viper.GetBool("bc.performBeaconStateProcessing"))
 	if err != nil {
 		StopApplicationPreBoot(err, Db)
 	}
@@ -64,7 +66,7 @@ func startHistoricProcessing() {
 
 	errG, _ := errgroup.WithContext(context.Background())
 	errG.Go(func() error {
-		errs := Bc.CaptureHistoric(hpContext, viper.GetInt("bc.maxHistoricProcessWorker"))
+		errs := Bc.CaptureHistoric(hpContext, viper.GetInt("bc.maxHistoricProcessWorker"), beaconclient.Slot(viper.GetUint64("bc.minimumSlot")))
 		if len(errs) != 0 {
 			if len(errs) != 0 {
 				log.WithFields(log.Fields{"errs": errs}).Error("All errors when processing historic events")
@@ -79,7 +81,7 @@ func startHistoricProcessing() {
 		go func() {
 			errG := new(errgroup.Group)
 			errG.Go(func() error {
-				errs := Bc.ProcessKnownGaps(kgContext, viper.GetInt("kg.maxKnownGapsWorker"))
+				errs := Bc.ProcessKnownGaps(kgContext, viper.GetInt("kg.maxKnownGapsWorker"), beaconclient.Slot(viper.GetUint64("kg.minimumSlot")))
 				if len(errs) != 0 {
 					log.WithFields(log.Fields{"errs": errs}).Error("All errors when processing knownGaps")
 					return fmt.Errorf("Application ended because there were too many error when attempting to process knownGaps")

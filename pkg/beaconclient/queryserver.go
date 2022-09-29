@@ -18,39 +18,15 @@
 package beaconclient
 
 import (
-	"encoding/json"
+	"bufio"
+	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/loghelper"
 )
-
-// A helper function to query endpoints that utilize slots.
-func querySsz(endpoint string, slot string) ([]byte, int, error) {
-	log.WithFields(log.Fields{"endpoint": endpoint}).Debug("Querying endpoint")
-	client := &http.Client{}
-	req, err := http.NewRequest("GET", endpoint, nil)
-	if err != nil {
-		loghelper.LogSlotError(slot, err).Error("Unable to create a request!")
-		return nil, 0, fmt.Errorf("Unable to create a request!: %s", err.Error())
-	}
-	req.Header.Set("Accept", "application/octet-stream")
-	response, err := client.Do(req)
-	if err != nil {
-		loghelper.LogSlotError(slot, err).Error("Unable to query Beacon Node!")
-		return nil, 0, fmt.Errorf("Unable to query Beacon Node: %s", err.Error())
-	}
-	defer response.Body.Close()
-	rc := response.StatusCode
-	body, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		loghelper.LogSlotError(slot, err).Error("Unable to turn response into a []bytes array!")
-		return nil, rc, fmt.Errorf("Unable to turn response into a []bytes array!: %s", err.Error())
-	}
-	return body, rc, nil
-}
 
 // Object to unmarshal the BlockRootResponse
 type BlockRootResponse struct {
@@ -62,35 +38,36 @@ type BlockRootMessage struct {
 	Root string `json:"root"`
 }
 
-// A function to query the blockroot for a given slot.
-func queryBlockRoot(endpoint string, slot string) (string, error) {
+// A helper function to query endpoints that utilize slots.
+func querySsz(endpoint string, slot Slot) ([]byte, int, error) {
 	log.WithFields(log.Fields{"endpoint": endpoint}).Debug("Querying endpoint")
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", endpoint, nil)
 	if err != nil {
-		loghelper.LogSlotError(slot, err).Error("Unable to create a request!")
-		return "", fmt.Errorf("Unable to create a request!: %s", err.Error())
+		loghelper.LogSlotError(slot.Number(), err).Error("Unable to create a request!")
+		return nil, 0, fmt.Errorf("Unable to create a request!: %s", err.Error())
 	}
-	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Accept", "application/octet-stream")
 	response, err := client.Do(req)
 	if err != nil {
-		loghelper.LogSlotError(slot, err).Error("Unable to query Beacon Node!")
-		return "", fmt.Errorf("Unable to query Beacon Node: %s", err.Error())
+		loghelper.LogSlotError(slot.Number(), err).Error("Unable to query Beacon Node!")
+		return nil, 0, fmt.Errorf("Unable to query Beacon Node: %s", err.Error())
 	}
 	defer response.Body.Close()
-	body, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		loghelper.LogSlotError(slot, err).Error("Unable to turn response into a []bytes array!")
-		return "", fmt.Errorf("Unable to turn response into a []bytes array!: %s", err.Error())
+
+	rc := response.StatusCode
+	// Any 2xx code is OK.
+	if rc < 200 || rc >= 300 {
+		return nil, rc, fmt.Errorf("HTTP Error: %d", rc)
 	}
 
-	resp := BlockRootResponse{}
-	if err := json.Unmarshal(body, &resp); err != nil {
-		loghelper.LogEndpoint(endpoint).WithFields(log.Fields{
-			"rawMessage": string(body),
-			"err":        err,
-		}).Error("Unable to unmarshal the block root")
-		return "", err
+	var body bytes.Buffer
+	buf := bufio.NewWriter(&body)
+	_, err = io.Copy(buf, response.Body)
+	if err != nil {
+		loghelper.LogSlotError(slot.Number(), err).Error("Unable to turn response into a []bytes array!")
+		return nil, rc, fmt.Errorf("Unable to turn response into a []bytes array!: %s", err.Error())
 	}
-	return resp.Data.Root, nil
+
+	return body.Bytes(), rc, nil
 }

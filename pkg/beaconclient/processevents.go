@@ -20,9 +20,8 @@ package beaconclient
 
 import (
 	"fmt"
-	"strconv"
-
 	log "github.com/sirupsen/logrus"
+	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/loghelper"
 )
 
 // This function will perform the necessary steps to handle a reorg.
@@ -31,7 +30,11 @@ func (bc *BeaconClient) handleReorg() {
 	for {
 		reorg := <-bc.ReOrgTracking.ProcessCh
 		log.WithFields(log.Fields{"reorg": reorg}).Debug("Received a new reorg message.")
-		writeReorgs(bc.Db, reorg.Slot, reorg.NewHeadBlock, bc.Metrics)
+		slot, err := ParseSlot(reorg.Slot)
+		if nil != err {
+			loghelper.LogSlotError(slot.Number(), err)
+		}
+		writeReorgs(bc.Db, slot, reorg.NewHeadBlock, bc.Metrics)
 	}
 }
 
@@ -42,7 +45,7 @@ func (bc *BeaconClient) handleHead() {
 	for {
 		head := <-bc.HeadTracking.ProcessCh
 		// Process all the work here.
-		slot, err := strconv.Atoi(head.Slot)
+		slot, err := ParseSlot(head.Slot)
 		if err != nil {
 			bc.HeadTracking.ErrorCh <- &SseError{
 				err: fmt.Errorf("Unable to turn the slot from string to int: %s", head.Slot),
@@ -66,7 +69,7 @@ func (bc *BeaconClient) handleHead() {
 			bc.StartingSlot = slot
 		}
 
-		go processHeadSlot(bc.Db, bc.ServerEndpoint, slot, head.Block, head.State, bc.PreviousSlot, bc.PreviousBlockRoot, bc.Metrics, bc.KnownGapTableIncrement, bc.CheckDb)
+		go processHeadSlot(slot, head.Block, head.State, bc.SlotProcessingDetails())
 
 		log.WithFields(log.Fields{"head": head.Slot}).Debug("We finished calling processHeadSlot.")
 

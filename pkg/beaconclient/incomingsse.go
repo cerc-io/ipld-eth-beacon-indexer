@@ -19,6 +19,7 @@ package beaconclient
 
 import (
 	"encoding/json"
+	"github.com/pkg/errors"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -33,11 +34,11 @@ var (
 // This function will capture all the SSE events for a given SseEvents object.
 // When new messages come in, it will ensure that they are decoded into JSON.
 // If any errors occur, it log the error information.
-func handleIncomingSseEvent[P ProcessedEvents](eventHandler *SseEvents[P], errMetricInc func(uint64)) {
+func handleIncomingSseEvent[P ProcessedEvents](eventHandler *SseEvents[P], errMetricInc func(uint64), idleTimeout time.Duration) {
 	go func() {
 		errG := new(errgroup.Group)
 		errG.Go(func() error {
-			err := eventHandler.SseClient.SubscribeChanRaw(eventHandler.MessagesCh)
+			err := eventHandler.Connect()
 			if err != nil {
 				return err
 			}
@@ -54,9 +55,21 @@ func handleIncomingSseEvent[P ProcessedEvents](eventHandler *SseEvents[P], errMe
 		}
 
 	}()
+
+	// TODO(telackey): Doesn't there need to be a check here that the handler hasn't been shutdown?
 	for {
+		var idleTimer *time.Timer = nil
+		var idleTimerC <-chan time.Time = nil
+		if idleTimeout > 0 {
+			idleTimer = time.NewTimer(idleTimeout)
+			idleTimerC = idleTimer.C
+		}
+
 		select {
 		case message := <-eventHandler.MessagesCh:
+			if nil != idleTimer {
+				idleTimer.Stop()
+			}
 			// Message can be nil if its a keep-alive message
 			if len(message.Data) != 0 {
 				log.WithFields(log.Fields{"msg": string(message.Data)}).Debug("We are going to send the following message to be processed.")
@@ -64,6 +77,9 @@ func handleIncomingSseEvent[P ProcessedEvents](eventHandler *SseEvents[P], errMe
 			}
 
 		case headErr := <-eventHandler.ErrorCh:
+			if nil != idleTimer {
+				idleTimer.Stop()
+			}
 			log.WithFields(log.Fields{
 				"endpoint": eventHandler.Endpoint,
 				"err":      headErr.err,
@@ -71,6 +87,21 @@ func handleIncomingSseEvent[P ProcessedEvents](eventHandler *SseEvents[P], errMe
 			},
 			).Error("Unable to handle event.")
 			errMetricInc(1)
+
+		case <-idleTimerC:
+			err := errors.New("SSE idle timeout")
+			log.WithFields(log.Fields{
+				"endpoint": eventHandler.Endpoint,
+				"err":      err,
+				"msg":      err.Error(),
+			},
+			).Error("TIMEOUT - Attempting to resubscribe")
+			errMetricInc(1)
+			eventHandler.Disconnect()
+			err = eventHandler.Connect()
+			if err != nil {
+				log.Error("Unable to re-subscribe.", err)
+			}
 		}
 	}
 }
@@ -93,6 +124,6 @@ func processMsg[P ProcessedEvents](msg []byte, processCh chan<- *P, errorCh chan
 // Capture all of the event topics.
 func (bc *BeaconClient) captureEventTopic() {
 	log.Info("We are capturing all SSE events")
-	go handleIncomingSseEvent(bc.HeadTracking, bc.Metrics.IncrementHeadError)
-	go handleIncomingSseEvent(bc.ReOrgTracking, bc.Metrics.IncrementReorgError)
+	go handleIncomingSseEvent(bc.HeadTracking, bc.Metrics.IncrementHeadError, time.Second*30)
+	go handleIncomingSseEvent(bc.ReOrgTracking, bc.Metrics.IncrementReorgError, 0)
 }

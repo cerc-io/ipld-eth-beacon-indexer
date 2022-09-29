@@ -20,7 +20,7 @@ import (
 )
 
 // A simple helper function that will help wrap the reorg error messages.
-func LogReorgError(slot string, latestBlockRoot string, err error) *log.Entry {
+func LogReorgError(slot uint64, latestBlockRoot string, err error) *log.Entry {
 	return log.WithFields(log.Fields{
 		"err":             err,
 		"slot":            slot,
@@ -29,7 +29,7 @@ func LogReorgError(slot string, latestBlockRoot string, err error) *log.Entry {
 }
 
 // A simple helper function that will help wrap regular reorg messages.
-func LogReorg(slot string, latestBlockRoot string) *log.Entry {
+func LogReorg(slot uint64, latestBlockRoot string) *log.Entry {
 	return log.WithFields(log.Fields{
 		"slot":            slot,
 		"latestBlockRoot": latestBlockRoot,

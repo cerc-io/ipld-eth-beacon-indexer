@@ -20,6 +20,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/protolambda/zrnt/eth2/beacon/common"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -29,12 +30,7 @@ import (
 
 	"github.com/jarcoal/httpmock"
 	. "github.com/onsi/ginkgo/v2"
-	"github.com/prysmaticlabs/prysm/beacon-chain/state"
-	si "github.com/prysmaticlabs/prysm/consensus-types/interfaces"
-	types "github.com/prysmaticlabs/prysm/consensus-types/primitives"
-	dt "github.com/prysmaticlabs/prysm/encoding/ssz/detect"
-	st "github.com/prysmaticlabs/prysm/proto/prysm/v1alpha1"
-	"github.com/r3labs/sse"
+	"github.com/r3labs/sse/v2"
 	log "github.com/sirupsen/logrus"
 
 	. "github.com/onsi/gomega"
@@ -75,7 +71,7 @@ var (
 			CorrectSignedBeaconBlockMhKey: "/blocks/QLVAEQRQPA2GINRRGFSDKYRZGNTGIYLCGY4TAMJTME3WMMDBGJTDSNRRMNQWGYJQMM4DKM3GHA3WGZTFHE2TSNLGMU2TAMBTHAYTMMZQG44TGNRQ",
 			CorrectBeaconStateMhKey:       "/blocks/QLVAEQRQPA3WKNZWHA4DAZLCGY3WEYTEMM4DMMRVGBQWCNJXHA4TKODFHFSDANRXGVSTMNDFG4YTIMZTG44DKNJSGA2GMYRVMFRGCYLGHAZGGMTC",
 			CorrectParentRoot:             "0x0000000000000000000000000000000000000000000000000000000000000000",
-			CorrectEth1BlockHash:          "0x0000000000000000000000000000000000000000000000000000000000000000",
+			CorrectEth1DataBlockHash:      "0x0000000000000000000000000000000000000000000000000000000000000000",
 		},
 		"100-dummy": {
 			HeadMessage: beaconclient.Head{
@@ -141,7 +137,7 @@ var (
 			CorrectSignedBeaconBlockMhKey: "/blocks/QLVAEQRQPA2TQMRRHA3WKOJXMY3TKMRQMJRDMOLFMVQTAMJUMMZTQMZUMM4TMNDDGQ2TENJZGM3TEYJQMVQWCZLBGNTDAMZSGAYTGNZZG44TSNTC",
 			CorrectBeaconStateMhKey:       "/blocks/QLVAEQRQPBTDEOBWMEYDGNZZMMYDGOBWMEZWGN3CMUZDQZBQGVSDQMRZMY4GKYRXMIZDQMDDMM4WKZDFGE2TINBZMFTDEMDFMJRWIMBWME3WCNJW",
 			CorrectParentRoot:             "0x629ae1587895043076500f4f5dcb202a47c2fc95d5b5c548cb83bc97bd2dbfe1",
-			CorrectEth1BlockHash:          "0x8d3f027beef5cbd4f8b29fc831aba67a5d74768edca529f5596f07fd207865e1",
+			CorrectEth1DataBlockHash:      "0x8d3f027beef5cbd4f8b29fc831aba67a5d74768edca529f5596f07fd207865e1",
 		},
 		"101": {
 			HeadMessage: beaconclient.Head{
@@ -156,7 +152,7 @@ var (
 			TestNotes:                     "An easy to process Phase 0 block",
 			SignedBeaconBlock:             filepath.Join("ssz-data", "101", "signed-beacon-block.ssz"),
 			BeaconState:                   filepath.Join("ssz-data", "101", "beacon-state.ssz"),
-			CorrectEth1BlockHash:          "0x8d3f027beef5cbd4f8b29fc831aba67a5d74768edca529f5596f07fd207865e1",
+			CorrectEth1DataBlockHash:      "0x8d3f027beef5cbd4f8b29fc831aba67a5d74768edca529f5596f07fd207865e1",
 			CorrectSignedBeaconBlockMhKey: "/blocks/QLVAEQRQPBQWEZJRME4TOMTFGUYTEMJYGJSDANDGGBSDIYJVMM4WGMRVMY4WKZJVG5RTEZJZMQYGMZRTMY2GGNDDHAZGMZBUGJSDCM3EGMYTAOBT",
 			CorrectBeaconStateMhKey:       "/blocks/QLVAEQRQPBRWEMBUMFQTEZLEMJTDCM3DG5RGEN3FG5RGIOLCGYZDCY3FMQ3DQMZSMUYDANZVMU4DSMJUG4ZTKMTFMFRTGMBRHFQTQMRUMNSTQNBX",
 		},
@@ -196,44 +192,99 @@ var (
 		},
 		"2375703": {
 			HeadMessage: beaconclient.Head{
-				Slot:                     "2375703",
-				Block:                    "0x4392372c5f6e39499e31bf924388b5815639103149f0f54f8a453773b1802301",
-				State:                    "0xb6215b560273af63ec7e011572b60ec1ca0b0232f8ff44fcd4ed55c7526e964e",
-				CurrentDutyDependentRoot: "", PreviousDutyDependentRoot: "", EpochTransition: false, ExecutionOptimistic: false},
+				Slot:                      "2375703",
+				Block:                     "0x4392372c5f6e39499e31bf924388b5815639103149f0f54f8a453773b1802301",
+				State:                     "0xb6215b560273af63ec7e011572b60ec1ca0b0232f8ff44fcd4ed55c7526e964e",
+				CurrentDutyDependentRoot:  "",
+				PreviousDutyDependentRoot: "",
+				EpochTransition:           false,
+				ExecutionOptimistic:       false,
+			},
 			TestNotes:                     "An easy to process Altair Block",
 			SignedBeaconBlock:             filepath.Join("ssz-data", "2375703", "signed-beacon-block.ssz"),
 			BeaconState:                   filepath.Join("ssz-data", "2375703", "beacon-state.ssz"),
-			CorrectEth1BlockHash:          "0xd74b1c60423651624de6bb301ac25808951c167ba6ecdd9b2e79b4315aee8202",
+			CorrectEth1DataBlockHash:      "0xd74b1c60423651624de6bb301ac25808951c167ba6ecdd9b2e79b4315aee8202",
 			CorrectParentRoot:             "0x08736ddc20b77f65d1aa6301f7e6e856a820ff3ce6430ed2c3694ae35580e740",
 			CorrectSignedBeaconBlockMhKey: "/blocks/QLVAEQRQPA2DGOJSGM3TEYZVMY3GKMZZGQ4TSZJTGFRGMOJSGQZTQODCGU4DCNJWGM4TCMBTGE2DSZRQMY2TIZRYME2DKMZXG4ZWEMJYGAZDGMBR",
 			CorrectBeaconStateMhKey:       "/blocks/QLVAEQRQPBRDMMRRGVRDKNRQGI3TGYLGGYZWKYZXMUYDCMJVG4ZGENRQMVRTCY3BGBRDAMRTGJTDQZTGGQ2GMY3EGRSWINJVMM3TKMRWMU4TMNDF",
 		},
 		"3797056": {
 			HeadMessage: beaconclient.Head{
-				Slot:                     "3797056",
-				Block:                    "",
-				State:                    "",
-				CurrentDutyDependentRoot: "", PreviousDutyDependentRoot: "", EpochTransition: false, ExecutionOptimistic: false},
+				Slot:                      "3797056",
+				Block:                     "",
+				State:                     "",
+				CurrentDutyDependentRoot:  "",
+				PreviousDutyDependentRoot: "",
+				EpochTransition:           false,
+				ExecutionOptimistic:       false,
+			},
 			TestNotes: "An easy to process Altair Block",
 			// The file below should not exist, this will trigger an error message and 404 response from the mock.
 			SignedBeaconBlock: filepath.Join("ssz-data", "3797056", "should-not-exist.txt"),
 			BeaconState:       filepath.Join("ssz-data", "3797056", "beacon-state.ssz"),
 		},
+		"4636672": {
+			HeadMessage: beaconclient.Head{
+				Slot:                      "4636672",
+				Block:                     "0x9429ce339da8944dd2e1565be8cac5bf634cae2120b6937c081e39148a7f4b1a",
+				State:                     "0x0067a5d28b38e6e2f59a73046fabbf16a782b978c2c89621a679e7f682b05bd4",
+				CurrentDutyDependentRoot:  "",
+				PreviousDutyDependentRoot: "",
+				EpochTransition:           true,
+				ExecutionOptimistic:       false,
+			},
+			TestNotes:                     "The first Bellatrix block (empty ExecutionPayload)",
+			SignedBeaconBlock:             filepath.Join("ssz-data", "4636672", "signed-beacon-block.ssz"),
+			BeaconState:                   filepath.Join("ssz-data", "4636672", "beacon-state.ssz"),
+			CorrectEth1DataBlockHash:      "0x3b7d392e46db19704d677cadb3310c3776d8c0b8cb2af1c324bb4a394b7f8164",
+			CorrectParentRoot:             "0xe7d4f3b7924c30ae047fceabb853b8afdae32b85e0a87ab6c4c37421b353a1da",
+			CorrectSignedBeaconBlockMhKey: "/blocks/QLVAEQRQPA4TIMRZMNSTGMZZMRQTQOJUGRSGIMTFGE2TMNLCMU4GGYLDGVRGMNRTGRRWCZJSGEZDAYRWHEZTOYZQHAYWKMZZGE2DQYJXMY2GEMLB",
+			CorrectBeaconStateMhKey:       "",
+		},
+		"4700013": {
+			HeadMessage: beaconclient.Head{
+				Slot:                      "4700013",
+				Block:                     "0x810a00400a80cdffc11ffdcf17ac404ac4dba215b95221955a9dfddf163d0b0d",
+				State:                     "0x171ef131e0638eddfe1ef73e7b483e344b1cf128b092f2c39e946eb7775b3a2f",
+				CurrentDutyDependentRoot:  "",
+				PreviousDutyDependentRoot: "",
+				EpochTransition:           true,
+				ExecutionOptimistic:       false,
+			},
+			TestNotes:                     "The first Bellatrix block post-Merge (with ExecutionPayload)",
+			SignedBeaconBlock:             filepath.Join("ssz-data", "4700013", "signed-beacon-block.ssz"),
+			BeaconState:                   filepath.Join("ssz-data", "4700013", "beacon-state.ssz"),
+			CorrectEth1DataBlockHash:      "0xb8736ada384707e156f2e0e69d8311ceda11f96806921644a378fd55899894ca",
+			CorrectParentRoot:             "0x60e751f7d2cf0ae24b195bda37e9add56a7d8c4b75469c018c0f912518c3bae8",
+			CorrectSignedBeaconBlockMhKey: "/blocks/QLVAEQRQPA4DCMDBGAYDIMBQME4DAY3EMZTGGMJRMZTGIY3GGE3WCYZUGA2GCYZUMRRGCMRRGVRDSNJSGIYTSNJVME4WIZTEMRTDCNRTMQYGEMDE",
+			CorrectBeaconStateMhKey:       "",
+			CorrectExecutionPayloadHeader: &beaconclient.DbExecutionPayloadHeader{
+				BlockNumber:      15537394,
+				Timestamp:        1663224179,
+				BlockHash:        "0x56a9bb0302da44b8c0b3df540781424684c3af04d0b7a38d72842b762076a664",
+				ParentHash:       "0x55b11b918355b1ef9c5db810302ebad0bf2544255b530cdce90674d5887bb286",
+				StateRoot:        "0x40c07091e16263270f3579385090fea02dd5f061ba6750228fcc082ff762fda7",
+				ReceiptsRoot:     "0x928073fb98ce316265ea35d95ab7e2e1206cecd85242eb841dbbcc4f568fca4b",
+				TransactionsRoot: "0xf9ef008aaf996dccd1c871c7e937f25d66e057e52773fbe2497090c114231acf",
+			},
+		},
 	}
 	TestConfig = Config{
-		protocol:                protocol,
-		address:                 address,
-		port:                    port,
-		dummyParentRoot:         dummyParentRoot,
-		dbHost:                  dbHost,
-		dbPort:                  dbPort,
-		dbName:                  dbName,
-		dbUser:                  dbUser,
-		dbPassword:              dbPassword,
-		dbDriver:                dbDriver,
-		knownGapsTableIncrement: knownGapsTableIncrement,
-		bcUniqueIdentifier:      bcUniqueIdentifier,
-		checkDb:                 true,
+		protocol:                     protocol,
+		address:                      address,
+		port:                         port,
+		dummyParentRoot:              dummyParentRoot,
+		dbHost:                       dbHost,
+		dbPort:                       dbPort,
+		dbName:                       dbName,
+		dbUser:                       dbUser,
+		dbPassword:                   dbPassword,
+		dbDriver:                     dbDriver,
+		knownGapsTableIncrement:      knownGapsTableIncrement,
+		bcUniqueIdentifier:           bcUniqueIdentifier,
+		checkDb:                      true,
+		performBeaconStateProcessing: true,
+		performBeaconBlockProcessing: true,
 	}
 
 	BeaconNodeTester = TestBeaconNode{
@@ -243,15 +294,16 @@ var (
 )
 
 type Message struct {
-	HeadMessage                   beaconclient.Head // The head messsage that will be streamed to the BeaconClient
-	TestNotes                     string            // A small explanation of the purpose this structure plays in the testing landscape.
-	MimicConfig                   *MimicConfig      // A configuration of parameters that you are trying to
-	SignedBeaconBlock             string            // The file path output of an SSZ encoded SignedBeaconBlock.
-	BeaconState                   string            // The file path output of an SSZ encoded BeaconState.
-	CorrectSignedBeaconBlockMhKey string            // The correct MhKey for the signedBeaconBlock
-	CorrectBeaconStateMhKey       string            // The correct MhKey beaconState
-	CorrectParentRoot             string            // The correct parent root
-	CorrectEth1BlockHash          string            // The correct eth1blockHash
+	HeadMessage                   beaconclient.Head                      // The head messsage that will be streamed to the BeaconClient
+	TestNotes                     string                                 // A small explanation of the purpose this structure plays in the testing landscape.
+	MimicConfig                   *MimicConfig                           // A configuration of parameters that you are trying to
+	SignedBeaconBlock             string                                 // The file path output of an SSZ encoded SignedBeaconBlock.
+	BeaconState                   string                                 // The file path output of an SSZ encoded BeaconState.
+	CorrectSignedBeaconBlockMhKey string                                 // The correct MhKey for the signedBeaconBlock
+	CorrectBeaconStateMhKey       string                                 // The correct MhKey beaconState
+	CorrectParentRoot             string                                 // The correct parent root
+	CorrectEth1DataBlockHash      string                                 // The correct eth1blockHash
+	CorrectExecutionPayloadHeader *beaconclient.DbExecutionPayloadHeader // The correct ExecutionPayload details.
 }
 
 // A structure that can be utilized to mimic and existing SSZ object but change it ever so slightly.
@@ -270,8 +322,12 @@ var _ = Describe("Capturehead", Label("head"), func() {
 				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
 				defer httpmock.DeactivateAndReset()
 				BeaconNodeTester.testProcessBlock(bc, BeaconNodeTester.TestEvents["100"].HeadMessage, 3, maxRetry, 1, 0, 0)
-				validateSignedBeaconBlock(bc, BeaconNodeTester.TestEvents["100"].HeadMessage, BeaconNodeTester.TestEvents["100"].CorrectParentRoot, BeaconNodeTester.TestEvents["100"].CorrectEth1BlockHash, BeaconNodeTester.TestEvents["100"].CorrectSignedBeaconBlockMhKey)
-				validateBeaconState(bc, BeaconNodeTester.TestEvents["100"].HeadMessage, BeaconNodeTester.TestEvents["100"].CorrectBeaconStateMhKey)
+				if bc.PerformBeaconBlockProcessing {
+					validateSignedBeaconBlock(bc, BeaconNodeTester.TestEvents["100"].HeadMessage, BeaconNodeTester.TestEvents["100"].CorrectParentRoot, BeaconNodeTester.TestEvents["100"].CorrectEth1DataBlockHash, BeaconNodeTester.TestEvents["100"].CorrectSignedBeaconBlockMhKey, BeaconNodeTester.TestEvents["100"].CorrectExecutionPayloadHeader)
+				}
+				if bc.PerformBeaconStateProcessing {
+					validateBeaconState(bc, BeaconNodeTester.TestEvents["100"].HeadMessage, BeaconNodeTester.TestEvents["100"].CorrectBeaconStateMhKey)
+				}
 
 			})
 		})
@@ -281,8 +337,12 @@ var _ = Describe("Capturehead", Label("head"), func() {
 				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
 				defer httpmock.DeactivateAndReset()
 				BeaconNodeTester.testProcessBlock(bc, BeaconNodeTester.TestEvents["2375703"].HeadMessage, 74240, maxRetry, 1, 0, 0)
-				validateSignedBeaconBlock(bc, BeaconNodeTester.TestEvents["2375703"].HeadMessage, BeaconNodeTester.TestEvents["2375703"].CorrectParentRoot, BeaconNodeTester.TestEvents["2375703"].CorrectEth1BlockHash, BeaconNodeTester.TestEvents["2375703"].CorrectSignedBeaconBlockMhKey)
-				validateBeaconState(bc, BeaconNodeTester.TestEvents["2375703"].HeadMessage, BeaconNodeTester.TestEvents["2375703"].CorrectBeaconStateMhKey)
+				if bc.PerformBeaconBlockProcessing {
+					validateSignedBeaconBlock(bc, BeaconNodeTester.TestEvents["2375703"].HeadMessage, BeaconNodeTester.TestEvents["2375703"].CorrectParentRoot, BeaconNodeTester.TestEvents["2375703"].CorrectEth1DataBlockHash, BeaconNodeTester.TestEvents["2375703"].CorrectSignedBeaconBlockMhKey, BeaconNodeTester.TestEvents["2375703"].CorrectExecutionPayloadHeader)
+				}
+				if bc.PerformBeaconStateProcessing {
+					validateBeaconState(bc, BeaconNodeTester.TestEvents["2375703"].HeadMessage, BeaconNodeTester.TestEvents["2375703"].CorrectBeaconStateMhKey)
+				}
 			})
 		})
 		Context("Correctly formatted Altair Test Blocks", func() {
@@ -299,6 +359,26 @@ var _ = Describe("Capturehead", Label("head"), func() {
 
 			})
 		})
+		Context("Correctly formatted Bellatrix Test Blocks", Label("unit", "bellatrix"), func() {
+			It("Should turn it into a struct successfully (pre-Merge).", func() {
+				bc := setUpTest(BeaconNodeTester.TestConfig, "4636672")
+				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
+				defer httpmock.DeactivateAndReset()
+				BeaconNodeTester.testProcessBlock(bc, BeaconNodeTester.TestEvents["4636672"].HeadMessage, 144896, maxRetry, 1, 0, 0)
+				if bc.PerformBeaconBlockProcessing {
+					validateSignedBeaconBlock(bc, BeaconNodeTester.TestEvents["4636672"].HeadMessage, BeaconNodeTester.TestEvents["4636672"].CorrectParentRoot, BeaconNodeTester.TestEvents["4636672"].CorrectEth1DataBlockHash, BeaconNodeTester.TestEvents["4636672"].CorrectSignedBeaconBlockMhKey, BeaconNodeTester.TestEvents["4636672"].CorrectExecutionPayloadHeader)
+				}
+			})
+			It("Should turn it into a struct successfully (post-Merge).", func() {
+				bc := setUpTest(BeaconNodeTester.TestConfig, "4700013")
+				BeaconNodeTester.SetupBeaconNodeMock(BeaconNodeTester.TestEvents, BeaconNodeTester.TestConfig.protocol, BeaconNodeTester.TestConfig.address, BeaconNodeTester.TestConfig.port, BeaconNodeTester.TestConfig.dummyParentRoot)
+				defer httpmock.DeactivateAndReset()
+				BeaconNodeTester.testProcessBlock(bc, BeaconNodeTester.TestEvents["4700013"].HeadMessage, 146875, maxRetry, 1, 0, 0)
+				if bc.PerformBeaconBlockProcessing {
+					validateSignedBeaconBlock(bc, BeaconNodeTester.TestEvents["4700013"].HeadMessage, BeaconNodeTester.TestEvents["4700013"].CorrectParentRoot, BeaconNodeTester.TestEvents["4700013"].CorrectEth1DataBlockHash, BeaconNodeTester.TestEvents["4700013"].CorrectSignedBeaconBlockMhKey, BeaconNodeTester.TestEvents["4700013"].CorrectExecutionPayloadHeader)
+				}
+			})
+		})
 		Context("Correctly formatted Phase0 Test Blocks", func() {
 			It("Should turn it into a struct successfully.", func() {
 				bc := setUpTest(BeaconNodeTester.TestConfig, "99")
@@ -311,7 +391,6 @@ var _ = Describe("Capturehead", Label("head"), func() {
 				defer httpmock.DeactivateAndReset()
 				BeaconNodeTester.testProcessBlock(bc, BeaconNodeTester.TestEvents["100-dummy-2"].HeadMessage, 3, maxRetry, 1, 0, 0)
 			})
-
 		})
 		Context("Two consecutive correct blocks", func() {
 			It("Should handle both blocks correctly, without any reorgs or known_gaps", func() {
@@ -332,12 +411,12 @@ var _ = Describe("Capturehead", Label("head"), func() {
 			})
 		})
 		Context("Phase 0: We have a correctly formated SSZ SignedBeaconBlock and BeaconState", func() {
-			It("Should be able to get each objects root hash.", func() {
+			It("Should be able to get each objects root hash (100).", func() {
 				testSszRoot(BeaconNodeTester.TestEvents["100"])
 			})
 		})
 		Context("Altair: We have a correctly formated SSZ SignedBeaconBlock and BeaconState", func() {
-			It("Should be able to get each objects root hash.", func() {
+			It("Should be able to get each objects root hash (2375703).", func() {
 				testSszRoot(BeaconNodeTester.TestEvents["2375703"])
 			})
 		})
@@ -446,19 +525,21 @@ var _ = Describe("Capturehead", Label("head"), func() {
 })
 
 type Config struct {
-	protocol                string
-	address                 string
-	port                    int
-	dummyParentRoot         string
-	dbHost                  string
-	dbPort                  int
-	dbName                  string
-	dbUser                  string
-	dbPassword              string
-	dbDriver                string
-	knownGapsTableIncrement int
-	bcUniqueIdentifier      int
-	checkDb                 bool
+	protocol                     string
+	address                      string
+	port                         int
+	dummyParentRoot              string
+	dbHost                       string
+	dbPort                       int
+	dbName                       string
+	dbUser                       string
+	dbPassword                   string
+	dbDriver                     string
+	knownGapsTableIncrement      int
+	bcUniqueIdentifier           int
+	checkDb                      bool
+	performBeaconBlockProcessing bool
+	performBeaconStateProcessing bool
 }
 
 //////////////////////////////////////////////////////
@@ -468,7 +549,7 @@ type Config struct {
 // Must run before each test. We can't use the beforeEach because of the way
 // Gingko treats race conditions.
 func setUpTest(config Config, maxSlot string) *beaconclient.BeaconClient {
-	bc, err := beaconclient.CreateBeaconClient(context.Background(), config.protocol, config.address, config.port, config.knownGapsTableIncrement, config.bcUniqueIdentifier, config.checkDb)
+	bc, err := beaconclient.CreateBeaconClient(context.Background(), config.protocol, config.address, config.port, config.knownGapsTableIncrement, config.bcUniqueIdentifier, config.checkDb, config.performBeaconBlockProcessing, config.performBeaconStateProcessing)
 	Expect(err).ToNot(HaveOccurred())
 	db, err := postgres.SetupPostgresDb(config.dbHost, config.dbPort, config.dbName, config.dbUser, config.dbPassword, config.dbDriver)
 	Expect(err).ToNot(HaveOccurred())
@@ -484,10 +565,10 @@ func setUpTest(config Config, maxSlot string) *beaconclient.BeaconClient {
 }
 
 // A helper function to validate the expected output from the eth_beacon.slots table.
-func validateSlot(bc *beaconclient.BeaconClient, headMessage beaconclient.Head, correctEpoch int, correctStatus string) {
+func validateSlot(bc *beaconclient.BeaconClient, headMessage beaconclient.Head, correctEpoch beaconclient.Epoch, correctStatus string) {
 	epoch, dbSlot, blockRoot, stateRoot, status := queryDbSlotAndBlock(bc.Db, headMessage.Slot, headMessage.Block)
 	log.Info("validateSlot: ", headMessage)
-	baseSlot, err := strconv.Atoi(headMessage.Slot)
+	baseSlot, err := beaconclient.ParseSlot(headMessage.Slot)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(dbSlot).To(Equal(baseSlot))
 	Expect(epoch).To(Equal(correctEpoch))
@@ -497,29 +578,30 @@ func validateSlot(bc *beaconclient.BeaconClient, headMessage beaconclient.Head, 
 }
 
 // A helper function to validate the expected output from the eth_beacon.signed_block table.
-func validateSignedBeaconBlock(bc *beaconclient.BeaconClient, headMessage beaconclient.Head, correctParentRoot string, correctEth1BlockHash string, correctMhKey string) {
-	dbSlot, blockRoot, parentRoot, eth1BlockHash, mhKey := queryDbSignedBeaconBlock(bc.Db, headMessage.Slot, headMessage.Block)
+func validateSignedBeaconBlock(bc *beaconclient.BeaconClient, headMessage beaconclient.Head,
+	correctParentRoot string, correctEth1DataBlockHash string, correctMhKey string,
+	correctExecutionPayloadHeader *beaconclient.DbExecutionPayloadHeader) {
+	dbSignedBlock := queryDbSignedBeaconBlock(bc.Db, headMessage.Slot, headMessage.Block)
 	log.Info("validateSignedBeaconBlock: ", headMessage)
-	baseSlot, err := strconv.Atoi(headMessage.Slot)
+	baseSlot, err := beaconclient.ParseSlot(headMessage.Slot)
 	Expect(err).ToNot(HaveOccurred())
-	Expect(dbSlot).To(Equal(baseSlot))
-	Expect(blockRoot).To(Equal(headMessage.Block))
-	Expect(parentRoot).To(Equal(correctParentRoot))
-	Expect(eth1BlockHash).To(Equal(correctEth1BlockHash))
-	Expect(mhKey).To(Equal(correctMhKey))
-
+	Expect(dbSignedBlock.Slot).To(Equal(baseSlot.Number()))
+	Expect(dbSignedBlock.BlockRoot).To(Equal(headMessage.Block))
+	Expect(dbSignedBlock.ParentBlock).To(Equal(correctParentRoot))
+	Expect(dbSignedBlock.Eth1DataBlockHash).To(Equal(correctEth1DataBlockHash))
+	Expect(dbSignedBlock.MhKey).To(Equal(correctMhKey))
+	Expect(dbSignedBlock.ExecutionPayloadHeader).To(Equal(correctExecutionPayloadHeader))
 }
 
 // A helper function to validate the expected output from the eth_beacon.state table.
 func validateBeaconState(bc *beaconclient.BeaconClient, headMessage beaconclient.Head, correctMhKey string) {
 	dbSlot, stateRoot, mhKey := queryDbBeaconState(bc.Db, headMessage.Slot, headMessage.State)
 	log.Info("validateBeaconState: ", headMessage)
-	baseSlot, err := strconv.Atoi(headMessage.Slot)
+	baseSlot, err := beaconclient.ParseSlot(headMessage.Slot)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(dbSlot).To(Equal(baseSlot))
 	Expect(stateRoot).To(Equal(headMessage.State))
 	Expect(mhKey).To(Equal(correctMhKey))
-
 }
 
 // Wrapper function to send a head message to the beaconclient
@@ -551,9 +633,10 @@ func sendHeadMessage(bc *beaconclient.BeaconClient, head beaconclient.Head, maxR
 }
 
 // A helper function to query the eth_beacon.slots table based on the slot and block_root
-func queryDbSlotAndBlock(db sql.Database, querySlot string, queryBlockRoot string) (int, int, string, string, string) {
+func queryDbSlotAndBlock(db sql.Database, querySlot string, queryBlockRoot string) (beaconclient.Epoch, beaconclient.Slot, string, string, string) {
 	sqlStatement := `SELECT epoch, slot, block_root, state_root, status FROM eth_beacon.slots WHERE slot=$1 AND block_root=$2;`
-	var epoch, slot int
+	var epoch beaconclient.Epoch
+	var slot beaconclient.Slot
 	var blockRoot, stateRoot, status string
 	log.Debug("Starting to query the eth_beacon.slots table, ", querySlot, " ", queryBlockRoot)
 	err := db.QueryRow(context.Background(), sqlStatement, querySlot, queryBlockRoot).Scan(&epoch, &slot, &blockRoot, &stateRoot, &status)
@@ -563,25 +646,56 @@ func queryDbSlotAndBlock(db sql.Database, querySlot string, queryBlockRoot strin
 }
 
 // A helper function to query the eth_beacon.signed_block table based on the slot and block_root.
-func queryDbSignedBeaconBlock(db sql.Database, querySlot string, queryBlockRoot string) (int, string, string, string, string) {
-	sqlStatement := `SELECT slot, block_root, parent_block_root, eth1_block_hash, mh_key FROM eth_beacon.signed_block WHERE slot=$1 AND block_root=$2;`
-	var slot int
-	var blockRoot, parent_block_root, eth1_block_hash, mh_key string
+func queryDbSignedBeaconBlock(db sql.Database, querySlot string, queryBlockRoot string) beaconclient.DbSignedBeaconBlock {
+	sqlStatement := `SELECT slot, block_root, parent_block_root, eth1_data_block_hash, mh_key, 
+       payload_block_number, payload_timestamp, payload_block_hash,
+       payload_parent_hash, payload_state_root, payload_receipts_root,
+       payload_transactions_root FROM eth_beacon.signed_block WHERE slot=$1 AND block_root=$2;`
+
+	var slot beaconclient.Slot
+	var payloadBlockNumber, payloadTimestamp *uint64
+	var blockRoot, parentBlockRoot, eth1DataBlockHash, mhKey string
+	var payloadBlockHash, payloadParentHash, payloadStateRoot, payloadReceiptsRoot, payloadTransactionsRoot *string
+
 	row := db.QueryRow(context.Background(), sqlStatement, querySlot, queryBlockRoot)
-	err := row.Scan(&slot, &blockRoot, &parent_block_root, &eth1_block_hash, &mh_key)
+	err := row.Scan(&slot, &blockRoot, &parentBlockRoot, &eth1DataBlockHash, &mhKey,
+		&payloadBlockNumber, &payloadTimestamp, &payloadBlockHash,
+		&payloadParentHash, &payloadStateRoot, &payloadReceiptsRoot, &payloadTransactionsRoot)
 	Expect(err).ToNot(HaveOccurred())
-	return slot, blockRoot, parent_block_root, eth1_block_hash, mh_key
+
+	signedBlock := beaconclient.DbSignedBeaconBlock{
+		Slot:                   slot.Number(),
+		BlockRoot:              blockRoot,
+		ParentBlock:            parentBlockRoot,
+		Eth1DataBlockHash:      eth1DataBlockHash,
+		MhKey:                  mhKey,
+		ExecutionPayloadHeader: nil,
+	}
+
+	if nil != payloadBlockNumber {
+		signedBlock.ExecutionPayloadHeader = &beaconclient.DbExecutionPayloadHeader{
+			BlockNumber:      *payloadBlockNumber,
+			Timestamp:        *payloadTimestamp,
+			BlockHash:        *payloadBlockHash,
+			ParentHash:       *payloadParentHash,
+			StateRoot:        *payloadStateRoot,
+			ReceiptsRoot:     *payloadReceiptsRoot,
+			TransactionsRoot: *payloadTransactionsRoot,
+		}
+	}
+
+	return signedBlock
 }
 
 // A helper function to query the eth_beacon.signed_block table based on the slot and block_root.
-func queryDbBeaconState(db sql.Database, querySlot string, queryStateRoot string) (int, string, string) {
+func queryDbBeaconState(db sql.Database, querySlot string, queryStateRoot string) (beaconclient.Slot, string, string) {
 	sqlStatement := `SELECT slot, state_root, mh_key FROM eth_beacon.state WHERE slot=$1 AND state_root=$2;`
-	var slot int
-	var stateRoot, mh_key string
+	var slot beaconclient.Slot
+	var stateRoot, mhKey string
 	row := db.QueryRow(context.Background(), sqlStatement, querySlot, queryStateRoot)
-	err := row.Scan(&slot, &stateRoot, &mh_key)
+	err := row.Scan(&slot, &stateRoot, &mhKey)
 	Expect(err).ToNot(HaveOccurred())
-	return slot, stateRoot, mh_key
+	return slot, stateRoot, mhKey
 }
 
 // Count the entries in the knownGaps table.
@@ -620,55 +734,27 @@ func writeSlot(db sql.Database, slot string) {
 
 // Read a file with the SignedBeaconBlock in SSZ and return the SSZ object. This is used for testing only.
 // We can't use the readSignedBeaconBlockInterface to update struct fields so this is the workaround.
-func readSignedBeaconBlock(slotFile string) (*st.SignedBeaconBlock, error) {
+func readSignedBeaconBlock(slotFile string) (*beaconclient.SignedBeaconBlock, error) {
 	dat, err := os.ReadFile(slotFile)
 	if err != nil {
 		return nil, fmt.Errorf("Can't find the slot file, %s", slotFile)
 	}
-	block := &st.SignedBeaconBlock{}
+	var block beaconclient.SignedBeaconBlock
 	err = block.UnmarshalSSZ(dat)
 	Expect(err).ToNot(HaveOccurred())
-	return block, nil
-}
-
-// Read a file with the SignedBeaconBlock in SSZ and return the SSZ object. This is used for testing only.
-// We can't use the readSignedBeaconBlockInterface to update struct fields so this is the workaround.
-func readSignedBeaconBlockAltair(slotFile string) (*st.SignedBeaconBlockAltair, error) {
-	dat, err := os.ReadFile(slotFile)
-	if err != nil {
-		return nil, fmt.Errorf("Can't find the slot file, %s", slotFile)
-	}
-	block := &st.SignedBeaconBlockAltair{}
-	err = block.UnmarshalSSZ(dat)
-	Expect(err).ToNot(HaveOccurred())
-	return block, nil
-}
-
-// Read a file with the SignedBeaconBlock in SSZ and return the SSZ objects interface. This is production like.
-// It will provide the correct struct for the given fork.
-func readSignedBeaconBlockInterface(slotFile string, vm *dt.VersionedUnmarshaler) (si.SignedBeaconBlock, error) {
-	dat, err := os.ReadFile(slotFile)
-	if err != nil {
-		return nil, fmt.Errorf("Can't find the slot file, %s", slotFile)
-	}
-
-	block, err := vm.UnmarshalBeaconBlock(dat)
-	Expect(err).ToNot(HaveOccurred())
-	return block, nil
-
+	return &block, nil
 }
 
 // Read a file with the BeaconState in SSZ and return the SSZ object
-func readBeaconState(slotFile string) (state.BeaconState, *dt.VersionedUnmarshaler, error) {
+func readBeaconState(slotFile string) (*beaconclient.BeaconState, error) {
 	dat, err := os.ReadFile(slotFile)
 	if err != nil {
-		return nil, nil, fmt.Errorf("Can't find the slot file, %s", slotFile)
+		return nil, fmt.Errorf("Can't find the slot file, %s", slotFile)
 	}
-	versionedUnmarshaler, err := dt.FromState(dat)
+	var beaconState beaconclient.BeaconState
+	err = beaconState.UnmarshalSSZ(dat)
 	Expect(err).ToNot(HaveOccurred())
-	state, err := versionedUnmarshaler.UnmarshalBeaconState(dat)
-	Expect(err).ToNot(HaveOccurred())
-	return state, versionedUnmarshaler, nil
+	return &beaconState, nil
 }
 
 // An object that is used to aggregate test functions. Test functions are needed because we need to
@@ -768,52 +854,62 @@ func (tbc TestBeaconNode) provideSsz(slotIdentifier string, sszIdentifier string
 				if err != nil {
 					return nil, err
 				}
+				Expect(block.IsPhase0()).To(BeTrue())
+				var phase0 = block.GetPhase0()
+
 				slot, err := strconv.ParseUint(Message.HeadMessage.Slot, 10, 64)
 				Expect(err).ToNot(HaveOccurred())
-				block.Block.Slot = types.Slot(slot)
+				phase0.Message.Slot = common.Slot(slot)
 
-				block.Block.StateRoot, err = hex.DecodeString(Message.HeadMessage.State)
+				phase0.Message.StateRoot, err = decodeRoot(Message.HeadMessage.State)
 				Expect(err).ToNot(HaveOccurred())
 
 				if Message.MimicConfig.ParentRoot == "" {
-					block.Block.ParentRoot, err = hex.DecodeString(dummyParentRoot)
+					phase0.Message.ParentRoot, err = decodeRoot(dummyParentRoot)
 					Expect(err).ToNot(HaveOccurred())
 				} else {
-					block.Block.ParentRoot, err = hex.DecodeString(Message.MimicConfig.ParentRoot)
+					phase0.Message.ParentRoot, err = decodeRoot(Message.MimicConfig.ParentRoot)
 					Expect(err).ToNot(HaveOccurred())
 				}
 				return block.MarshalSSZ()
 			case "altair":
-				block, err := readSignedBeaconBlockAltair(slotFile)
+				block, err := readSignedBeaconBlock(slotFile)
 				if err != nil {
 					return nil, err
 				}
+				Expect(block.IsAltair()).To(BeTrue())
+				var altair = block.GetAltair()
 				slot, err := strconv.ParseUint(Message.HeadMessage.Slot, 10, 64)
 				Expect(err).ToNot(HaveOccurred())
-				block.Block.Slot = types.Slot(slot)
+				altair.Message.Slot = common.Slot(slot)
 
-				block.Block.StateRoot, err = hex.DecodeString(Message.HeadMessage.State)
+				altair.Message.StateRoot, err = decodeRoot(Message.HeadMessage.State)
 				Expect(err).ToNot(HaveOccurred())
 
 				if Message.MimicConfig.ParentRoot == "" {
-					block.Block.ParentRoot, err = hex.DecodeString(dummyParentRoot)
+					altair.Message.ParentRoot, err = decodeRoot(dummyParentRoot)
 					Expect(err).ToNot(HaveOccurred())
 				} else {
-					block.Block.ParentRoot, err = hex.DecodeString(Message.MimicConfig.ParentRoot)
+					altair.Message.ParentRoot, err = decodeRoot(Message.MimicConfig.ParentRoot)
 					Expect(err).ToNot(HaveOccurred())
 				}
 				return block.MarshalSSZ()
 			}
 		}
 		if sszIdentifier == "state" {
-			state, _, err := readBeaconState(slotFile)
+			state, err := readBeaconState(slotFile)
 			if err != nil {
 				return nil, err
 			}
 			slot, err := strconv.ParseUint(Message.HeadMessage.Slot, 10, 64)
 			Expect(err).ToNot(HaveOccurred())
-			err = state.SetSlot(types.Slot(slot))
-			Expect(err).ToNot(HaveOccurred())
+			if state.IsBellatrix() {
+				state.GetBellatrix().Slot = common.Slot(slot)
+			} else if state.IsAltair() {
+				state.GetAltair().Slot = common.Slot(slot)
+			} else {
+				state.GetPhase0().Slot = common.Slot(slot)
+			}
 			return state.MarshalSSZ()
 		}
 	}
@@ -831,7 +927,7 @@ func (tbc TestBeaconNode) provideSsz(slotIdentifier string, sszIdentifier string
 
 // Helper function to test three reorg messages. There are going to be many functions like this,
 // Because we need to test the same logic for multiple phases.
-func (tbc TestBeaconNode) testMultipleReorgs(bc *beaconclient.BeaconClient, firstHead beaconclient.Head, secondHead beaconclient.Head, thirdHead beaconclient.Head, epoch int, maxRetry int) {
+func (tbc TestBeaconNode) testMultipleReorgs(bc *beaconclient.BeaconClient, firstHead beaconclient.Head, secondHead beaconclient.Head, thirdHead beaconclient.Head, epoch beaconclient.Epoch, maxRetry int) {
 	go bc.CaptureHead()
 	time.Sleep(1 * time.Second)
 
@@ -863,7 +959,7 @@ func (tbc TestBeaconNode) testMultipleReorgs(bc *beaconclient.BeaconClient, firs
 		NewHeadBlock:        secondHead.Block,
 		OldHeadState:        thirdHead.State,
 		NewHeadState:        secondHead.State,
-		Epoch:               strconv.Itoa(epoch),
+		Epoch:               epoch.Format(),
 		ExecutionOptimistic: false,
 	})
 	Expect(err).ToNot(HaveOccurred())
@@ -893,7 +989,7 @@ func (tbc TestBeaconNode) testMultipleReorgs(bc *beaconclient.BeaconClient, firs
 }
 
 // A test to validate a single block was processed correctly
-func (tbc TestBeaconNode) testProcessBlock(bc *beaconclient.BeaconClient, head beaconclient.Head, epoch int, maxRetry int, expectedSuccessInsert uint64, expectedKnownGaps uint64, expectedReorgs uint64) {
+func (tbc TestBeaconNode) testProcessBlock(bc *beaconclient.BeaconClient, head beaconclient.Head, epoch beaconclient.Epoch, maxRetry int, expectedSuccessInsert uint64, expectedKnownGaps uint64, expectedReorgs uint64) {
 	go bc.CaptureHead()
 	time.Sleep(1 * time.Second)
 	sendHeadMessage(bc, head, maxRetry, expectedSuccessInsert)
@@ -923,7 +1019,7 @@ func (tbc TestBeaconNode) testProcessBlock(bc *beaconclient.BeaconClient, head b
 
 // A test that ensures that if two HeadMessages occur for a single slot they are marked
 // as proposed and forked correctly.
-func (tbc TestBeaconNode) testMultipleHead(bc *beaconclient.BeaconClient, firstHead beaconclient.Head, secondHead beaconclient.Head, epoch int, maxRetry int) {
+func (tbc TestBeaconNode) testMultipleHead(bc *beaconclient.BeaconClient, firstHead beaconclient.Head, secondHead beaconclient.Head, epoch beaconclient.Epoch, maxRetry int) {
 	go bc.CaptureHead()
 	time.Sleep(1 * time.Second)
 
@@ -979,15 +1075,25 @@ func (tbc TestBeaconNode) testKnownGapsMessages(bc *beaconclient.BeaconClient, t
 
 // This function will make sure we are properly able to get the SszRoot of the SignedBeaconBlock and the BeaconState.
 func testSszRoot(msg Message) {
-	state, vm, err := readBeaconState(msg.BeaconState)
+	state, err := readBeaconState(msg.BeaconState)
 	Expect(err).ToNot(HaveOccurred())
-	stateRoot, err := state.HashTreeRoot(context.Background())
+	stateRoot := state.HashTreeRoot()
 	Expect(err).ToNot(HaveOccurred())
 	Expect(msg.HeadMessage.State).To(Equal("0x" + hex.EncodeToString(stateRoot[:])))
 
-	block, err := readSignedBeaconBlockInterface(msg.SignedBeaconBlock, vm)
+	block, err := readSignedBeaconBlock(msg.SignedBeaconBlock)
 	Expect(err).ToNot(HaveOccurred())
-	blockRoot, err := block.Block().HashTreeRoot()
+	blockRoot := block.Block().HashTreeRoot()
 	Expect(err).ToNot(HaveOccurred())
 	Expect(msg.HeadMessage.Block).To(Equal("0x" + hex.EncodeToString(blockRoot[:])))
+}
+
+func decodeRoot(raw string) (common.Root, error) {
+	value, err := hex.DecodeString(raw)
+	if err != nil {
+		return common.Root{}, err
+	}
+	var root common.Root
+	copy(root[:], value[:32])
+	return root, nil
 }

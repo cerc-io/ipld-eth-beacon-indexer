@@ -17,7 +17,7 @@ on:
 
 env:
   stack-orchestrator-ref: ${{ inputs.stack-orchestrator-ref || '7fb664270a0ba09e2caa3095e8c91f3fdb5b38af' }}
-  ipld-eth-beacon-db-ref: ${{ inputs.ipld-eth-beacon-db-ref  || '3dfe416302d553f8240f6051c08a7899b0e39e12' }}
+  ipld-eth-beacon-db-ref: ${{ inputs.ipld-eth-beacon-db-ref  || '6b38fe9b18f7b19a803c626b742cafdccc1a2365' }}
   ssz-data-ref: ${{ inputs.ssz-data-ref || 'main' }}
   GOPATH: /tmp/go
 jobs:
@@ -64,7 +64,11 @@ jobs:
       - name: Check to make sure HEALTH file is present
         shell: bash
         run: |
-          until $(docker compose -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-ipld-eth-beacon-indexer.yml" --env-file ./config.sh cp ipld-eth-beacon-indexer:/root/HEALTH ./HEALTH) ; do sleep 10; done
+          until $(docker compose \
+          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-ipld-eth-beacon-db.yml" \
+          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-ipld-eth-beacon-indexer.yml" \
+          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/latest/docker-compose-lighthouse.yml" \
+          --env-file ./config.sh cp ipld-eth-beacon-indexer:/root/HEALTH ./HEALTH) ; do sleep 10; done
           cat ./HEALTH
           if [[ "$(cat ./HEALTH)" -eq "0" ]]; then echo "Application boot successful" && (exit 0); else docker compose -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-ipld-eth-beacon-indexer.yml" cp ipld-eth-beacon-indexer:/root/ipld-eth-beacon-indexer.log . && cat ipld-eth-beacon-indexer.log && (exit 1); fi
 

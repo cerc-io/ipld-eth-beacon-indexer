@@ -1,32 +1,42 @@
 package beaconclient_test
 
 import (
+	log "github.com/sirupsen/logrus"
 	"os"
 	"strconv"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
-	//. "github.com/onsi/gomega"
+
 	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/beaconclient"
 )
 
 var (
 	prodConfig = Config{
-		protocol:                os.Getenv("bc_protocol"),
-		address:                 os.Getenv("bc_address"),
-		port:                    getEnvInt(os.Getenv("bc_port")),
-		dbHost:                  os.Getenv("db_host"),
-		dbPort:                  getEnvInt(os.Getenv("db_port")),
-		dbName:                  os.Getenv("db_name"),
-		dbUser:                  os.Getenv("db_user"),
-		dbPassword:              os.Getenv("db_password"),
-		dbDriver:                os.Getenv("db_driver"),
-		knownGapsTableIncrement: 100000000,
-		bcUniqueIdentifier:      100,
-		checkDb:                 false,
+		protocol:                     os.Getenv("bc_protocol"),
+		address:                      os.Getenv("bc_address"),
+		port:                         getEnvInt(os.Getenv("bc_port")),
+		dbHost:                       os.Getenv("db_host"),
+		dbPort:                       getEnvInt(os.Getenv("db_port")),
+		dbName:                       os.Getenv("db_name"),
+		dbUser:                       os.Getenv("db_user"),
+		dbPassword:                   os.Getenv("db_password"),
+		dbDriver:                     os.Getenv("db_driver"),
+		knownGapsTableIncrement:      100000000,
+		bcUniqueIdentifier:           100,
+		checkDb:                      false,
+		performBeaconBlockProcessing: true,
+		// As of 2022-09, generating and downloading the full BeaconState is so slow it will cause the tests to fail.
+		performBeaconStateProcessing: false,
 	}
 )
+
+// Note: These tests expect to communicate with a fully-synced Beacon node.
+
 var _ = Describe("Systemvalidation", Label("system"), func() {
+	level, _ := log.ParseLevel("debug")
+	log.SetLevel(level)
+
 	Describe("Run the application against a running lighthouse node", func() {
 		Context("When we receive head messages", func() {
 			It("We should process the messages successfully", func() {

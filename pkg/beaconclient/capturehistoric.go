@@ -22,16 +22,15 @@ import (
 	"fmt"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/database/sql"
 	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/loghelper"
 	"golang.org/x/sync/errgroup"
 )
 
 // This function will perform all the heavy lifting for tracking the head of the chain.
-func (bc *BeaconClient) CaptureHistoric(ctx context.Context, maxWorkers int) []error {
+func (bc *BeaconClient) CaptureHistoric(ctx context.Context, maxWorkers int, minimumSlot Slot) []error {
 	log.Info("We are starting the historical processing service.")
 	bc.HistoricalProcess = HistoricProcessing{db: bc.Db, metrics: bc.Metrics, uniqueNodeIdentifier: bc.UniqueNodeIdentifier}
-	errs := handleBatchProcess(ctx, maxWorkers, bc.HistoricalProcess, bc.HistoricalProcess.db, bc.ServerEndpoint, bc.Metrics, bc.CheckDb, bc.Metrics.IncrementHistoricSlotProcessed)
+	errs := handleBatchProcess(ctx, maxWorkers, bc.HistoricalProcess, bc.SlotProcessingDetails(), bc.Metrics.IncrementHistoricSlotProcessed, minimumSlot)
 	log.Debug("Exiting Historical")
 	return errs
 }
@@ -53,7 +52,7 @@ func (bc *BeaconClient) StopHistoric(cancel context.CancelFunc) error {
 //
 // 2. Known Gaps Processing
 type BatchProcessing interface {
-	getSlotRange(context.Context, chan<- slotsToProcess) []error       // Write the slots to process in a channel, return an error if you cant get the next slots to write.
+	getSlotRange(context.Context, chan<- slotsToProcess, Slot) []error // Write the slots to process in a channel, return an error if you cant get the next slots to write.
 	handleProcessingErrors(context.Context, <-chan batchHistoricError) // Custom logic to handle errors.
 	removeTableEntry(context.Context, <-chan slotsToProcess) error     // With the provided start and end slot, remove the entry from the database.
 	releaseDbLocks() error                                             // Update the checked_out column to false for whatever table is being updated.
@@ -67,14 +66,14 @@ type BatchProcessing interface {
 
 // A struct to pass around indicating a table entry for slots to process.
 type slotsToProcess struct {
-	startSlot int // The start slot
-	endSlot   int // The end slot
+	startSlot Slot // The start slot
+	endSlot   Slot // The end slot
 }
 
 type batchHistoricError struct {
 	err        error  // The error that occurred when attempting to a slot
 	errProcess string // The process that caused the error.
-	slot       int    // The slot which the error is for.
+	slot       Slot   // The slot which the error is for.
 }
 
 // Wrapper function for the BatchProcessing interface.
@@ -91,9 +90,9 @@ type batchHistoricError struct {
 // 4. Remove the slot entry from the DB.
 //
 // 5. Handle any errors.
-func handleBatchProcess(ctx context.Context, maxWorkers int, bp BatchProcessing, db sql.Database, serverEndpoint string, metrics *BeaconClientMetrics, checkDb bool, incrementTracker func(uint64)) []error {
+func handleBatchProcess(ctx context.Context, maxWorkers int, bp BatchProcessing, spd SlotProcessingDetails, incrementTracker func(uint64), minimumSlot Slot) []error {
 	slotsCh := make(chan slotsToProcess)
-	workCh := make(chan int)
+	workCh := make(chan Slot)
 	processedCh := make(chan slotsToProcess)
 	errCh := make(chan batchHistoricError)
 	finalErrCh := make(chan []error, 1)
@@ -108,7 +107,7 @@ func handleBatchProcess(ctx context.Context, maxWorkers int, bp BatchProcessing,
 	for w := 1; w <= maxWorkers; w++ {
 		log.WithFields(log.Fields{"maxWorkers": maxWorkers}).Debug("Starting batch processing workers")
 
-		go processSlotRangeWorker(ctx, workCh, errCh, db, serverEndpoint, metrics, checkDb, incrementTracker)
+		go processSlotRangeWorker(ctx, workCh, errCh, spd, incrementTracker)
 	}
 
 	// Process all ranges and send each individual slot to the worker.
@@ -161,7 +160,7 @@ func handleBatchProcess(ctx context.Context, maxWorkers int, bp BatchProcessing,
 
 	// Get slots from the DB.
 	go func() {
-		errs := bp.getSlotRange(ctx, slotsCh) // Periodically adds new entries....
+		errs := bp.getSlotRange(ctx, slotsCh, minimumSlot) // Periodically adds new entries....
 		if errs != nil {
 			finalErrCh <- errs
 		}

@@ -28,21 +28,21 @@ func LogError(err error) *log.Entry {
 }
 
 // A simple herlper function to log slot and error.
-func LogSlotError(slot string, err error) *log.Entry {
+func LogSlotError(slot uint64, err error) *log.Entry {
 	return log.WithFields(log.Fields{
 		"err":  err,
 		"slot": slot,
 	})
 }
 
-func LogSlotRangeError(startSlot string, endSlot string, err error) *log.Entry {
+func LogSlotRangeError(startSlot uint64, endSlot uint64, err error) *log.Entry {
 	return log.WithFields(log.Fields{
 		"err":       err,
 		"startSlot": startSlot,
 		"endSlot":   endSlot,
 	})
 }
-func LogSlotRangeStatementError(startSlot string, endSlot string, statement string, err error) *log.Entry {
+func LogSlotRangeStatementError(startSlot uint64, endSlot uint64, statement string, err error) *log.Entry {
 	return log.WithFields(log.Fields{
 		"err":          err,
 		"startSlot":    startSlot,

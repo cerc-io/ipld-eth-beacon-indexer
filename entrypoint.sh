@@ -20,5 +20,6 @@ if [ ${CAPTURE_MODE} == "boot" ]; then
 
     tail -f /dev/null
 else
-    exec /root/ipld-eth-beacon-indexer capture ${CAPTURE_MODE} --config /root/ipld-eth-beacon-config.json > /root/ipld-eth-beacon-indexer.output
+    exec /root/ipld-eth-beacon-indexer capture ${CAPTURE_MODE} --config /root/ipld-eth-beacon-config.json > /dev/null &
+    tail -F ipld-eth-beacon-indexer.log
 fi

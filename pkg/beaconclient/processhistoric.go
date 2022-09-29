@@ -33,11 +33,11 @@ import (
 var (
 	// Get a single highest priority and non-checked out row row from eth_beacon.historical_process
 	getHpEntryStmt string = `SELECT start_slot, end_slot FROM eth_beacon.historic_process
-	WHERE checked_out=false
+	WHERE checked_out=false AND end_slot >= $1
 	ORDER BY priority ASC
 	LIMIT 1;`
 	// Used to periodically check to see if there is a new entry in the eth_beacon.historic_process table.
-	checkHpEntryStmt string = `SELECT * FROM eth_beacon.historic_process WHERE checked_out=false;`
+	checkHpEntryStmt string = `SELECT * FROM eth_beacon.historic_process WHERE checked_out=false AND end_slot >= $1;`
 	// Used to checkout a row from the eth_beacon.historic_process table
 	lockHpEntryStmt string = `UPDATE eth_beacon.historic_process
 	SET checked_out=true, checked_out_by=$3
@@ -58,8 +58,8 @@ type HistoricProcessing struct {
 }
 
 // Get a single row of historical slots from the table.
-func (hp HistoricProcessing) getSlotRange(ctx context.Context, slotCh chan<- slotsToProcess) []error {
-	return getBatchProcessRow(ctx, hp.db, getHpEntryStmt, checkHpEntryStmt, lockHpEntryStmt, slotCh, strconv.Itoa(hp.uniqueNodeIdentifier))
+func (hp HistoricProcessing) getSlotRange(ctx context.Context, slotCh chan<- slotsToProcess, minimumSlot Slot) []error {
+	return getBatchProcessRow(ctx, hp.db, getHpEntryStmt, checkHpEntryStmt, lockHpEntryStmt, slotCh, strconv.Itoa(hp.uniqueNodeIdentifier), minimumSlot)
 }
 
 // Remove the table entry.
@@ -74,7 +74,7 @@ func (hp HistoricProcessing) handleProcessingErrors(ctx context.Context, errMess
 		case <-ctx.Done():
 			return
 		case errMs := <-errMessages:
-			loghelper.LogSlotError(strconv.Itoa(errMs.slot), errMs.err)
+			loghelper.LogSlotError(errMs.slot.Number(), errMs.err)
 			writeKnownGaps(hp.db, 1, errMs.slot, errMs.slot, errMs.err, errMs.errProcess, hp.metrics)
 		}
 	}
@@ -97,14 +97,14 @@ func (hp HistoricProcessing) releaseDbLocks() error {
 }
 
 // Process the slot range.
-func processSlotRangeWorker(ctx context.Context, workCh <-chan int, errCh chan<- batchHistoricError, db sql.Database, serverAddress string, metrics *BeaconClientMetrics, checkDb bool, incrementTracker func(uint64)) {
+func processSlotRangeWorker(ctx context.Context, workCh <-chan Slot, errCh chan<- batchHistoricError, spd SlotProcessingDetails, incrementTracker func(uint64)) {
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case slot := <-workCh:
 			log.Debug("Handling slot: ", slot)
-			err, errProcess := handleHistoricSlot(ctx, db, serverAddress, slot, metrics, checkDb)
+			err, errProcess := handleHistoricSlot(ctx, slot, spd)
 			if err != nil {
 				errMs := batchHistoricError{
 					err:        err,
@@ -123,7 +123,7 @@ func processSlotRangeWorker(ctx context.Context, workCh <-chan int, errCh chan<-
 // It also locks the row by updating the checked_out column.
 // The statement for getting the start_slot and end_slot must be provided.
 // The statement for "locking" the row must also be provided.
-func getBatchProcessRow(ctx context.Context, db sql.Database, getStartEndSlotStmt string, checkNewRowsStmt string, checkOutRowStmt string, slotCh chan<- slotsToProcess, uniqueNodeIdentifier string) []error {
+func getBatchProcessRow(ctx context.Context, db sql.Database, getStartEndSlotStmt string, checkNewRowsStmt string, checkOutRowStmt string, slotCh chan<- slotsToProcess, uniqueNodeIdentifier string, minimumSlot Slot) []error {
 	errCount := make([]error, 0)
 
 	// 5 is an arbitrary number. It allows us to retry a few times before
@@ -139,7 +139,7 @@ func getBatchProcessRow(ctx context.Context, db sql.Database, getStartEndSlotStm
 					"errCount": errCount,
 				}).Error("New error entry added")
 			}
-			processRow, err := db.Exec(context.Background(), checkNewRowsStmt)
+			processRow, err := db.Exec(context.Background(), checkNewRowsStmt, minimumSlot)
 			if err != nil {
 				errCount = append(errCount, err)
 			}
@@ -172,13 +172,13 @@ func getBatchProcessRow(ctx context.Context, db sql.Database, getStartEndSlotStm
 
 			// Query the DB for slots.
 			sp := slotsToProcess{}
-			err = tx.QueryRow(dbCtx, getStartEndSlotStmt).Scan(&sp.startSlot, &sp.endSlot)
+			err = tx.QueryRow(dbCtx, getStartEndSlotStmt, minimumSlot).Scan(&sp.startSlot, &sp.endSlot)
 			if err != nil {
 				if err == pgx.ErrNoRows {
 					time.Sleep(1 * time.Second)
 					break
 				}
-				loghelper.LogSlotRangeStatementError(strconv.Itoa(sp.startSlot), strconv.Itoa(sp.endSlot), getStartEndSlotStmt, err).Error("Unable to get a row")
+				loghelper.LogSlotRangeStatementError(sp.startSlot.Number(), sp.endSlot.Number(), getStartEndSlotStmt, err).Error("Unable to get a row")
 				errCount = append(errCount, err)
 				break
 			}
@@ -186,25 +186,25 @@ func getBatchProcessRow(ctx context.Context, db sql.Database, getStartEndSlotStm
 			// Checkout the Row
 			res, err := tx.Exec(dbCtx, checkOutRowStmt, sp.startSlot, sp.endSlot, uniqueNodeIdentifier)
 			if err != nil {
-				loghelper.LogSlotRangeStatementError(strconv.Itoa(sp.startSlot), strconv.Itoa(sp.endSlot), checkOutRowStmt, err).Error("Unable to checkout the row")
+				loghelper.LogSlotRangeStatementError(sp.startSlot.Number(), sp.endSlot.Number(), checkOutRowStmt, err).Error("Unable to checkout the row")
 				errCount = append(errCount, err)
 				break
 			}
 			rows, err := res.RowsAffected()
 			if err != nil {
-				loghelper.LogSlotRangeStatementError(strconv.Itoa(sp.startSlot), strconv.Itoa(sp.endSlot), checkOutRowStmt, fmt.Errorf("Unable to determine the rows affected when trying to checkout a row."))
+				loghelper.LogSlotRangeStatementError(sp.startSlot.Number(), sp.endSlot.Number(), checkOutRowStmt, fmt.Errorf("Unable to determine the rows affected when trying to checkout a row."))
 				errCount = append(errCount, err)
 				break
 			}
 			if rows > 1 {
-				loghelper.LogSlotRangeStatementError(strconv.Itoa(sp.startSlot), strconv.Itoa(sp.endSlot), checkOutRowStmt, err).WithFields(log.Fields{
+				loghelper.LogSlotRangeStatementError(sp.startSlot.Number(), sp.endSlot.Number(), checkOutRowStmt, err).WithFields(log.Fields{
 					"rowsReturn": rows,
 				}).Error("We locked too many rows.....")
 				errCount = append(errCount, err)
 				break
 			}
 			if rows == 0 {
-				loghelper.LogSlotRangeStatementError(strconv.Itoa(sp.startSlot), strconv.Itoa(sp.endSlot), checkOutRowStmt, err).WithFields(log.Fields{
+				loghelper.LogSlotRangeStatementError(sp.startSlot.Number(), sp.endSlot.Number(), checkOutRowStmt, err).WithFields(log.Fields{
 					"rowsReturn": rows,
 				}).Error("We did not lock a single row.")
 				errCount = append(errCount, err)
@@ -212,7 +212,7 @@ func getBatchProcessRow(ctx context.Context, db sql.Database, getStartEndSlotStm
 			}
 			err = tx.Commit(dbCtx)
 			if err != nil {
-				loghelper.LogSlotRangeError(strconv.Itoa(sp.startSlot), strconv.Itoa(sp.endSlot), err).Error("Unable commit transactions.")
+				loghelper.LogSlotRangeError(sp.startSlot.Number(), sp.endSlot.Number(), err).Error("Unable commit transactions.")
 				errCount = append(errCount, err)
 				break
 			}
@@ -241,11 +241,11 @@ func removeRowPostProcess(ctx context.Context, db sql.Database, processCh <-chan
 					"endSlot":   slots.endSlot,
 				}).Debug("Starting to check to see if the following slots have been processed")
 				for {
-					isStartProcess, err := isSlotProcessed(db, checkProcessedStmt, strconv.Itoa(slots.startSlot))
+					isStartProcess, err := isSlotProcessed(db, checkProcessedStmt, slots.startSlot)
 					if err != nil {
 						errCh <- err
 					}
-					isEndProcess, err := isSlotProcessed(db, checkProcessedStmt, strconv.Itoa(slots.endSlot))
+					isEndProcess, err := isSlotProcessed(db, checkProcessedStmt, slots.endSlot)
 					if err != nil {
 						errCh <- err
 					}
@@ -255,7 +255,7 @@ func removeRowPostProcess(ctx context.Context, db sql.Database, processCh <-chan
 					time.Sleep(3 * time.Second)
 				}
 
-				_, err := db.Exec(context.Background(), removeStmt, strconv.Itoa(slots.startSlot), strconv.Itoa(slots.endSlot))
+				_, err := db.Exec(context.Background(), removeStmt, slots.startSlot.Number(), slots.endSlot.Number())
 				if err != nil {
 					errCh <- err
 				}
