@@ -35,9 +35,9 @@ var _ = Describe("e2emerge", Label("e2e"), func() {
 	level, _ := log.ParseLevel("debug")
 	log.SetLevel(level)
 
-	Describe("Run the application against a merge testnet", func() {
+	Describe("Run the application against a Merge testnet", func() {
 		Context("When we send a TX to geth", func() {
-			It("We should see TX as part of the ExecutionPayload in beacon", func() {
+			It("We should see the TX included in the ExecutionPayload of a BeaconBlock", func() {
 				bc := setUpTest(e2eConfig, "0")
 				go bc.CaptureHead()
 
