@@ -36,7 +36,6 @@ var _ = Describe("e2emerge", Label("e2e"), func() {
 				go bc.CaptureHead()
 
 				tx, _ := sendTestTx()
-
 				beaconBlock := waitForTxToBeIndexed(bc.Db, tx)
 				Expect(beaconBlock).ToNot(BeNil())
 			})
