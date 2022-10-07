@@ -39,16 +39,7 @@ var _ = Describe("e2emerge", Label("e2e"), func() {
 				log.Debugf("Sent ETH1 TX %s (Block No: %d, Block Hash: %s)",
 					tx.hash, tx.blockNo, tx.blockHash)
 
-				var beaconBlock *beaconclient.DbSignedBeaconBlock
-				for i := 0; i < 30; i++ {
-					time.Sleep(time.Second)
-					record := checkForTx(bc.Db, tx)
-					if nil != record {
-						beaconBlock = record
-						log.Debugf("Found ETH1 TX %s in SignedBeaconBlock %d/%s", tx.hash, beaconBlock.Slot, beaconBlock.BlockRoot)
-						break
-					}
-				}
+				beaconBlock := waitForTxToBeIndexed(bc.Db, tx)
 				Expect(beaconBlock).ToNot(BeNil())
 			})
 		})
@@ -67,7 +58,21 @@ func (tx *SentTx) RawHex() string {
 	return "0x" + hex.EncodeToString(tx.raw)
 }
 
-func checkForTx(db sql.Database, tx *SentTx) *beaconclient.DbSignedBeaconBlock {
+func waitForTxToBeIndexed(db sql.Database, tx *SentTx) *beaconclient.DbSignedBeaconBlock {
+	var beaconBlock *beaconclient.DbSignedBeaconBlock = nil
+	for i := 0; i < 30; i++ {
+		time.Sleep(time.Second)
+		record := lookForTxInDb(db, tx)
+		if nil != record {
+			beaconBlock = record
+			log.Debugf("Found ETH1 TX %s in SignedBeaconBlock %d/%s", tx.hash, beaconBlock.Slot, beaconBlock.BlockRoot)
+			break
+		}
+	}
+	return beaconBlock
+}
+
+func lookForTxInDb(db sql.Database, tx *SentTx) *beaconclient.DbSignedBeaconBlock {
 	sqlStatement := `SELECT * FROM eth_beacon.signed_block WHERE 
                                     payload_block_number = $1 AND
                                     payload_block_hash = $2 AND
