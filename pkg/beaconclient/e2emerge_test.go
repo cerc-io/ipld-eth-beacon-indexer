@@ -36,8 +36,6 @@ var _ = Describe("e2emerge", Label("e2e"), func() {
 				go bc.CaptureHead()
 
 				tx, _ := sendTestTx()
-				log.Debugf("Sent ETH1 TX %s (Block No: %d, Block Hash: %s)",
-					tx.hash, tx.blockNo, tx.blockHash)
 
 				beaconBlock := waitForTxToBeIndexed(bc.Db, tx)
 				Expect(beaconBlock).ToNot(BeNil())
@@ -139,13 +137,15 @@ func sendTestTx() (*SentTx, error) {
 		time.Sleep(time.Second)
 		receipt, _ := eth.TransactionReceipt(ctx, tx.Hash())
 		if nil != receipt {
-			return &SentTx{
+			sentTx := &SentTx{
 				hash:      tx.Hash().String(),
 				raw:       txBin,
 				blockNo:   receipt.BlockNumber.Uint64(),
 				blockHash: receipt.BlockHash.String(),
 				txIndex:   receipt.TransactionIndex,
-			}, nil
+			}
+			log.Debugf("Sent ETH1 TX %s (Block No: %d, Block Hash: %s)", sentTx.hash, sentTx.blockNo, sentTx.blockHash)
+			return sentTx, nil
 		}
 	}
 
