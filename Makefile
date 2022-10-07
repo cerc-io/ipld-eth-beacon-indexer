@@ -111,6 +111,16 @@ system-test-local:
 	--fail-on-pending --keep-going \
 	--trace
 
+.PHONY: e2e-test-local
+e2e-test-local:
+	go vet ./...
+	go fmt ./...
+	$(GINKGO) -r --label-filter e2e \
+	--randomize-all --randomize-suites \
+	--fail-on-pending --keep-going \
+	--trace
+
+
 .PHONY: build
 build:
 	go fmt ./...
