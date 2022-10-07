@@ -20,12 +20,6 @@ import (
 	"time"
 )
 
-var (
-	expectedPayloadStatement = `SELECT * FROM eth_beacon.signed_block WHERE 
-                                    payload_block_number = ? AND
-                                    payload_block_hash = ? AND
-                                    payload_transactions_root = ?`
-)
 var _ = Describe("e2emerge", Label("e2e"), func() {
 	e2eConfig := TestConfig
 	e2eConfig.port = 5052
