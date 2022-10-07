@@ -119,6 +119,7 @@ func sendTestTx() (*SentTx, error) {
 	eth, err := createClient()
 	Expect(err).ToNot(HaveOccurred())
 
+	//TODO: Pull from test config / env.
 	tx, err := sendTransaction(
 		ctx,
 		eth,
