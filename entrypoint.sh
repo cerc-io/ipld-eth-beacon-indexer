@@ -1,7 +1,7 @@
 #!/bin/bash
 
 sleep 10
-sleep "Starting ipld-eth-beacon-indexer"
+echo "Starting ipld-eth-beacon-indexer"
 
 cat /root/ipld-eth-beacon-config-docker.json | envsubst > /root/ipld-eth-beacon-config.json
 
