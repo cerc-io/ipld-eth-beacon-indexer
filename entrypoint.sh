@@ -1,7 +1,9 @@
 #!/bin/bash
 
 sleep 10
-echo "Starting ipld-eth-beacon-indexer"
+sleep "Starting ipld-eth-beacon-indexer"
+
+cat /root/ipld-eth-beacon-config-docker.json | envsubst > /root/ipld-eth-beacon-config.json
 
 echo /root/ipld-eth-beacon-indexer capture ${CAPTURE_MODE} --config /root/ipld-eth-beacon-config.json > /root/ipld-eth-beacon-indexer.output
 
@@ -14,9 +16,10 @@ if [ ${CAPTURE_MODE} == "boot" ]; then
     else
       echo "ipld-eth-beacon-indexer boot succeeded"
     fi
-      echo $rv > /root/HEALTH
-      echo $rv
-      cat /root/ipld-eth-beacon-indexer.output
+
+    echo $rv > /root/HEALTH
+    echo $rv
+    cat /root/ipld-eth-beacon-indexer.output
 
     tail -f /dev/null
 else
