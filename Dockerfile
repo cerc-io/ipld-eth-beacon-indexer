@@ -13,9 +13,9 @@ RUN GCO_ENABLED=0 GOOS=linux go build -race -ldflags="-s -w" -o ipld-eth-beacon-
 RUN chmod +x ipld-eth-beacon-indexer
 
 FROM frolvlad/alpine-bash:latest
-RUN apk --no-cache add ca-certificates libstdc++ busybox-extras
+RUN apk --no-cache add ca-certificates libstdc++ busybox-extras gettext libintl
 WORKDIR /root/
 COPY --from=builder /go/src/github.com/vulcanize/ipld-eth-beacon-indexer/ipld-eth-beacon-indexer /root/ipld-eth-beacon-indexer
 ADD entrypoint.sh .
-ADD ipld-eth-beacon-config.json .
+ADD ipld-eth-beacon-config-docker.json .
 ENTRYPOINT ["./entrypoint.sh"]

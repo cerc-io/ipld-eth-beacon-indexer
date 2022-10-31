@@ -1,0 +1,44 @@
+{
+  "db": {
+    "address": "${POSTGRES_HOST}",
+    "password": "${POSTGRES_PASSWORD}",
+    "port": ${POSTGRES_PORT},
+    "username": "${POSTGRES_USER}",
+    "name": "${POSTGRES_DB}",
+    "driver": "PGX"
+  },
+  "bc": {
+    "address": "${LIGHTHOUSE_HOST}",
+    "port": ${LIGHTHOUSE_PORT},
+    "type": "lighthouse",
+    "bootRetryInterval": 30,
+    "bootMaxRetry": 5,
+    "maxHistoricProcessWorker": ${BC_MAX_HISTORIC_PROCESS_WORKER},
+    "connectionProtocol": "${LIGHTHOUSE_PROTOCOL}",
+    "uniqueNodeIdentifier": ${BC_UNIQUE_NODE_IDENTIFIER},
+    "checkDb": ${BC_CHECK_DB},
+    "performBeaconStateProcessing": ${BC_BEACON_STATE_PROCESSING_ENABLED},
+    "performBeaconBlockProcessing": ${BC_BEACON_BLOCK_PROCESSING_ENABLED},
+    "minimumSlot": ${BC_MINIMUM_SLOT}
+  },
+  "t": {
+    "skipSync": true
+  },
+  "log": {
+    "level": "${LOG_LEVEL}",
+    "output": true,
+    "file": "./ipld-eth-beacon-indexer.log",
+    "format": "json"
+  },
+  "kg": {
+    "increment": ${KG_INCREMENT},
+    "processKnownGaps": ${KG_PROCESS_KNOWN_GAPS_ENABLED},
+    "maxKnownGapsWorker": ${KG_MAX_KNOWN_GAPS_WORKER},
+    "minimumSlot": ${KG_MINIMUM_SLOT}
+  },
+  "pm": {
+    "address": "${PROM_HOST}",
+    "port": ${PROM_PORT},
+    "metrics": ${PROM_METRICS_ENABLED}
+  }
+}
