@@ -3,7 +3,6 @@ package beaconclient_test
 import (
 	log "github.com/sirupsen/logrus"
 	"os"
-	"strconv"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -15,9 +14,9 @@ var (
 	prodConfig = Config{
 		protocol:                     os.Getenv("bc_protocol"),
 		address:                      os.Getenv("bc_address"),
-		port:                         getEnvInt(os.Getenv("bc_port")),
+		port:                         getEnvInt(os.Getenv("bc_port"), 5052),
 		dbHost:                       os.Getenv("db_host"),
-		dbPort:                       getEnvInt(os.Getenv("db_port")),
+		dbPort:                       getEnvInt(os.Getenv("db_port"), 8076),
 		dbName:                       os.Getenv("db_name"),
 		dbUser:                       os.Getenv("db_user"),
 		dbPassword:                   os.Getenv("db_password"),
@@ -61,15 +60,6 @@ var _ = Describe("Systemvalidation", Label("system"), func() {
 		})
 	})
 })
-
-// Wrapper function to get int env variables.
-func getEnvInt(envVar string) int {
-	val, err := strconv.Atoi(envVar)
-	if err != nil {
-		return 0
-	}
-	return val
-}
 
 // Start head tracking and wait for the expected results.
 func processProdHeadBlocks(bc *beaconclient.BeaconClient, expectedInserts, expectedReorgs, expectedKnownGaps, expectedKnownGapsReprocessError uint64) {
