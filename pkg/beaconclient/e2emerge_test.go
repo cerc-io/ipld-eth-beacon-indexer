@@ -17,12 +17,14 @@ import (
 	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/beaconclient"
 	"github.com/vulcanize/ipld-eth-beacon-indexer/pkg/database/sql"
 	"math/big"
+	"os"
+	"strconv"
 	"time"
 )
 
 var _ = Describe("e2emerge", Label("e2e"), func() {
 	e2eConfig := TestConfig
-	e2eConfig.port = 5052
+	e2eConfig.port = getEnvInt("TEST_E2E_LIGHTHOUSE_PORT", 5052)
 	e2eConfig.performBeaconStateProcessing = false
 	e2eConfig.performBeaconBlockProcessing = true
 
@@ -123,10 +125,10 @@ func sendTestTx() (*SentTx, error) {
 	tx, err := sendTransaction(
 		ctx,
 		eth,
-		"0xe6ce22afe802caf5ff7d3845cec8c736ecc8d61f",
-		"0xe22AD83A0dE117bA0d03d5E94Eb4E0d80a69C62a",
-		10,
-		"0x888814df89c4358d7ddb3fa4b0213e7331239a80e1f013eaa7b2deca2a41a218",
+		getEnvStr("TEST_E2E_FROM_ADDR", "0xe6ce22afe802caf5ff7d3845cec8c736ecc8d61f"),
+		getEnvStr("TEST_E2E_TO_ADDR", "0xe22AD83A0dE117bA0d03d5E94Eb4E0d80a69C62a"),
+		int64(getEnvInt("TEST_E2E_AMOUNT", 10)),
+		getEnvStr("TEST_E2E_SIGNING_KEY", "0x888814df89c4358d7ddb3fa4b0213e7331239a80e1f013eaa7b2deca2a41a218"),
 	)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -155,7 +157,7 @@ func sendTestTx() (*SentTx, error) {
 }
 
 func createClient() (*ethclient.Client, error) {
-	return ethclient.Dial("http://localhost:8545")
+	return ethclient.Dial(getEnvStr("TEST_E2E_GETH_URL", "http://localhost:8545"))
 }
 
 // sendTransaction sends a transaction with 1 ETH to a specified address.
@@ -165,7 +167,7 @@ func sendTransaction(ctx context.Context, eth *ethclient.Client, fromAddr string
 		to       = common.HexToAddress(toAddr)
 		sk       = crypto.ToECDSAUnsafe(common.FromHex(signingKey))
 		value    = big.NewInt(amount)
-		gasLimit = uint64(21000)
+		gasLimit = uint64(getEnvInt("TEST_E2E_GAS_LIMIT", 21000))
 	)
 	// Retrieve the chainid (needed for signer)
 	chainid, err := eth.ChainID(ctx)
@@ -180,6 +182,8 @@ func sendTransaction(ctx context.Context, eth *ethclient.Client, fromAddr string
 	// Get suggested gas price
 	tipCap, _ := eth.SuggestGasTipCap(ctx)
 	feeCap, _ := eth.SuggestGasPrice(ctx)
+	log.Info("Tip cap: ", tipCap)
+	log.Info("Fee cap: ", feeCap)
 	// Create a new transaction
 	tx := types.NewTx(
 		&types.DynamicFeeTx{
@@ -196,4 +200,26 @@ func sendTransaction(ctx context.Context, eth *ethclient.Client, fromAddr string
 	signedTx, _ := types.SignTx(tx, types.NewLondonSigner(chainid), sk)
 	// Send the transaction to our node
 	return signedTx, eth.SendTransaction(ctx, signedTx)
+}
+
+func getEnvStr(envVar string, def string) string {
+	value, set := os.LookupEnv(envVar)
+	if set {
+		return value
+	} else {
+		return def
+	}
+}
+
+func getEnvInt(envVar string, def int) int {
+	value, set := os.LookupEnv(envVar)
+	if set {
+		number, err := strconv.Atoi(value)
+		if err != nil {
+			return def
+		}
+		return number
+	} else {
+		return def
+	}
 }
