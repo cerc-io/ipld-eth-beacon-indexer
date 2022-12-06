@@ -24,8 +24,8 @@ on:
       - ".github/workflows/on-pr.yml"
       - ".github/workflows/tests.yml"
       - "**"
-  schedule:
-    - cron: '0 13 * * *' # Must be single quotes!!
+  #schedule:
+  #  - cron: '0 13 * * *' # Must be single quotes!!
 
 jobs:
   trigger-tests:
