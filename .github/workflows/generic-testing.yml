@@ -127,7 +127,7 @@ jobs:
 
       - name: Install packages
         run: |
-          go install github.com/onsi/ginkgo/v2/ginkgo@latest
+          go install github.com/onsi/ginkgo/v2/ginkgo@2.1.4
           which ginkgo
 
       - name: Run the tests using Make

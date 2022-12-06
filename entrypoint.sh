@@ -6,6 +6,7 @@ echo "Starting ipld-eth-beacon-indexer"
 cat /root/ipld-eth-beacon-config-docker.json | envsubst > /root/ipld-eth-beacon-config.json
 
 echo /root/ipld-eth-beacon-indexer capture ${CAPTURE_MODE} --config /root/ipld-eth-beacon-config.json > /root/ipld-eth-beacon-indexer.output
+env
 
 if [ ${CAPTURE_MODE} == "boot" ]; then
     /root/ipld-eth-beacon-indexer capture ${CAPTURE_MODE} --config /root/ipld-eth-beacon-config.json > /root/ipld-eth-beacon-indexer.output
