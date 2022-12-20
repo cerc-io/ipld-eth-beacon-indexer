@@ -42,13 +42,13 @@ jobs:
         with:
           ref: ${{ env.stack-orchestrator-ref }}
           path: "./stack-orchestrator/"
-          repository: vulcanize/stack-orchestrator
+          repository: cerc-io/stack-orchestrator
           fetch-depth: 0
 
       - uses: actions/checkout@v3
         with:
           ref: ${{ env.ipld-eth-beacon-db-ref }}
-          repository: vulcanize/ipld-eth-beacon-db
+          repository: cerc-io/ipld-eth-beacon-db
           path: "./ipld-eth-beacon-db/"
           ssh-key: ${{secrets.GHA_KEY}}
           fetch-depth: 0
